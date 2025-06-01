@@ -208,7 +208,9 @@ exports.createNFT = async (req, res) => {
       audioFileId, 
       imageUrl, 
       price, 
-      royalty 
+      royalty,
+      tags,
+      duration
     } = req.body;
 
     if (!userId || !title || !audioFileId || !imageUrl || !price) {
@@ -224,6 +226,12 @@ exports.createNFT = async (req, res) => {
       return res.status(404).json({ error: 'Wallet not found for this user' });
     }
 
+    // Validate royalty percentage
+    const royaltyPercentage = parseFloat(royalty || 10);
+    if (royaltyPercentage < 0 || royaltyPercentage > 30) {
+      return res.status(400).json({ error: 'Royalty percentage must be between 0% and 30%' });
+    }
+
     // Create NFT metadata
     const metadata = {
       name: title,
@@ -232,51 +240,92 @@ exports.createNFT = async (req, res) => {
       properties: {
         audioFileId,
         creator: userId,
-        royalty: royalty || 10, // Default 10% royalty if not specified
+        royalty: royaltyPercentage,
+        duration: duration || '00:30',
+        tags: tags || [],
         createdAt: new Date().toISOString()
       }
     };
 
-    // Store metadata in database
-    const nft = await prisma.NFT.create({
-      data: {
-        title,
-        description,
-        creatorId: userId,
-        ownerId: userId, // Initially, creator is the owner
-        audioFileId,
-        imageUrl,
-        price: parseFloat(price),
-        currency: 'ALGO',
-        royalty: parseFloat(royalty || 10),
-        isForSale: true,
-        metadata: JSON.stringify(metadata),
-        assetId: null, // Will be updated after blockchain creation
-        createdAt: new Date()
-      }
+    // Start a transaction to ensure all database operations succeed or fail together
+    const nft = await prisma.$transaction(async (prismaClient) => {
+      // Create the NFT record
+      const newNft = await prismaClient.NFT.create({
+        data: {
+          title,
+          description,
+          creatorId: userId,
+          ownerId: userId, // Initially, creator is the owner
+          audioFileId,
+          imageUrl,
+          price: parseFloat(price),
+          currency: 'ALGO',
+          royalty: royaltyPercentage,
+          isForSale: true,
+          metadata: JSON.stringify(metadata),
+          assetId: null, // Will be updated after blockchain creation
+          blockchainStatus: 'PENDING',
+          createdAt: new Date()
+        }
+      });
+
+      // Create Algorand NFT transaction record
+      await prismaClient.algorandTransaction.create({
+        data: {
+          nftId: newNft.id,
+          type: 'MINT',
+          fromAddress: wallet.address,
+          toAddress: wallet.address,
+          amount: 0,
+          status: 'PENDING',
+          createdAt: new Date()
+        }
+      });
+
+      // Create marketplace listing
+      await prismaClient.NFTMarketplaceListing.create({
+        data: {
+          nftId: newNft.id,
+          sellerId: userId,
+          price: parseFloat(price),
+          currency: 'ALGO',
+          status: 'ACTIVE',
+          createdAt: new Date()
+        }
+      });
+
+      return newNft;
     });
 
-    // Create Algorand NFT transaction record
-    await prisma.algorandTransaction.create({
-      data: {
-        nftId: nft.id,
-        type: 'MINT',
-        fromAddress: wallet.address,
-        toAddress: wallet.address,
-        amount: 0,
-        status: 'PENDING',
-        createdAt: new Date()
-      }
-    });
+    // Start the NFT minting process in the background
+    // In a production environment, this would be handled by a queue system
+    setTimeout(() => {
+      this.processNFTMinting(nft.id).catch(error => {
+        console.error(`Background NFT minting failed for NFT ${nft.id}:`, error);
+      });
+    }, 100);
 
-    // Return the created NFT
+    // Return the created NFT with additional information
     return res.status(201).json({
       message: 'NFT creation initiated',
-      nft,
+      nft: {
+        ...nft,
+        audioUrl: `/api/audio/${audioFileId}`,
+        tags: tags || [],
+        duration: duration || '00:30'
+      },
       status: 'Your NFT is being minted on the Algorand blockchain. This process may take a few minutes.'
     });
   } catch (error) {
     console.error('Error creating NFT:', error);
+    
+    // Provide more specific error messages based on the error type
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'An NFT with this audio file already exists' });
+    } else if (error.code === 'P2003') {
+      return res.status(400).json({ error: 'Referenced audio file not found' });
+    }
+    
     return res.status(500).json({ error: 'Failed to create NFT' });
   }
 };
@@ -325,22 +374,56 @@ exports.processNFTMinting = async (nftId) => {
     // In a real implementation, this would use the creator's private key
     // For demo purposes, we'll just update the status
     
-    // Update transaction status
-    await prisma.algorandTransaction.update({
-      where: { id: transaction.id },
-      data: {
-        status: 'COMPLETED',
-        transactionHash: 'mock_transaction_hash_' + Date.now(),
-        completedAt: new Date()
+    // Parse metadata to get tags
+    let tags = [];
+    if (nft.metadata) {
+      try {
+        const metadata = JSON.parse(nft.metadata);
+        if (metadata.properties && metadata.properties.tags) {
+          tags = metadata.properties.tags;
+        }
+      } catch (parseError) {
+        console.warn('Failed to parse NFT metadata:', parseError);
       }
-    });
+    }
+    
+    // Start a transaction to ensure all database operations succeed or fail together
+    await prisma.$transaction(async (prismaClient) => {
+      // Update transaction status
+      await prismaClient.algorandTransaction.update({
+        where: { id: transaction.id },
+        data: {
+          status: 'COMPLETED',
+          transactionHash: 'mock_transaction_hash_' + Date.now(),
+          completedAt: new Date()
+        }
+      });
 
-    // Update NFT with mock asset ID
-    await prisma.NFT.update({
-      where: { id: nft.id },
-      data: {
-        assetId: Math.floor(Math.random() * 1000000000), // Mock asset ID
-        blockchainStatus: 'MINTED'
+      // Update NFT with mock asset ID
+      await prismaClient.NFT.update({
+        where: { id: nft.id },
+        data: {
+          assetId: Math.floor(Math.random() * 1000000000), // Mock asset ID
+          blockchainStatus: 'MINTED'
+        }
+      });
+      
+      // Create NFT tags
+      if (tags.length > 0) {
+        // Delete any existing tags first
+        await prismaClient.NFTTag.deleteMany({
+          where: { nftId: nft.id }
+        });
+        
+        // Create new tags
+        for (const tag of tags) {
+          await prismaClient.NFTTag.create({
+            data: {
+              nftId: nft.id,
+              tag
+            }
+          });
+        }
       }
     });
 
@@ -367,6 +450,14 @@ exports.processNFTMinting = async (nftId) => {
           }
         });
       }
+      
+      // Update NFT status to failed
+      await prisma.NFT.update({
+        where: { id: nftId },
+        data: {
+          blockchainStatus: 'FAILED'
+        }
+      });
     }
     
     return { success: false, error: error.message };
@@ -617,6 +708,18 @@ exports.getMarketplaceNFTs = async (req, res) => {
     } else if (filter === 'featured') {
       // Add featured filter logic
       where.featured = true;
+    } else if (filter === 'minted') {
+      // Only show minted NFTs
+      where.blockchainStatus = 'MINTED';
+    } else if (filter && filter !== 'all') {
+      // Filter by tag
+      where.nftTags = {
+        some: {
+          tag: {
+            contains: filter
+          }
+        }
+      };
     }
 
     // Build sort conditions
@@ -654,15 +757,32 @@ exports.getMarketplaceNFTs = async (req, res) => {
             avatar: true,
             isVerified: true
           }
-        }
+        },
+        nftTags: true
       }
     });
 
     // Get total count for pagination
     const totalCount = await prisma.NFT.count({ where });
 
+    // Process NFTs to include audio URLs and format tags
+    const processedNfts = nfts.map(nft => {
+      // Extract tags from nftTags relation
+      const tags = nft.nftTags.map(tag => tag.tag);
+      
+      // Create a clean NFT object without the nftTags relation
+      const { nftTags, ...nftWithoutTags } = nft;
+      
+      return {
+        ...nftWithoutTags,
+        audioUrl: `/api/audio/${nft.audioFileId}`,
+        tags,
+        available: nft.isForSale
+      };
+    });
+
     return res.status(200).json({
-      nfts,
+      nfts: processedNfts,
       pagination: {
         total: totalCount,
         page: parseInt(page),

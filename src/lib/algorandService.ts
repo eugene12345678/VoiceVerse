@@ -96,7 +96,7 @@ export const algorandService = {
   // Connect wallet
   connectWallet: async (userId: string, walletAddress: string): Promise<{ wallet: AlgorandWallet }> => {
     try {
-      const response = await api.post('/algorand/wallet/connect', { userId, walletAddress });
+      const response = await api.post('/api/algorand/wallet/connect', { userId, walletAddress });
       return response.data;
     } catch (error) {
       console.error('Error connecting wallet:', error);
@@ -107,7 +107,7 @@ export const algorandService = {
   // Get wallet info
   getWalletInfo: async (userId: string): Promise<{ wallet: AlgorandWallet }> => {
     try {
-      const response = await api.get(`/algorand/wallet/${userId}`);
+      const response = await api.get(`/api/algorand/wallet/${userId}`);
       return response.data;
     } catch (error) {
       console.error('Error getting wallet info:', error);
@@ -148,7 +148,7 @@ export const algorandService = {
   // Buy NFT
   buyNFT: async (nftId: string, buyerId: string): Promise<{ transaction: AlgorandTransaction; status: string }> => {
     try {
-      const response = await api.post('/algorand/nft/buy', { nftId, buyerId });
+      const response = await api.post('/api/algorand/nft/buy', { nftId, buyerId });
       return response.data;
     } catch (error) {
       console.error('Error buying NFT:', error);
@@ -160,7 +160,7 @@ export const algorandService = {
   getMarketplaceNFTs: async (page: number = 1, limit: number = 10, filter?: string, sortBy?: string): Promise<{ nfts: NFT[]; pagination: any }> => {
     try {
       const params = { page, limit, filter, sortBy };
-      const response = await api.get('/algorand/nft/marketplace', { params });
+      const response = await api.get('/api/algorand/nft/marketplace', { params });
       return response.data;
     } catch (error) {
       console.error('Error getting marketplace NFTs:', error);
@@ -172,7 +172,7 @@ export const algorandService = {
   getUserNFTs: async (userId: string, page: number = 1, limit: number = 10): Promise<{ nfts: NFT[]; pagination: any }> => {
     try {
       const params = { page, limit };
-      const response = await api.get(`/algorand/nft/user/${userId}`, { params });
+      const response = await api.get(`/api/algorand/nft/user/${userId}`, { params });
       return response.data;
     } catch (error) {
       console.error('Error getting user NFTs:', error);
@@ -228,7 +228,7 @@ export const algorandService = {
   // Get transaction status
   getTransactionStatus: async (transactionId: string): Promise<{ transaction: AlgorandTransaction }> => {
     try {
-      const response = await api.get(`/algorand/transaction/${transactionId}`);
+      const response = await api.get(`/api/algorand/transaction/${transactionId}`);
       return response.data;
     } catch (error) {
       console.error('Error getting transaction status:', error);

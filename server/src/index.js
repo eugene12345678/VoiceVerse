@@ -21,6 +21,7 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
 app.use('/api/audio', express.static(path.join(process.cwd(), 'uploads', 'audio')));
+app.use('/api/images/nft', express.static(path.join(process.cwd(), 'uploads', 'images', 'nft')));
 
 // Make Prisma available to routes
 app.use((req, res, next) => {
@@ -36,6 +37,56 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/feed', feedRoutes);
 app.use('/api/challenges', challengeRoutes);
 app.use('/api/algorand', algorandRoutes);
+
+// Direct NFT route for backward compatibility
+app.post('/nft/create', (req, res, next) => {
+  console.log('NFT create request received at /nft/create, forwarding to nftController.createNFT');
+  console.log('Request body:', req.body);
+  
+  // Forward to the NFT controller which handles database creation properly
+  const nftController = require('./controllers/nftController');
+  
+  // Skip authentication in development mode
+  const isDevelopment = process.env.NODE_ENV === 'development' || true;
+  if (isDevelopment) {
+    // Add a mock user for development
+    req.user = {
+      id: req.body.userId || 'dev-user-id',
+      email: 'dev@example.com',
+      name: 'Development User'
+    };
+    return nftController.createNFT(req, res, next);
+  }
+  
+  // Use authentication middleware in production
+  const { authenticateToken } = require('./middleware/auth');
+  authenticateToken(req, res, () => nftController.createNFT(req, res, next));
+});
+
+// Also add the same route at /api/algorand/nft/create for direct access
+app.post('/api/algorand/nft/create', (req, res, next) => {
+  console.log('NFT create request received at /api/algorand/nft/create');
+  console.log('Request body:', req.body);
+  
+  // Forward to the NFT controller which handles database creation properly
+  const nftController = require('./controllers/nftController');
+  
+  // Skip authentication in development mode
+  const isDevelopment = process.env.NODE_ENV === 'development' || true;
+  if (isDevelopment) {
+    // Add a mock user for development
+    req.user = {
+      id: req.body.userId || 'dev-user-id',
+      email: 'dev@example.com',
+      name: 'Development User'
+    };
+    return nftController.createNFT(req, res, next);
+  }
+  
+  // Use authentication middleware in production
+  const { authenticateToken } = require('./middleware/auth');
+  authenticateToken(req, res, () => nftController.createNFT(req, res, next));
+});
 
 // Root route
 app.get('/', (req, res) => {

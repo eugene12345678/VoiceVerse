@@ -447,12 +447,14 @@ model NFT {
   assetId           Int?      // Algorand Asset ID
   metadata          String?   @db.Text // JSON metadata for the NFT
   blockchainStatus  String?   // PENDING, MINTED, TRANSFERRED, etc.
+  duration          String?   // Duration of the audio file
   
   // Relations
   creator           User      @relation("NFTCreator", fields: [creatorId], references: [id])
   owner             User      @relation("NFTOwner", fields: [ownerId], references: [id])
   nftLikes          NFTLike[]
   transactions      NFTTransaction[]
+  nftTags           NFTTag[]
   
   // New Algorand-specific relations
   algorandTransactions AlgorandTransaction[]
@@ -461,6 +463,20 @@ model NFT {
   @@index([creatorId])
   @@index([ownerId])
   @@index([assetId])
+}
+
+// NFT Tag model
+model NFTTag {
+  id          String    @id @default(uuid())
+  nftId       String
+  tag         String
+  
+  // Relations
+  nft         NFT       @relation(fields: [nftId], references: [id], onDelete: Cascade)
+  
+  @@unique([nftId, tag])
+  @@index([nftId])
+  @@index([tag])
 }
 
 // NFT Like model

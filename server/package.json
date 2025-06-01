@@ -23,7 +23,8 @@
     "jsonwebtoken": "^9.0.1",
     "morgan": "^1.10.0",
     "multer": "^2.0.0",
-    "music-metadata": "^11.2.3"
+    "music-metadata": "^11.2.3",
+    "sharp": "^0.34.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.1",

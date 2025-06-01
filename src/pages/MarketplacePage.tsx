@@ -24,7 +24,10 @@ import {
   ExternalLink,
   AlertCircle,
   Check,
-  Loader
+  Loader,
+  Upload,
+  X,
+  Plus
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -48,6 +51,8 @@ const api = axios.create({
     'X-API-Key': ALGORAND_API_KEY
   },
 });
+
+// Note: API_URL already includes '/api' prefix, so don't add it in individual requests
 
 // Add request interceptor to include auth token
 api.interceptors.request.use(
@@ -75,6 +80,21 @@ export const algorandAPI = {
     return response.data;
   },
   
+  // Upload file to server
+  uploadFile: async (file: File, type: 'audio' | 'image') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+    
+    const response = await api.post('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    
+    return response.data;
+  },
+  
   // Create NFT
   createNFT: async (nftData: {
     userId: string;
@@ -84,6 +104,8 @@ export const algorandAPI = {
     imageUrl: string;
     price: number;
     royalty?: number;
+    tags?: string[];
+    duration?: string;
   }) => {
     const response = await api.post('/algorand/nft/create', nftData);
     return response.data;
@@ -212,9 +234,14 @@ interface NFTCardProps {
   layout?: 'grid' | 'list';
   wallet: WalletState;
   onBuy: (nft: NFT) => void;
+  currentUser: {
+    id: string;
+    displayName: string;
+    avatar: string;
+  };
 }
 
-const NFTCard: React.FC<NFTCardProps> = ({ nft, onLike, layout = 'grid', wallet, onBuy }) => {
+const NFTCard: React.FC<NFTCardProps> = ({ nft, onLike, layout = 'grid', wallet, onBuy, currentUser }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -370,9 +397,9 @@ const NFTCard: React.FC<NFTCardProps> = ({ nft, onLike, layout = 'grid', wallet,
           <Button 
             size="sm"
             onClick={() => onBuy(nft)}
-            disabled={!wallet.connected}
+            disabled={!wallet.connected || (nft.owner.id === currentUser.id)}
           >
-            Buy Now
+            {nft.owner.id === currentUser.id ? 'You Own This' : 'Buy Now'}
           </Button>
         </div>
       </div>
@@ -452,6 +479,20 @@ interface NFT {
   trending: boolean;
   assetId?: number;
   blockchainStatus?: string;
+  available?: boolean;
+}
+
+// NFT Creation Form Data
+interface NFTFormData {
+  title: string;
+  description: string;
+  audioFile: File | null;
+  coverImage: File | null;
+  price: number;
+  royalty: number;
+  tags: string[];
+  audioPreviewUrl: string | null;
+  imagePreviewUrl: string | null;
 }
 
 export const MarketplacePage = () => {
@@ -484,6 +525,20 @@ export const MarketplacePage = () => {
   // NFT creation state
   const [isCreatingNFT, setIsCreatingNFT] = useState(false);
   const [createNFTError, setCreateNFTError] = useState<string | null>(null);
+  const [nftFormData, setNftFormData] = useState<NFTFormData>({
+    title: '',
+    description: '',
+    audioFile: null,
+    coverImage: null,
+    price: 100,
+    royalty: 10,
+    tags: [],
+    audioPreviewUrl: null,
+    imagePreviewUrl: null
+  });
+  const [currentTag, setCurrentTag] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   // Transaction state
   const [transactionStatus, setTransactionStatus] = useState<{
@@ -506,12 +561,254 @@ export const MarketplacePage = () => {
   // Fetch marketplace NFTs
   const fetchMarketplaceNFTs = async () => {
     try {
+      // Try to fetch from API
       const response = await algorandAPI.getMarketplaceNFTs(1, 10, filter, sortBy);
       if (response && response.nfts) {
         setNfts(response.nfts);
       }
     } catch (error) {
       console.error('Error fetching marketplace NFTs:', error);
+      
+      // If API fails, use the initial NFTs as fallback
+      if (nfts.length === 0) {
+        setNfts(initialNFTs);
+      }
+      
+      // Show error notification
+      setTransactionStatus({
+        loading: false,
+        success: false,
+        error: 'Failed to fetch marketplace NFTs. Using cached data.',
+        message: ''
+      });
+      
+      // Clear error after 3 seconds
+      setTimeout(() => {
+        setTransactionStatus(prev => ({ ...prev, error: null }));
+      }, 3000);
+    }
+  };
+
+  // NFT Form Handlers
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'audio' | 'image') => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      
+      // Create a preview URL
+      const previewUrl = URL.createObjectURL(file);
+      
+      if (type === 'audio') {
+        setNftFormData(prev => ({
+          ...prev,
+          audioFile: file,
+          audioPreviewUrl: previewUrl
+        }));
+      } else {
+        setNftFormData(prev => ({
+          ...prev,
+          coverImage: file,
+          imagePreviewUrl: previewUrl
+        }));
+      }
+    }
+  };
+  
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setNftFormData(prev => ({
+      ...prev,
+      [name]: name === 'price' || name === 'royalty' ? parseFloat(value) : value
+    }));
+  };
+  
+  const handleAddTag = () => {
+    if (currentTag.trim() && !nftFormData.tags.includes(currentTag.trim())) {
+      setNftFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, currentTag.trim()]
+      }));
+      setCurrentTag('');
+    }
+  };
+  
+  const handleRemoveTag = (tagToRemove: string) => {
+    setNftFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(tag => tag !== tagToRemove)
+    }));
+  };
+  
+  const resetNftForm = () => {
+    setNftFormData({
+      title: '',
+      description: '',
+      audioFile: null,
+      coverImage: null,
+      price: 100,
+      royalty: 10,
+      tags: [],
+      audioPreviewUrl: null,
+      imagePreviewUrl: null
+    });
+    setCurrentTag('');
+    setCreateNFTError(null);
+    setShowDetailsModal(false);
+  };
+  
+  const handleCreateNFT = async () => {
+    // Validate form
+    if (!nftFormData.title.trim()) {
+      setCreateNFTError('Title is required');
+      return;
+    }
+    
+    if (!nftFormData.audioFile) {
+      setCreateNFTError('Audio file is required');
+      return;
+    }
+    
+    if (!nftFormData.coverImage) {
+      setCreateNFTError('Cover image is required');
+      return;
+    }
+    
+    if (nftFormData.price <= 0) {
+      setCreateNFTError('Price must be greater than 0');
+      return;
+    }
+    
+    if (nftFormData.royalty < 0 || nftFormData.royalty > 30) {
+      setCreateNFTError('Royalty must be between 0% and 30%');
+      return;
+    }
+    
+    setIsSubmitting(true);
+    setCreateNFTError(null);
+    
+    try {
+      setTransactionStatus({
+        loading: true,
+        success: false,
+        error: null,
+        message: 'Creating your NFT...'
+      });
+      
+      // Step 1: Upload the audio file to the server
+      let audioFileId = '';
+      let imageUrl = '';
+      
+      if (nftFormData.audioFile) {
+        const audioUploadResult = await algorandAPI.uploadFile(nftFormData.audioFile, 'audio');
+        audioFileId = audioUploadResult.fileId;
+      }
+      
+      // Step 2: Upload the cover image to the server
+      if (nftFormData.coverImage) {
+        const imageUploadResult = await algorandAPI.uploadFile(nftFormData.coverImage, 'image');
+        imageUrl = imageUploadResult.fileUrl;
+      }
+      
+      // Step 3: Create the NFT on the Algorand blockchain
+      const nftCreationData = {
+        userId: user.id,
+        title: nftFormData.title,
+        description: nftFormData.description,
+        audioFileId: audioFileId,
+        imageUrl: imageUrl,
+        price: nftFormData.price,
+        royalty: nftFormData.royalty,
+        tags: nftFormData.tags.length > 0 ? nftFormData.tags : ['voice', 'audio'],
+        duration: '00:30' // Default duration or calculate from audio file
+      };
+      
+      // Call the API to create the NFT
+      const response = await algorandAPI.createNFT(nftCreationData);
+      
+      // Get the created NFT from the response
+      const newNft: NFT = {
+        id: response.nft.id,
+        title: response.nft.title,
+        description: response.nft.description,
+        audioUrl: response.nft.audioUrl,
+        imageUrl: response.nft.imageUrl,
+        creator: {
+          id: user.id,
+          displayName: user.displayName,
+          avatar: user.avatar,
+          isVerified: false
+        },
+        owner: {
+          id: user.id,
+          displayName: user.displayName,
+          avatar: user.avatar,
+          isVerified: false
+        },
+        price: response.nft.price,
+        currency: 'ALGO',
+        likes: 0,
+        isLiked: false,
+        views: 0,
+        duration: response.nft.duration || '00:30',
+        royalty: response.nft.royalty,
+        history: [
+          { type: 'mint', price: response.nft.price, date: new Date().toISOString() }
+        ],
+        tags: response.nft.tags || [],
+        featured: false,
+        trending: false,
+        assetId: response.nft.assetId,
+        blockchainStatus: response.nft.blockchainStatus || 'minted',
+        available: true
+      };
+      
+      // Add the new NFT to the beginning of the NFTs array
+      setNfts(prevNfts => [newNft, ...prevNfts]);
+      
+      setIsCreatingNFT(false);
+      setIsSubmitting(false);
+      resetNftForm();
+      
+      setTransactionStatus({
+        loading: false,
+        success: true,
+        error: null,
+        message: 'NFT created successfully! It is being minted on the Algorand blockchain.'
+      });
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => {
+        setTransactionStatus(prev => ({ ...prev, success: false, message: '' }));
+      }, 5000);
+      
+      // Refresh NFTs from the API to ensure we have the latest data
+      fetchMarketplaceNFTs();
+    } catch (error) {
+      console.error('Error creating NFT:', error);
+      setIsSubmitting(false);
+      
+      // Handle specific error cases
+      let errorMessage = 'Failed to create NFT. Please try again.';
+      
+      if (error.response?.status === 400) {
+        if (error.response.data?.error === 'invalid_file_type') {
+          errorMessage = 'Invalid file type. Please upload a valid audio file (.mp3, .wav) and image file (JPEG, PNG).';
+        } else if (error.response.data?.error === 'file_too_large') {
+          errorMessage = 'File size exceeds the maximum limit. Please upload a smaller file.';
+        } else if (error.response.data?.error === 'insufficient_balance') {
+          errorMessage = 'Insufficient balance to mint NFT. Please add funds to your wallet.';
+        }
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error. Please try again later.';
+      }
+      
+      setCreateNFTError(errorMessage);
+      
+      setTransactionStatus({
+        loading: false,
+        success: false,
+        error: errorMessage,
+        message: ''
+      });
     }
   };
 
@@ -609,8 +906,9 @@ export const MarketplacePage = () => {
     }
   };
 
-  // Buy NFT function
+  // Buy NFT function with complete Algorand integration
   const handleBuyNFT = async (nft: NFT) => {
+    // Pre-purchase validation
     if (!wallet.connected) {
       setTransactionStatus({
         loading: false,
@@ -618,6 +916,42 @@ export const MarketplacePage = () => {
         error: 'Please connect your wallet first',
         message: ''
       });
+      return;
+    }
+    
+    // Check if user has enough balance
+    if (wallet.balance < nft.price) {
+      setTransactionStatus({
+        loading: false,
+        success: false,
+        error: `Insufficient balance. You have ${wallet.balance.toFixed(2)} ALGO but need ${nft.price} ALGO.`,
+        message: ''
+      });
+      return;
+    }
+    
+    // Check if NFT is still available
+    if (nft.available === false) {
+      setTransactionStatus({
+        loading: false,
+        success: false,
+        error: 'This NFT has already been sold.',
+        message: ''
+      });
+      
+      // Refresh NFTs to get the latest status
+      fetchMarketplaceNFTs();
+      return;
+    }
+    
+    // Show confirmation dialog
+    if (!window.confirm(
+      `You are about to purchase "${nft.title}" for ${nft.price} ALGO.\n\n` +
+      `Price: ${nft.price} ALGO\n` +
+      `Royalty: ${nft.royalty}% (${(nft.price * nft.royalty / 100).toFixed(2)} ALGO to creator)\n` +
+      `Network Fee: ~0.001 ALGO\n\n` +
+      `Do you want to proceed?`
+    )) {
       return;
     }
     
@@ -629,18 +963,40 @@ export const MarketplacePage = () => {
     });
     
     try {
+      // Transaction preparation and execution
       const response = await algorandAPI.buyNFT(nft.id, user.id);
+      
+      // Update wallet balance after purchase
+      setWallet(prev => ({
+        ...prev,
+        balance: prev.balance - nft.price,
+        assets: [...prev.assets, { id: nft.id, name: nft.title }]
+      }));
+      
+      // Update NFT ownership in local state
+      setNfts(nfts.map(item => {
+        if (item.id === nft.id) {
+          return {
+            ...item,
+            owner: {
+              id: user.id,
+              displayName: user.displayName,
+              avatar: user.avatar,
+              isVerified: false
+            },
+            available: false
+          };
+        }
+        return item;
+      }));
       
       // Update transaction status
       setTransactionStatus({
         loading: false,
         success: true,
         error: null,
-        message: 'NFT purchased successfully! Transaction is being processed on the blockchain.'
+        message: 'NFT purchased successfully! Transaction is being processed on the Algorand blockchain.'
       });
-      
-      // Refresh NFTs after purchase
-      fetchMarketplaceNFTs();
       
       // Clear success message after 5 seconds
       setTimeout(() => {
@@ -648,10 +1004,26 @@ export const MarketplacePage = () => {
       }, 5000);
     } catch (error) {
       console.error('Error buying NFT:', error);
+      
+      // Handle specific error cases
+      let errorMessage = 'Failed to purchase NFT. Please try again.';
+      
+      if (error.response?.status === 400) {
+        if (error.response.data?.error === 'insufficient_balance') {
+          errorMessage = `Insufficient balance. You need ${nft.price} ALGO to complete this purchase.`;
+        } else if (error.response.data?.error === 'nft_already_sold') {
+          errorMessage = 'This NFT has already been sold. Refreshing listings...';
+          // Refresh NFTs to get the latest status
+          fetchMarketplaceNFTs();
+        }
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Network error. Please try again later.';
+      }
+      
       setTransactionStatus({
         loading: false,
         success: false,
-        error: 'Failed to purchase NFT. Please try again.',
+        error: errorMessage,
         message: ''
       });
     }
@@ -715,21 +1087,30 @@ export const MarketplacePage = () => {
               onClick={() => setShowFilters(!showFilters)}
               aria-label="Show filters"
             />
-            <Button 
-            leftIcon={wallet.connected ? <Check className="h-5 w-5" /> : <Wallet className="h-5 w-5" />}
-            onClick={connectWallet}
-            disabled={wallet.loading}
-            >
-            {wallet.loading ? (
-            <>
-            <Loader className="h-5 w-5 animate-spin mr-2" />
-            Connecting...
-            </>
-            ) : wallet.connected ? (
-            <>Connected: {wallet.address.substring(0, 6)}...{wallet.address.substring(wallet.address.length - 4)}</>
-            ) : (
-            'Connect Wallet'
+            {wallet.connected && (
+              <Button
+                variant="primary"
+                leftIcon={<Upload className="h-5 w-5" />}
+                onClick={() => setIsCreatingNFT(true)}
+              >
+                Create/Mint NFT
+              </Button>
             )}
+            <Button 
+              leftIcon={wallet.connected ? <Check className="h-5 w-5" /> : <Wallet className="h-5 w-5" />}
+              onClick={connectWallet}
+              disabled={wallet.loading}
+            >
+              {wallet.loading ? (
+                <>
+                  <Loader className="h-5 w-5 animate-spin mr-2" />
+                  Connecting...
+                </>
+              ) : wallet.connected ? (
+                <>Connected: {wallet.address.substring(0, 6)}...{wallet.address.substring(wallet.address.length - 4)}</>
+              ) : (
+                'Connect Wallet'
+              )}
             </Button>
           </div>
         </div>
@@ -913,6 +1294,7 @@ export const MarketplacePage = () => {
               layout={layout}
               wallet={wallet}
               onBuy={handleBuyNFT}
+              currentUser={user}
             />
           </div>
         )}
@@ -983,6 +1365,7 @@ export const MarketplacePage = () => {
               layout={layout}
               wallet={wallet}
               onBuy={handleBuyNFT}
+              currentUser={user}
             />
           ))}
         </div>
@@ -999,121 +1382,352 @@ export const MarketplacePage = () => {
           <ArrowUp className="h-5 w-5" />
         </motion.button>
 
-        {/* NFT Creation Modal - Would be implemented as a proper modal in a real app */}
+        {/* NFT Creation Modal with complete form and preview */}
         {isCreatingNFT && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl p-6">
-              <h2 className="text-xl font-semibold text-dark-900 dark:text-white mb-4">Create Voice NFT</h2>
-              <p className="text-dark-600 dark:text-dark-400 mb-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <Card className="w-full max-w-4xl p-6 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-dark-900 dark:text-white">Create/Mint NFT</h2>
+                <IconButton
+                  variant="ghost"
+                  icon={<X className="h-5 w-5" />}
+                  onClick={() => {
+                    setIsCreatingNFT(false);
+                    resetNftForm();
+                  }}
+                  aria-label="Close"
+                />
+              </div>
+              
+              <p className="text-dark-600 dark:text-dark-400 mb-6">
                 Create a unique Voice NFT on the Algorand blockchain. Your voice transformation will be minted as a non-fungible token that can be bought, sold, and traded.
               </p>
               
-              {/* This would be a form in a real implementation */}
-              <div className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
-                    Title
-                  </label>
-                  <input 
-                    type="text" 
-                    className="w-full p-2 bg-gray-100 dark:bg-dark-800 border-none rounded-lg focus:ring-2 focus:ring-primary-500"
-                    placeholder="My Amazing Voice NFT"
-                  />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Form Section */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                      NFT Title*
+                    </label>
+                    <input 
+                      type="text" 
+                      name="title"
+                      value={nftFormData.title}
+                      onChange={handleInputChange}
+                      className="w-full p-2 bg-gray-100 dark:bg-dark-800 border-none rounded-lg focus:ring-2 focus:ring-primary-500"
+                      placeholder="My Amazing Voice NFT"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                      Description*
+                    </label>
+                    <textarea 
+                      name="description"
+                      value={nftFormData.description}
+                      onChange={handleInputChange}
+                      className="w-full p-2 bg-gray-100 dark:bg-dark-800 border-none rounded-lg focus:ring-2 focus:ring-primary-500"
+                      placeholder="Describe your voice NFT..."
+                      rows={3}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                      Upload Audio File* (.mp3, .wav)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept=".mp3,.wav"
+                        onChange={(e) => handleFileChange(e, 'audio')}
+                        className="hidden"
+                        id="audio-file-input"
+                      />
+                      <label
+                        htmlFor="audio-file-input"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 cursor-pointer"
+                      >
+                        <Upload className="h-4 w-4" />
+                        {nftFormData.audioFile ? 'Change Audio' : 'Select Audio'}
+                      </label>
+                      {nftFormData.audioFile && (
+                        <span className="text-sm text-dark-600 dark:text-dark-400 truncate max-w-[200px]">
+                          {nftFormData.audioFile.name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                      Upload Cover Image* (JPEG, PNG)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/jpg"
+                        onChange={(e) => handleFileChange(e, 'image')}
+                        className="hidden"
+                        id="image-file-input"
+                      />
+                      <label
+                        htmlFor="image-file-input"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 cursor-pointer"
+                      >
+                        <Upload className="h-4 w-4" />
+                        {nftFormData.coverImage ? 'Change Image' : 'Select Image'}
+                      </label>
+                      {nftFormData.coverImage && (
+                        <span className="text-sm text-dark-600 dark:text-dark-400 truncate max-w-[200px]">
+                          {nftFormData.coverImage.name}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                      Price (ALGO)*
+                    </label>
+                    <input 
+                      type="number" 
+                      name="price"
+                      value={nftFormData.price}
+                      onChange={handleInputChange}
+                      className="w-full p-2 bg-gray-100 dark:bg-dark-800 border-none rounded-lg focus:ring-2 focus:ring-primary-500"
+                      placeholder="100"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                      Royalty Percentage* (0-30%)
+                    </label>
+                    <input 
+                      type="number" 
+                      name="royalty"
+                      value={nftFormData.royalty}
+                      onChange={handleInputChange}
+                      className="w-full p-2 bg-gray-100 dark:bg-dark-800 border-none rounded-lg focus:ring-2 focus:ring-primary-500"
+                      placeholder="10"
+                      min="0"
+                      max="30"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                      Tags
+                    </label>
+                    <div className="flex items-center gap-2 mb-2">
+                      <input 
+                        type="text" 
+                        value={currentTag}
+                        onChange={(e) => setCurrentTag(e.target.value)}
+                        className="flex-1 p-2 bg-gray-100 dark:bg-dark-800 border-none rounded-lg focus:ring-2 focus:ring-primary-500"
+                        placeholder="Add a tag"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddTag();
+                          }
+                        }}
+                      />
+                      <Button 
+                        size="sm"
+                        onClick={handleAddTag}
+                        disabled={!currentTag.trim()}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {nftFormData.tags.map(tag => (
+                        <span
+                          key={tag}
+                          className="px-2 py-1 bg-gray-100 dark:bg-dark-800 rounded-full text-xs text-dark-600 dark:text-dark-400 flex items-center gap-1"
+                        >
+                          #{tag}
+                          <button
+                            onClick={() => handleRemoveTag(tag)}
+                            className="text-dark-400 hover:text-dark-600 dark:hover:text-dark-200"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
-                    Description
-                  </label>
-                  <textarea 
-                    className="w-full p-2 bg-gray-100 dark:bg-dark-800 border-none rounded-lg focus:ring-2 focus:ring-primary-500"
-                    placeholder="Describe your voice NFT..."
-                    rows={3}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
-                    Price (ALGO)
-                  </label>
-                  <input 
-                    type="number" 
-                    className="w-full p-2 bg-gray-100 dark:bg-dark-800 border-none rounded-lg focus:ring-2 focus:ring-primary-500"
-                    placeholder="100"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
-                    Royalty Percentage
-                  </label>
-                  <input 
-                    type="number" 
-                    className="w-full p-2 bg-gray-100 dark:bg-dark-800 border-none rounded-lg focus:ring-2 focus:ring-primary-500"
-                    placeholder="10"
-                    min="0"
-                    max="50"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
-                    Select Voice Transformation
-                  </label>
-                  <select className="w-full p-2 bg-gray-100 dark:bg-dark-800 border-none rounded-lg focus:ring-2 focus:ring-primary-500">
-                    <option value="">Select a voice transformation</option>
-                    <option value="1">Morgan Freeman Narration</option>
-                    <option value="2">Multi-Language Song</option>
-                  </select>
+                {/* Preview Section */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-dark-900 dark:text-white mb-2">Preview</h3>
+                  
+                  <div className="bg-dark-800 rounded-lg overflow-hidden">
+                    {/* Cover Image Preview */}
+                    <div className="aspect-square bg-dark-700 relative">
+                      {nftFormData.imagePreviewUrl ? (
+                        <img
+                          src={nftFormData.imagePreviewUrl}
+                          alt="NFT Cover"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-dark-400">
+                          <Music className="h-16 w-16" />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Audio Preview */}
+                    <div className="p-4">
+                      {nftFormData.audioPreviewUrl ? (
+                        <audio
+                          controls
+                          className="w-full mb-4"
+                          src={nftFormData.audioPreviewUrl}
+                        />
+                      ) : (
+                        <div className="h-12 bg-dark-700 rounded mb-4 flex items-center justify-center text-dark-400">
+                          <Music className="h-6 w-6 mr-2" />
+                          <span>Audio preview will appear here</span>
+                        </div>
+                      )}
+                      
+                      <h3 className="font-semibold text-white mb-2">
+                        {nftFormData.title || 'NFT Title'}
+                      </h3>
+                      
+                      <p className="text-sm text-dark-400 mb-4">
+                        {nftFormData.description || 'NFT description will appear here'}
+                      </p>
+                      
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <Avatar
+                            src={user.avatar}
+                            alt={user.displayName}
+                            size="sm"
+                          />
+                          <div>
+                            <span className="text-sm font-medium text-white">
+                              {user.displayName}
+                            </span>
+                            <div className="text-xs text-dark-400">
+                              Creator
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Diamond className="h-4 w-4 text-primary-400" />
+                          <span className="font-medium text-primary-400">
+                            {nftFormData.price} ALGO
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {nftFormData.tags.map(tag => (
+                          <span
+                            key={tag}
+                            className="px-2 py-1 bg-dark-700 rounded-full text-xs text-dark-400"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* More Details Dropdown */}
+                  <div className="bg-dark-800 rounded-lg overflow-hidden">
+                    <button 
+                      className="w-full p-4 flex items-center justify-between text-white hover:bg-dark-700 transition-colors"
+                      onClick={() => setShowDetailsModal(!showDetailsModal)}
+                    >
+                      <span className="font-medium">More Details</span>
+                      <MoreHorizontal className="h-5 w-5" />
+                    </button>
+                    
+                    <AnimatePresence>
+                      {showDetailsModal && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                        >
+                          <div className="p-4 border-t border-dark-700">
+                            <div className="grid grid-cols-2 gap-2 text-sm mb-4">
+                              <div className="text-dark-400">Royalty:</div>
+                              <div className="text-white font-medium">{nftFormData.royalty}%</div>
+                              <div className="text-dark-400">Blockchain:</div>
+                              <div className="text-white font-medium">Algorand</div>
+                              <div className="text-dark-400">Creator Earnings:</div>
+                              <div className="text-white font-medium">
+                                {(nftFormData.price * nftFormData.royalty / 100).toFixed(2)} ALGO per sale
+                              </div>
+                              <div className="text-dark-400">Network Fee:</div>
+                              <div className="text-white font-medium">~0.001 ALGO</div>
+                            </div>
+                            
+                            <Button 
+                              className="w-full"
+                              disabled={true}
+                            >
+                              Buy Now
+                            </Button>
+                            
+                            <div className="flex items-center justify-between mt-4">
+                              <div className="flex items-center gap-2">
+                                <Heart className="h-5 w-5" />
+                                <span className="text-dark-400">0 likes</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Share2 className="h-5 w-5 text-dark-400" />
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
               </div>
               
               {createNFTError && (
-                <div className="mb-4 p-3 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded-lg">
+                <div className="mt-6 p-3 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded-lg">
                   {createNFTError}
                 </div>
               )}
               
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-2 mt-6">
                 <Button 
                   variant="outline" 
                   onClick={() => {
                     setIsCreatingNFT(false);
-                    setCreateNFTError(null);
+                    resetNftForm();
                   }}
                 >
                   Cancel
                 </Button>
                 <Button 
-                  onClick={() => {
-                    // This would call the createNFT function in a real implementation
-                    setTransactionStatus({
-                      loading: true,
-                      success: false,
-                      error: null,
-                      message: 'Creating your NFT...'
-                    });
-                    
-                    // Simulate NFT creation
-                    setTimeout(() => {
-                      setIsCreatingNFT(false);
-                      setTransactionStatus({
-                        loading: false,
-                        success: true,
-                        error: null,
-                        message: 'NFT created successfully! It is being minted on the Algorand blockchain.'
-                      });
-                      
-                      // Clear success message after 5 seconds
-                      setTimeout(() => {
-                        setTransactionStatus(prev => ({ ...prev, success: false, message: '' }));
-                      }, 5000);
-                    }, 2000);
-                  }}
+                  onClick={handleCreateNFT}
+                  disabled={isSubmitting}
                 >
-                  Create NFT
+                  {isSubmitting ? (
+                    <>
+                      <Loader className="h-4 w-4 animate-spin mr-2" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create NFT'
+                  )}
                 </Button>
               </div>
             </Card>
