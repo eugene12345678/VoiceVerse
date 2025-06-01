@@ -1,0 +1,220 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-white text-dark-900 dark:bg-dark-950 dark:text-white font-sans antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-semibold tracking-tight;
+    line-height: 1.2;
+  }
+
+  h1 {
+    @apply text-4xl sm:text-5xl md:text-6xl;
+  }
+
+  h2 {
+    @apply text-3xl sm:text-4xl md:text-5xl;
+  }
+
+  h3 {
+    @apply text-2xl sm:text-3xl;
+  }
+
+  h4 {
+    @apply text-xl sm:text-2xl;
+  }
+
+  h5 {
+    @apply text-lg sm:text-xl;
+  }
+
+  h6 {
+    @apply text-base sm:text-lg;
+  }
+
+  p, li, blockquote {
+    @apply leading-relaxed;
+  }
+
+  /* Custom scrollbar styles */
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-dark-800;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-dark-600 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-dark-500;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:pointer-events-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary-600 hover:bg-primary-700 text-white focus:ring-primary-500 dark:bg-primary-500 dark:hover:bg-primary-600;
+  }
+
+  .btn-secondary {
+    @apply btn bg-secondary-600 hover:bg-secondary-700 text-white focus:ring-secondary-500 dark:bg-secondary-500 dark:hover:bg-secondary-600;
+  }
+
+  .btn-accent {
+    @apply btn bg-accent-500 hover:bg-accent-600 text-white focus:ring-accent-500;
+  }
+
+  .btn-outline {
+    @apply btn border-2 border-primary-600 text-primary-600 hover:bg-primary-50 focus:ring-primary-500 dark:border-primary-400 dark:text-primary-400 dark:hover:bg-dark-800;
+  }
+
+  .glass-card {
+    @apply bg-white/90 backdrop-blur-md border border-gray-200 dark:bg-dark-900/80 dark:border-dark-700 rounded-xl shadow-lg;
+  }
+
+  .input {
+    @apply px-3 py-2 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-700 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500;
+  }
+
+  /* Stripe Elements styles */
+  .stripe-element {
+    @apply w-full text-dark-900 dark:text-white;
+  }
+
+  .stripe-element--focus {
+    @apply outline-none;
+  }
+
+  .stripe-element--invalid {
+    @apply text-error-600 dark:text-error-400;
+  }
+}
+
+/* Audio wave animation for the intro/loading page */
+.audio-wave {
+  @apply flex items-end gap-[2px] h-8 mx-auto;
+}
+
+.audio-wave span {
+  @apply bg-primary-500 dark:bg-primary-400 w-1 rounded-full animate-wave;
+}
+
+.audio-wave span:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.audio-wave span:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.audio-wave span:nth-child(4) {
+  animation-delay: 0.3s;
+}
+
+.audio-wave span:nth-child(5) {
+  animation-delay: 0.4s;
+}
+
+/* Audio particles for background effects */
+.audio-particles {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+  z-index: -1;
+}
+
+.audio-particle {
+  @apply absolute rounded-full opacity-70 animate-float;
+  background: radial-gradient(circle at center, var(--particle-color), transparent 70%);
+}
+
+.audio-particle:nth-child(1) {
+  --particle-color: rgba(77, 141, 243, 0.6);
+  width: 80px;
+  height: 80px;
+  top: 10%;
+  left: 80%;
+  animation-delay: 0s;
+}
+
+.audio-particle:nth-child(2) {
+  --particle-color: rgba(240, 107, 34, 0.4);
+  width: 120px;
+  height: 120px;
+  top: 60%;
+  left: 10%;
+  animation-delay: 1s;
+}
+
+.audio-particle:nth-child(3) {
+  --particle-color: rgba(46, 154, 179, 0.5);
+  width: 60px;
+  height: 60px;
+  top: 30%;
+  left: 30%;
+  animation-delay: 2s;
+}
+
+.audio-particle:nth-child(4) {
+  --particle-color: rgba(34, 197, 94, 0.3);
+  width: 100px;
+  height: 100px;
+  top: 70%;
+  left: 70%;
+  animation-delay: 3s;
+}
+
+/* Voice recording button pulse effect */
+.record-btn-pulse {
+  @apply absolute inset-0 rounded-full;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(1.1);
+  }
+}
+
+/* Typewriter effect */
+.typewriter {
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid;
+  animation: typing 3.5s steps(40, end), blink-caret 0.75s step-end infinite;
+}
+
+@keyframes typing {
+  from { width: 0 }
+  to { width: 100% }
+}
+
+@keyframes blink-caret {
+  from, to { border-color: transparent }
+  50% { border-color: currentColor }
+}

@@ -1,0 +1,118 @@
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { useAuthStore } from './store/authStore';
+import { HomePage } from './pages/HomePage';
+import { StudioPage } from './pages/StudioPage';
+import { FeedPage } from './pages/FeedPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { ChallengePage } from './pages/ChallengePage';
+import { MarketplacePage } from './pages/MarketplacePage';
+import { SettingsPage } from './pages/SettingsPage';
+import { LoginPage } from './pages/LoginPage';
+import { SignupPage } from './pages/SignupPage';
+import { SubscriptionPage } from './pages/SubscriptionPage';
+import { ContactPage } from './pages/ContactPage';
+import { CheckoutPage } from './pages/CheckoutPage';
+import { Layout } from './components/common/Layout';
+import { IntroLoader } from './components/IntroLoader';
+import { ProtectedRoute } from './components/common/ProtectedRoute';
+import { initializeTheme } from './store/themeStore';
+
+// Initialize theme on app load
+initializeTheme();
+
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: false,
+    },
+  },
+});
+
+function App() {
+  const [isIntroComplete, setIsIntroComplete] = useState(false);
+  const checkAuth = useAuthStore(state => state.checkAuth);
+  
+  useEffect(() => {
+    // Check authentication status when app loads
+    checkAuth();
+  }, [checkAuth]);
+  
+  const handleIntroComplete = () => {
+    setIsIntroComplete(true);
+  };
+
+  // Show intro loader every time
+  if (!isIntroComplete) {
+    return <IntroLoader onComplete={handleIntroComplete} />;
+  }
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <Routes>
+          {/* Auth routes - no layout */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          
+          {/* All other routes with layout */}
+          <Route element={<Layout />}>
+            {/* Public routes */}
+            <Route index element={<HomePage />} />
+            <Route path="contact" element={<ContactPage />} />
+            
+            {/* Protected routes */}
+            <Route path="studio" element={
+              <ProtectedRoute>
+                <StudioPage />
+              </ProtectedRoute>
+            } />
+            <Route path="feed" element={
+              <ProtectedRoute>
+                <FeedPage />
+              </ProtectedRoute>
+            } />
+            <Route path="profile" element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            } />
+            <Route path="challenges" element={
+              <ProtectedRoute>
+                <ChallengePage />
+              </ProtectedRoute>
+            } />
+            <Route path="marketplace" element={
+              <ProtectedRoute>
+                <MarketplacePage />
+              </ProtectedRoute>
+            } />
+            <Route path="settings" element={
+              <ProtectedRoute>
+                <SettingsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="subscription" element={
+              <ProtectedRoute>
+                <SubscriptionPage />
+              </ProtectedRoute>
+            } />
+            <Route path="checkout" element={
+              <ProtectedRoute>
+                <CheckoutPage />
+              </ProtectedRoute>
+            } />
+            <Route path="*" element={<Navigate to="/\" replace />} />
+          </Route>
+        </Routes>
+      </Router>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  );
+}
+
+export default App;
