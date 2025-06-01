@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
+const fs = require('fs');
 const { PrismaClient } = require('@prisma/client');
 const authRoutes = require('./routes/auth');
 const voiceRoutes = require('./routes/voice');
@@ -20,8 +21,33 @@ const prisma = new PrismaClient();
 app.use(cors());
 app.use(express.json());
 app.use(morgan('dev'));
+
+// Serve static files
 app.use('/api/audio', express.static(path.join(process.cwd(), 'uploads', 'audio')));
+app.use('/api/audio/original', express.static(path.join(process.cwd(), 'uploads', 'audio', 'original')));
+app.use('/api/images', express.static(path.join(process.cwd(), 'uploads', 'images')));
 app.use('/api/images/nft', express.static(path.join(process.cwd(), 'uploads', 'images', 'nft')));
+
+// Create directories if they don't exist
+const ensureDirectoriesExist = () => {
+  const directories = [
+    path.join(process.cwd(), 'uploads'),
+    path.join(process.cwd(), 'uploads', 'audio'),
+    path.join(process.cwd(), 'uploads', 'audio', 'original'),
+    path.join(process.cwd(), 'uploads', 'images'),
+    path.join(process.cwd(), 'uploads', 'images', 'nft')
+  ];
+  
+  directories.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      console.log(`Created directory: ${dir}`);
+    }
+  });
+};
+
+// Ensure upload directories exist
+ensureDirectoriesExist();
 
 // Make Prisma available to routes
 app.use((req, res, next) => {

@@ -215,6 +215,15 @@ export const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
           if (!audioUrl.startsWith('/')) {
             normalizedUrl = '/' + audioUrl;
           }
+          
+          // Ensure API URLs are properly formatted
+          if (normalizedUrl.includes('/api/audio/') || normalizedUrl.includes('/api/images/')) {
+            // Make sure we're using the full URL with the server
+            const baseUrl = window.location.origin;
+            if (!normalizedUrl.startsWith(baseUrl)) {
+              normalizedUrl = baseUrl + normalizedUrl;
+            }
+          }
         }
         
         // Pre-check audio format with a native audio element
@@ -345,6 +354,15 @@ export const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
               if (!audioUrl.startsWith('http') && !audioUrl.startsWith('blob:') && !audioUrl.startsWith('data:')) {
                 if (!audioUrl.startsWith('/')) {
                   normalizedUrl = '/' + audioUrl;
+                }
+                
+                // Ensure API URLs are properly formatted
+                if (normalizedUrl.includes('/api/audio/') || normalizedUrl.includes('/api/images/')) {
+                  // Make sure we're using the full URL with the server
+                  const baseUrl = window.location.origin;
+                  if (!normalizedUrl.startsWith(baseUrl)) {
+                    normalizedUrl = baseUrl + normalizedUrl;
+                  }
                 }
               }
               

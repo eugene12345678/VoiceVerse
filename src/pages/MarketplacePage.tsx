@@ -37,6 +37,7 @@ import { WaveformVisualizer } from '../components/audio/WaveformVisualizer';
 import { formatNumber } from '../lib/utils';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
 
 // Algorand API configuration
 const ALGORAND_API_KEY = '98D9CE80660AD243893D56D9F125CD2D';
@@ -253,6 +254,10 @@ const NFTCard: React.FC<NFTCardProps> = ({ nft, onLike, layout = 'grid', wallet,
           src={nft.imageUrl}
           alt={nft.title}
           className="w-full h-full object-cover rounded-t-xl"
+          onError={(e) => {
+            // Fallback image if the NFT image fails to load
+            e.currentTarget.src = 'https://images.pexels.com/photos/7149165/pexels-photo-7149165.jpeg?auto=compress&cs=tinysrgb&w=600';
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
           <div className="w-full">
@@ -515,12 +520,15 @@ export const MarketplacePage = () => {
     error: null
   });
 
-  // User state (would normally come from auth context)
-  const [user, setUser] = useState({
+  // Get authenticated user from auth store
+  const { user: authUser } = useAuthStore();
+  
+  // Use authenticated user or fallback to default if not logged in
+  const user = authUser || {
     id: 'user1',
-    displayName: 'Voice Master',
+    displayName: 'You',
     avatar: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600'
-  });
+  };
 
   // NFT creation state
   const [isCreatingNFT, setIsCreatingNFT] = useState(false);
@@ -564,7 +572,48 @@ export const MarketplacePage = () => {
       // Try to fetch from API
       const response = await algorandAPI.getMarketplaceNFTs(1, 10, filter, sortBy);
       if (response && response.nfts) {
-        setNfts(response.nfts);
+        // Process NFTs to ensure they have all required properties
+        const processedNfts = response.nfts.map(nft => {
+          // Ensure creator and owner have display names
+          const creator = {
+            id: nft.creator?.id || 'unknown',
+            displayName: nft.creator?.displayName || 'Unknown Creator',
+            avatar: nft.creator?.avatar || 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600',
+            isVerified: nft.creator?.isVerified || false
+          };
+          
+          const owner = {
+            id: nft.owner?.id || 'unknown',
+            displayName: nft.owner?.displayName || 'Unknown Owner',
+            avatar: nft.owner?.avatar || 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600',
+            isVerified: nft.owner?.isVerified || false
+          };
+          
+          // Ensure all required properties exist
+          return {
+            id: nft.id,
+            title: nft.title || 'Untitled NFT',
+            description: nft.description || 'No description available',
+            audioUrl: nft.audioUrl || '',
+            imageUrl: nft.imageUrl || '',
+            creator,
+            owner,
+            price: nft.price || 0,
+            currency: nft.currency || 'ALGO',
+            likes: nft.likes || 0,
+            isLiked: nft.isLiked || false,
+            views: nft.views || 0,
+            duration: nft.duration || '00:00',
+            royalty: nft.royalty || 0,
+            history: nft.history || [],
+            tags: nft.tags || [],
+            featured: nft.featured || false,
+            trending: nft.trending || false,
+            available: nft.available !== undefined ? nft.available : true
+          };
+        });
+        
+        setNfts(processedNfts);
       }
     } catch (error) {
       console.error('Error fetching marketplace NFTs:', error);
@@ -762,7 +811,24 @@ export const MarketplacePage = () => {
       };
       
       // Add the new NFT to the beginning of the NFTs array
-      setNfts(prevNfts => [newNft, ...prevNfts]);
+      // Make sure to use the actual user information
+      const processedNft = {
+        ...newNft,
+        creator: {
+          id: user.id,
+          displayName: user.displayName,
+          avatar: user.avatar || 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600',
+          isVerified: user.isVerified || false
+        },
+        owner: {
+          id: user.id,
+          displayName: user.displayName,
+          avatar: user.avatar || 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600',
+          isVerified: user.isVerified || false
+        }
+      };
+      
+      setNfts(prevNfts => [processedNft, ...prevNfts]);
       
       setIsCreatingNFT(false);
       setIsSubmitting(false);

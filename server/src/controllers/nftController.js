@@ -187,11 +187,21 @@ exports.createNFT = async (req, res) => {
       return res.status(500).json({ error: 'Database error creating NFT. Please try again.' });
     }
 
+    // Make sure the image URL is absolute if it's a relative path
+    let formattedImageUrl = imageUrl;
+    if (formattedImageUrl && formattedImageUrl.startsWith('/')) {
+      // If it's a relative path, make sure it's properly formatted
+      if (!formattedImageUrl.startsWith('/api/')) {
+        formattedImageUrl = `/api${formattedImageUrl}`;
+      }
+    }
+
     // Return the created NFT with additional information
     return res.status(201).json({
       message: 'NFT creation initiated',
       nft: {
         ...nft,
+        imageUrl: formattedImageUrl,
         audioUrl: `/api/audio/${audioFileId}`,
         tags: tags || [],
         duration: duration || '00:30'

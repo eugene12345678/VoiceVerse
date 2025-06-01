@@ -320,7 +320,7 @@ const PaymentForm = ({ total, onSuccess, onError }: {
         </div>
         <div className="flex items-center justify-center gap-4">
           <img src="https://www.pngall.com/wp-content/uploads/2017/05/Visa-Logo-PNG-Pic.png" alt="Visa" className="h-6 opacity-50" />
-          <img src="https://www.pngall.com/wp-content/uploads/2017/05/MasterCard-Logo-PNG-Pic.png" alt="Mastercard" className="h-6 opacity-50" />
+          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/MasterCard_Logo.svg/1280px-MasterCard_Logo.svg.png" alt="Mastercard" className="h-6 opacity-50" />
           <img src="https://www.pngall.com/wp-content/uploads/2017/05/American-Express-Logo-PNG-Pic.png" alt="Amex" className="h-6 opacity-50" />
         </div>
       </div>

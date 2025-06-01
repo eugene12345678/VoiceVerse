@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const algosdk = require('algosdk');
+const path = require('path');
 
 // Algorand API key from the task
 const ALGORAND_API_KEY = '98D9CE80660AD243893D56D9F125CD2D';
@@ -305,12 +306,46 @@ exports.createNFT = async (req, res) => {
       });
     }, 100);
 
+    // Make sure the image URL is absolute if it's a relative path
+    let formattedImageUrl = imageUrl;
+    if (formattedImageUrl && formattedImageUrl.startsWith('/')) {
+      // If it's a relative path, make sure it's properly formatted
+      if (!formattedImageUrl.startsWith('/api/')) {
+        formattedImageUrl = `/api${formattedImageUrl}`;
+      }
+    } else if (formattedImageUrl && !formattedImageUrl.startsWith('http')) {
+      // If it's not an absolute URL and doesn't start with '/', add the API prefix
+      formattedImageUrl = `/api/images/nft/${formattedImageUrl}`;
+    }
+    
+    // Get the actual audio file path from the database
+    let audioUrl;
+    try {
+      const audioFile = await prisma.audioFile.findUnique({
+        where: { id: audioFileId }
+      });
+      
+      if (audioFile && audioFile.storagePath) {
+        // Extract the filename from the storage path
+        const filename = path.basename(audioFile.storagePath);
+        audioUrl = `/api/audio/original/${filename}`;
+      } else {
+        // Fallback if no audio file found
+        audioUrl = `/api/audio/original/${audioFileId}`;
+      }
+    } catch (error) {
+      console.warn(`Could not find audio file ${audioFileId}:`, error.message);
+      // Fallback URL
+      audioUrl = `/api/audio/original/${audioFileId}`;
+    }
+
     // Return the created NFT with additional information
     return res.status(201).json({
       message: 'NFT creation initiated',
       nft: {
         ...nft,
-        audioUrl: `/api/audio/${audioFileId}`,
+        imageUrl: formattedImageUrl,
+        audioUrl: audioUrl,
         tags: tags || [],
         duration: duration || '00:30'
       },
@@ -766,20 +801,54 @@ exports.getMarketplaceNFTs = async (req, res) => {
     const totalCount = await prisma.NFT.count({ where });
 
     // Process NFTs to include audio URLs and format tags
-    const processedNfts = nfts.map(nft => {
+    const processedNfts = await Promise.all(nfts.map(async (nft) => {
       // Extract tags from nftTags relation
-      const tags = nft.nftTags.map(tag => tag.tag);
+      const tags = nft.nftTags ? nft.nftTags.map(tag => tag.tag) : [];
       
       // Create a clean NFT object without the nftTags relation
       const { nftTags, ...nftWithoutTags } = nft;
       
+      // Make sure the image URL is absolute if it's a relative path
+      let imageUrl = nft.imageUrl;
+      if (imageUrl && imageUrl.startsWith('/')) {
+        // If it's a relative path, make sure it's properly formatted
+        if (!imageUrl.startsWith('/api/')) {
+          imageUrl = `/api${imageUrl}`;
+        }
+      } else if (imageUrl && !imageUrl.startsWith('http')) {
+        // If it's not an absolute URL and doesn't start with '/', add the API prefix
+        imageUrl = `/api/images/nft/${imageUrl}`;
+      }
+      
+      // Get the actual audio file path from the database
+      let audioUrl;
+      try {
+        const audioFile = await prisma.audioFile.findUnique({
+          where: { id: nft.audioFileId }
+        });
+        
+        if (audioFile && audioFile.storagePath) {
+          // Extract the filename from the storage path
+          const filename = path.basename(audioFile.storagePath);
+          audioUrl = `/api/audio/original/${filename}`;
+        } else {
+          // Fallback if no audio file found
+          audioUrl = `/api/audio/original/${nft.audioFileId}`;
+        }
+      } catch (error) {
+        console.warn(`Could not find audio file for NFT ${nft.id}:`, error.message);
+        // Fallback URL
+        audioUrl = `/api/audio/original/${nft.audioFileId}`;
+      }
+      
       return {
         ...nftWithoutTags,
-        audioUrl: `/api/audio/${nft.audioFileId}`,
+        imageUrl: imageUrl,
+        audioUrl: audioUrl,
         tags,
         available: nft.isForSale
       };
-    });
+    }));
 
     return res.status(200).json({
       nfts: processedNfts,
@@ -840,8 +909,50 @@ exports.getUserNFTs = async (req, res) => {
       }
     });
 
+    // Process NFTs to include audio URLs and format image URLs
+    const processedNfts = await Promise.all(nfts.map(async (nft) => {
+      // Make sure the image URL is absolute if it's a relative path
+      let imageUrl = nft.imageUrl;
+      if (imageUrl && imageUrl.startsWith('/')) {
+        // If it's a relative path, make sure it's properly formatted
+        if (!imageUrl.startsWith('/api/')) {
+          imageUrl = `/api${imageUrl}`;
+        }
+      } else if (imageUrl && !imageUrl.startsWith('http')) {
+        // If it's not an absolute URL and doesn't start with '/', add the API prefix
+        imageUrl = `/api/images/nft/${imageUrl}`;
+      }
+      
+      // Get the actual audio file path from the database
+      let audioUrl;
+      try {
+        const audioFile = await prisma.audioFile.findUnique({
+          where: { id: nft.audioFileId }
+        });
+        
+        if (audioFile && audioFile.storagePath) {
+          // Extract the filename from the storage path
+          const filename = path.basename(audioFile.storagePath);
+          audioUrl = `/api/audio/original/${filename}`;
+        } else {
+          // Fallback if no audio file found
+          audioUrl = `/api/audio/original/${nft.audioFileId}`;
+        }
+      } catch (error) {
+        console.warn(`Could not find audio file for NFT ${nft.id}:`, error.message);
+        // Fallback URL
+        audioUrl = `/api/audio/original/${nft.audioFileId}`;
+      }
+      
+      return {
+        ...nft,
+        imageUrl: imageUrl,
+        audioUrl: audioUrl
+      };
+    }));
+
     return res.status(200).json({
-      nfts,
+      nfts: processedNfts,
       pagination: {
         total: totalCount,
         page: parseInt(page),
@@ -899,8 +1010,50 @@ exports.getCreatedNFTs = async (req, res) => {
       }
     });
 
+    // Process NFTs to include audio URLs and format image URLs
+    const processedNfts = await Promise.all(nfts.map(async (nft) => {
+      // Make sure the image URL is absolute if it's a relative path
+      let imageUrl = nft.imageUrl;
+      if (imageUrl && imageUrl.startsWith('/')) {
+        // If it's a relative path, make sure it's properly formatted
+        if (!imageUrl.startsWith('/api/')) {
+          imageUrl = `/api${imageUrl}`;
+        }
+      } else if (imageUrl && !imageUrl.startsWith('http')) {
+        // If it's not an absolute URL and doesn't start with '/', add the API prefix
+        imageUrl = `/api/images/nft/${imageUrl}`;
+      }
+      
+      // Get the actual audio file path from the database
+      let audioUrl;
+      try {
+        const audioFile = await prisma.audioFile.findUnique({
+          where: { id: nft.audioFileId }
+        });
+        
+        if (audioFile && audioFile.storagePath) {
+          // Extract the filename from the storage path
+          const filename = path.basename(audioFile.storagePath);
+          audioUrl = `/api/audio/original/${filename}`;
+        } else {
+          // Fallback if no audio file found
+          audioUrl = `/api/audio/original/${nft.audioFileId}`;
+        }
+      } catch (error) {
+        console.warn(`Could not find audio file for NFT ${nft.id}:`, error.message);
+        // Fallback URL
+        audioUrl = `/api/audio/original/${nft.audioFileId}`;
+      }
+      
+      return {
+        ...nft,
+        imageUrl: imageUrl,
+        audioUrl: audioUrl
+      };
+    }));
+
     return res.status(200).json({
-      nfts,
+      nfts: processedNfts,
       pagination: {
         total: totalCount,
         page: parseInt(page),
@@ -980,8 +1133,48 @@ exports.getNFTDetails = async (req, res) => {
       }
     }
 
+    // Make sure the image URL is absolute if it's a relative path
+    let imageUrl = nft.imageUrl;
+    if (imageUrl && imageUrl.startsWith('/')) {
+      // If it's a relative path, make sure it's properly formatted
+      if (!imageUrl.startsWith('/api/')) {
+        imageUrl = `/api${imageUrl}`;
+      }
+    } else if (imageUrl && !imageUrl.startsWith('http')) {
+      // If it's not an absolute URL and doesn't start with '/', add the API prefix
+      imageUrl = `/api/images/nft/${imageUrl}`;
+    }
+    
+    // Get the actual audio file path from the database
+    let audioUrl;
+    try {
+      const audioFile = await prisma.audioFile.findUnique({
+        where: { id: nft.audioFileId }
+      });
+      
+      if (audioFile && audioFile.storagePath) {
+        // Extract the filename from the storage path
+        const filename = path.basename(audioFile.storagePath);
+        audioUrl = `/api/audio/original/${filename}`;
+      } else {
+        // Fallback if no audio file found
+        audioUrl = `/api/audio/original/${nft.audioFileId}`;
+      }
+    } catch (error) {
+      console.warn(`Could not find audio file for NFT ${nft.id}:`, error.message);
+      // Fallback URL
+      audioUrl = `/api/audio/original/${nft.audioFileId}`;
+    }
+    
+    // Create a formatted NFT object with proper URLs
+    const formattedNft = {
+      ...nft,
+      imageUrl: imageUrl,
+      audioUrl: audioUrl
+    };
+
     return res.status(200).json({
-      nft,
+      nft: formattedNft,
       blockchainInfo
     });
   } catch (error) {
