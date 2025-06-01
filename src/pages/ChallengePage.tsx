@@ -331,7 +331,7 @@ export const ChallengePage: React.FC = () => {
             // Loading skeleton
             Array.from({ length: 6 }).map((_, index) => (
               <Card key={`skeleton-${index}`} className="overflow-hidden animate-pulse">
-                <div className="p-6">
+                <div className="p-6 flex flex-col flex-grow">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700"></div>
@@ -359,8 +359,8 @@ export const ChallengePage: React.FC = () => {
             </div>
           ) : (
             challenges.map((challenge) => (
-              <Card key={challenge.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                <div className="p-6">
+              <Card key={challenge.id} className="overflow-hidden hover:shadow-lg transition-shadow duration-300 flex flex-col h-full">
+                <div className="p-6 flex flex-col flex-grow">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <Avatar src={challenge.creator.avatar} alt={challenge.creator.displayName} />
@@ -374,17 +374,27 @@ export const ChallengePage: React.FC = () => {
                     </IconButton>
                   </div>
 
-                  <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">{challenge.title}</h2>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">{challenge.description}</p>
+                  <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white break-words">{challenge.title}</h2>
+                  <div 
+                    className="text-gray-600 dark:text-gray-400 mb-4 whitespace-pre-wrap break-words" 
+                    style={{ 
+                      overflowWrap: 'break-word', 
+                      wordWrap: 'break-word',
+                      hyphens: 'auto',
+                      maxWidth: '100%'
+                    }}
+                  >
+                    {challenge.description}
+                  </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-4 flex-grow">
                     <WaveformVisualizer audioUrl={challenge.sampleAudio} />
                     
                     <div className="flex flex-wrap gap-2">
                       {challenge.tags.map((tag) => (
                         <span
                           key={tag}
-                          className="px-3 py-1 rounded-full text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
+                          className="px-3 py-1 rounded-full text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 break-words"
                         >
                           {tag}
                         </span>
@@ -394,32 +404,43 @@ export const ChallengePage: React.FC = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                         <Users size={18} />
-                        <span>{formatNumber(challenge.participants)} participants</span>
+                        <span className="break-words">{formatNumber(challenge.participants)} participants</span>
                       </div>
                       <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                         <Trophy size={18} />
-                        <span>{challenge.reward}</span>
+                        <span className="break-words">{challenge.reward}</span>
                       </div>
                       <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                         <Clock size={18} />
-                        <span>Ends {new Date(challenge.endDate).toLocaleDateString()}</span>
+                        <span className="break-words">Ends {new Date(challenge.endDate).toLocaleDateString()}</span>
                       </div>
                       <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                         <Star size={18} />
-                        <span>{challenge.difficulty}</span>
+                        <span className="break-words">{challenge.difficulty}</span>
                       </div>
                     </div>
+                    
+                    {challenge.requirements && challenge.requirements.length > 0 && (
+                      <div className="mt-4">
+                        <h3 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">Requirements:</h3>
+                        <ul className="list-disc pl-5 space-y-1">
+                          {challenge.requirements.map((req, index) => (
+                            <li key={index} className="text-gray-600 dark:text-gray-400 break-words">{req}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="mt-6 flex justify-end items-center">
-                  <Button 
-                  className="flex items-center gap-2"
-                  onClick={() => handleOpenJoinForm(challenge.id)}
-                  disabled={challenge.isJoined}
-                  >
-                  {challenge.isJoined ? 'Joined' : 'Join the Movement'}
-                  {!challenge.isJoined && <ChevronRight size={18} />}
-                  </Button>
+                  <div className="mt-6 flex justify-center items-center w-full">
+                    <Button 
+                      className="flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-2 text-base"
+                      onClick={() => handleOpenJoinForm(challenge.id)}
+                      disabled={challenge.isJoined}
+                    >
+                      {challenge.isJoined ? 'Joined' : 'Join the Movement'}
+                      {!challenge.isJoined && <ChevronRight size={18} />}
+                    </Button>
                   </div>
                 </div>
               </Card>
@@ -481,10 +502,10 @@ export const ChallengePage: React.FC = () => {
                     Description
                   </label>
                   <textarea
-                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                    className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[150px]"
                     value={challengeFormData.description}
                     onChange={(e) => setChallengeFormData(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Describe your challenge"
+                    placeholder="Describe your challenge in detail - your full description will be displayed on the challenge card"
                   />
                 </div>
                 
