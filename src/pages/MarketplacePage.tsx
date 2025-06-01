@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Diamond,
@@ -21,7 +21,10 @@ import {
   Tag,
   Music,
   MoreHorizontal,
-  ExternalLink
+  ExternalLink,
+  AlertCircle,
+  Check,
+  Loader
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -29,8 +32,111 @@ import { Avatar } from '../components/ui/Avatar';
 import { IconButton } from '../components/ui/IconButton';
 import { WaveformVisualizer } from '../components/audio/WaveformVisualizer';
 import { formatNumber } from '../lib/utils';
+import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
-const mockNFTs = [
+// Algorand API configuration
+const ALGORAND_API_KEY = '98D9CE80660AD243893D56D9F125CD2D';
+// Use environment variable for API URL if available, otherwise use default
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+// Create axios instance with base URL
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': ALGORAND_API_KEY
+  },
+});
+
+// Add request interceptor to include auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Algorand API
+export const algorandAPI = {
+  // Connect wallet
+  connectWallet: async (userId: string, walletAddress: string) => {
+    const response = await api.post('/algorand/wallet/connect', { userId, walletAddress });
+    return response.data;
+  },
+  
+  // Get wallet info
+  getWalletInfo: async (userId: string) => {
+    const response = await api.get(`/algorand/wallet/${userId}`);
+    return response.data;
+  },
+  
+  // Create NFT
+  createNFT: async (nftData: {
+    userId: string;
+    title: string;
+    description: string;
+    audioFileId: string;
+    imageUrl: string;
+    price: number;
+    royalty?: number;
+  }) => {
+    const response = await api.post('/algorand/nft/create', nftData);
+    return response.data;
+  },
+  
+  // List NFT for sale
+  listNFTForSale: async (nftId: string, price: number, userId: string) => {
+    const response = await api.post('/algorand/nft/list', { nftId, price, userId });
+    return response.data;
+  },
+  
+  // Buy NFT
+  buyNFT: async (nftId: string, buyerId: string) => {
+    const response = await api.post('/algorand/nft/buy', { nftId, buyerId });
+    return response.data;
+  },
+  
+  // Get marketplace NFTs
+  getMarketplaceNFTs: async (page: number = 1, limit: number = 10, filter?: string, sortBy?: string) => {
+    const params = { page, limit, filter, sortBy };
+    const response = await api.get('/algorand/nft/marketplace', { params });
+    return response.data;
+  },
+  
+  // Get user's NFTs
+  getUserNFTs: async (userId: string, page: number = 1, limit: number = 10) => {
+    const params = { page, limit };
+    const response = await api.get(`/algorand/nft/user/${userId}`, { params });
+    return response.data;
+  },
+  
+  // Get NFTs created by a user
+  getCreatedNFTs: async (userId: string, page: number = 1, limit: number = 10) => {
+    const params = { page, limit };
+    const response = await api.get(`/algorand/nft/created/${userId}`, { params });
+    return response.data;
+  },
+  
+  // Get NFT details
+  getNFTDetails: async (nftId: string) => {
+    const response = await api.get(`/algorand/nft/${nftId}`);
+    return response.data;
+  },
+  
+  // Like NFT
+  likeNFT: async (nftId: string, userId: string) => {
+    const response = await api.post('/algorand/nft/like', { nftId, userId });
+    return response.data;
+  }
+};
+
+// Initial NFTs data
+const initialNFTs = [
   {
     id: '1',
     title: 'Morgan Freeman Narration',
@@ -101,12 +207,14 @@ const mockNFTs = [
 ];
 
 interface NFTCardProps {
-  nft: typeof mockNFTs[0];
+  nft: NFT;
   onLike: (nftId: string) => void;
   layout?: 'grid' | 'list';
+  wallet: WalletState;
+  onBuy: (nft: NFT) => void;
 }
 
-const NFTCard: React.FC<NFTCardProps> = ({ nft, onLike, layout = 'grid' }) => {
+const NFTCard: React.FC<NFTCardProps> = ({ nft, onLike, layout = 'grid', wallet, onBuy }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -259,7 +367,11 @@ const NFTCard: React.FC<NFTCardProps> = ({ nft, onLike, layout = 'grid' }) => {
               {showDetails ? 'Less' : 'More'}
             </button>
           </div>
-          <Button size="sm">
+          <Button 
+            size="sm"
+            onClick={() => onBuy(nft)}
+            disabled={!wallet.connected}
+          >
             Buy Now
           </Button>
         </div>
@@ -294,8 +406,57 @@ const NFTCard: React.FC<NFTCardProps> = ({ nft, onLike, layout = 'grid' }) => {
   );
 };
 
+// Wallet connection state interface
+interface WalletState {
+  connected: boolean;
+  address: string;
+  balance: number;
+  assets: any[];
+  loading: boolean;
+  error: string | null;
+}
+
+// NFT interface with Algorand fields
+interface NFT {
+  id: string;
+  title: string;
+  description: string;
+  audioUrl: string;
+  imageUrl: string;
+  creator: {
+    id: string;
+    displayName: string;
+    avatar: string;
+    isVerified: boolean;
+  };
+  owner: {
+    id: string;
+    displayName: string;
+    avatar: string;
+    isVerified: boolean;
+  };
+  price: number;
+  currency: string;
+  likes: number;
+  isLiked: boolean;
+  views: number;
+  duration: string;
+  royalty: number;
+  history: {
+    type: string;
+    price: number;
+    date: string;
+  }[];
+  tags: string[];
+  featured: boolean;
+  trending: boolean;
+  assetId?: number;
+  blockchainStatus?: string;
+}
+
 export const MarketplacePage = () => {
-  const [nfts, setNfts] = useState(mockNFTs);
+  const navigate = useNavigate();
+  const [nfts, setNfts] = useState<NFT[]>(initialNFTs);
   const [filter, setFilter] = useState('all');
   const [layout, setLayout] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
@@ -303,23 +464,241 @@ export const MarketplacePage = () => {
   const [sortBy, setSortBy] = useState<'popular' | 'newest' | 'priceAsc' | 'priceDesc'>('popular');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
 
-  const handleLike = (nftId: string) => {
-    setNfts(nfts.map(nft => {
-      if (nft.id === nftId) {
-        return {
-          ...nft,
-          isLiked: !nft.isLiked,
-          likes: nft.isLiked ? nft.likes - 1 : nft.likes + 1
-        };
+  // Wallet state
+  const [wallet, setWallet] = useState<WalletState>({
+    connected: false,
+    address: '',
+    balance: 0,
+    assets: [],
+    loading: false,
+    error: null
+  });
+
+  // User state (would normally come from auth context)
+  const [user, setUser] = useState({
+    id: 'user1',
+    displayName: 'Voice Master',
+    avatar: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600'
+  });
+
+  // NFT creation state
+  const [isCreatingNFT, setIsCreatingNFT] = useState(false);
+  const [createNFTError, setCreateNFTError] = useState<string | null>(null);
+
+  // Transaction state
+  const [transactionStatus, setTransactionStatus] = useState<{
+    loading: boolean;
+    success: boolean;
+    error: string | null;
+    message: string;
+  }>({
+    loading: false,
+    success: false,
+    error: null,
+    message: ''
+  });
+
+  // Fetch NFTs on component mount
+  useEffect(() => {
+    fetchMarketplaceNFTs();
+  }, [filter, sortBy]);
+
+  // Fetch marketplace NFTs
+  const fetchMarketplaceNFTs = async () => {
+    try {
+      const response = await algorandAPI.getMarketplaceNFTs(1, 10, filter, sortBy);
+      if (response && response.nfts) {
+        setNfts(response.nfts);
       }
-      return nft;
-    }));
+    } catch (error) {
+      console.error('Error fetching marketplace NFTs:', error);
+    }
+  };
+
+  // Connect wallet function
+  const connectWallet = async () => {
+    setWallet(prev => ({ ...prev, loading: true, error: null }));
+    
+    try {
+      // In a real implementation, this would use a wallet provider like MyAlgo or AlgoSigner
+      // For demo purposes, we'll simulate a wallet connection
+      const mockWalletAddress = 'ALGO' + Math.random().toString(36).substring(2, 15).toUpperCase();
+      
+      // Get the current user from auth context or localStorage
+      const currentUserId = user.id || localStorage.getItem('userId') || 'user1';
+      
+      // Call the API to connect wallet
+      const response = await algorandAPI.connectWallet(currentUserId, mockWalletAddress);
+      
+      if (response && response.wallet) {
+        setWallet({
+          connected: true,
+          address: response.wallet.address,
+          balance: response.wallet.balance,
+          assets: response.wallet.assets || [],
+          loading: false,
+          error: null
+        });
+        
+        // Show success message
+        setTransactionStatus({
+          loading: false,
+          success: true,
+          error: null,
+          message: 'Wallet connected successfully!'
+        });
+        
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setTransactionStatus(prev => ({ ...prev, success: false, message: '' }));
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Error connecting wallet:', error);
+      
+      // Show error message
+      setTransactionStatus({
+        loading: false,
+        success: false,
+        error: error.response?.data?.error || 'Failed to connect wallet. Please try again.',
+        message: ''
+      });
+      
+      setWallet(prev => ({
+        ...prev,
+        loading: false,
+        error: 'Failed to connect wallet. Please try again.'
+      }));
+    }
+  };
+
+  // Handle NFT like with Algorand integration
+  const handleLike = async (nftId: string) => {
+    if (!wallet.connected) {
+      setTransactionStatus({
+        loading: false,
+        success: false,
+        error: 'Please connect your wallet first',
+        message: ''
+      });
+      return;
+    }
+    
+    try {
+      const response = await algorandAPI.likeNFT(nftId, user.id);
+      
+      // Update local state
+      setNfts(nfts.map(nft => {
+        if (nft.id === nftId) {
+          return {
+            ...nft,
+            isLiked: !nft.isLiked,
+            likes: nft.isLiked ? nft.likes - 1 : nft.likes + 1
+          };
+        }
+        return nft;
+      }));
+    } catch (error) {
+      console.error('Error liking NFT:', error);
+      setTransactionStatus({
+        loading: false,
+        success: false,
+        error: 'Failed to like NFT',
+        message: ''
+      });
+    }
+  };
+
+  // Buy NFT function
+  const handleBuyNFT = async (nft: NFT) => {
+    if (!wallet.connected) {
+      setTransactionStatus({
+        loading: false,
+        success: false,
+        error: 'Please connect your wallet first',
+        message: ''
+      });
+      return;
+    }
+    
+    setTransactionStatus({
+      loading: true,
+      success: false,
+      error: null,
+      message: 'Processing your purchase...'
+    });
+    
+    try {
+      const response = await algorandAPI.buyNFT(nft.id, user.id);
+      
+      // Update transaction status
+      setTransactionStatus({
+        loading: false,
+        success: true,
+        error: null,
+        message: 'NFT purchased successfully! Transaction is being processed on the blockchain.'
+      });
+      
+      // Refresh NFTs after purchase
+      fetchMarketplaceNFTs();
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => {
+        setTransactionStatus(prev => ({ ...prev, success: false, message: '' }));
+      }, 5000);
+    } catch (error) {
+      console.error('Error buying NFT:', error);
+      setTransactionStatus({
+        loading: false,
+        success: false,
+        error: 'Failed to purchase NFT. Please try again.',
+        message: ''
+      });
+    }
+  };
+
+  // Transaction status notification
+  const TransactionNotification = () => {
+    if (!transactionStatus.loading && !transactionStatus.success && !transactionStatus.error) {
+      return null;
+    }
+    
+    return (
+      <div className={`fixed bottom-6 left-6 p-4 rounded-lg shadow-lg max-w-md z-50 ${
+        transactionStatus.error ? 'bg-red-100 dark:bg-red-900' : 
+        transactionStatus.success ? 'bg-green-100 dark:bg-green-900' : 
+        'bg-blue-100 dark:bg-blue-900'
+      }`}>
+        <div className="flex items-start">
+          <div className="flex-shrink-0">
+            {transactionStatus.error ? (
+              <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+            ) : transactionStatus.success ? (
+              <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+            ) : (
+              <Loader className="h-5 w-5 text-blue-600 dark:text-blue-400 animate-spin" />
+            )}
+          </div>
+          <div className="ml-3">
+            <p className={`text-sm font-medium ${
+              transactionStatus.error ? 'text-red-800 dark:text-red-200' : 
+              transactionStatus.success ? 'text-green-800 dark:text-green-200' : 
+              'text-blue-800 dark:text-blue-200'
+            }`}>
+              {transactionStatus.error || transactionStatus.message}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-7xl mx-auto">
-        {/* Marketplace Header */}
+        {/* Transaction notification */}
+        <TransactionNotification />
+        {/* Marketplace Header with Algorand integration */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-display font-bold text-dark-900 dark:text-white mb-2">
@@ -336,13 +715,26 @@ export const MarketplacePage = () => {
               onClick={() => setShowFilters(!showFilters)}
               aria-label="Show filters"
             />
-            <Button leftIcon={<Wallet className="h-5 w-5" />}>
-              Connect Wallet
+            <Button 
+            leftIcon={wallet.connected ? <Check className="h-5 w-5" /> : <Wallet className="h-5 w-5" />}
+            onClick={connectWallet}
+            disabled={wallet.loading}
+            >
+            {wallet.loading ? (
+            <>
+            <Loader className="h-5 w-5 animate-spin mr-2" />
+            Connecting...
+            </>
+            ) : wallet.connected ? (
+            <>Connected: {wallet.address.substring(0, 6)}...{wallet.address.substring(wallet.address.length - 4)}</>
+            ) : (
+            'Connect Wallet'
+            )}
             </Button>
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Algorand Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           <Card className="p-4 text-center">
             <Diamond className="h-6 w-6 mx-auto mb-2 text-primary-600 dark:text-primary-400" />
@@ -352,6 +744,11 @@ export const MarketplacePage = () => {
             <div className="text-sm text-dark-500 dark:text-dark-400">
               NFTs Listed
             </div>
+            {wallet.connected && (
+              <div className="mt-2 text-xs text-primary-600 dark:text-primary-400">
+                {wallet.assets.length} in your wallet
+              </div>
+            )}
           </Card>
           <Card className="p-4 text-center">
             <Wallet className="h-6 w-6 mx-auto mb-2 text-primary-600 dark:text-primary-400" />
@@ -361,6 +758,11 @@ export const MarketplacePage = () => {
             <div className="text-sm text-dark-500 dark:text-dark-400">
               Total Sales
             </div>
+            {wallet.connected && (
+              <div className="mt-2 text-xs text-primary-600 dark:text-primary-400">
+                {wallet.balance.toFixed(2)} ALGO Balance
+              </div>
+            )}
           </Card>
           <Card className="p-4 text-center">
             <TrendingUp className="h-6 w-6 mx-auto mb-2 text-primary-600 dark:text-primary-400" />
@@ -382,7 +784,7 @@ export const MarketplacePage = () => {
           </Card>
         </div>
 
-        {/* Filters */}
+        {/* Filters with Algorand-specific options */}
         <AnimatePresence>
           {showFilters && (
             <motion.div
@@ -405,9 +807,9 @@ export const MarketplacePage = () => {
                     />
                   </div>
 
-                  {/* Category Filters */}
+                  {/* Category Filters with Algorand categories */}
                   <div className="flex flex-wrap gap-2">
-                    {['all', 'celebrity', 'music', 'language', 'effects'].map((category) => (
+                    {['all', 'celebrity', 'music', 'language', 'effects', 'minted', 'trending'].map((category) => (
                       <Button
                         key={category}
                         variant={filter === category ? 'primary' : 'outline'}
@@ -509,11 +911,65 @@ export const MarketplacePage = () => {
               nft={nfts.find(nft => nft.featured)!}
               onLike={handleLike}
               layout={layout}
+              wallet={wallet}
+              onBuy={handleBuyNFT}
             />
           </div>
         )}
 
-        {/* NFT Grid */}
+        {/* Wallet Information Card - Only shown when connected */}
+        {wallet.connected && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-dark-900 dark:text-white mb-4 flex items-center gap-2">
+              <Wallet className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+              Your Wallet
+            </h2>
+            <Card className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-lg font-medium text-dark-900 dark:text-white mb-2">Wallet Details</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-dark-600 dark:text-dark-400">Address:</span>
+                      <span className="text-dark-900 dark:text-white font-mono">
+                        {wallet.address.substring(0, 8)}...{wallet.address.substring(wallet.address.length - 8)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-dark-600 dark:text-dark-400">Balance:</span>
+                      <span className="text-dark-900 dark:text-white">{wallet.balance.toFixed(4)} ALGO</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-dark-600 dark:text-dark-400">Assets:</span>
+                      <span className="text-dark-900 dark:text-white">{wallet.assets.length}</span>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-dark-900 dark:text-white mb-2">Quick Actions</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => navigate('/profile')}
+                    >
+                      View My NFTs
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => setIsCreatingNFT(true)}
+                    >
+                      Create NFT
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* NFT Grid with Algorand integration */}
         <div className={`grid gap-6 ${
           layout === 'grid'
             ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
@@ -525,6 +981,8 @@ export const MarketplacePage = () => {
               nft={nft}
               onLike={handleLike}
               layout={layout}
+              wallet={wallet}
+              onBuy={handleBuyNFT}
             />
           ))}
         </div>
@@ -540,6 +998,127 @@ export const MarketplacePage = () => {
         >
           <ArrowUp className="h-5 w-5" />
         </motion.button>
+
+        {/* NFT Creation Modal - Would be implemented as a proper modal in a real app */}
+        {isCreatingNFT && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-2xl p-6">
+              <h2 className="text-xl font-semibold text-dark-900 dark:text-white mb-4">Create Voice NFT</h2>
+              <p className="text-dark-600 dark:text-dark-400 mb-4">
+                Create a unique Voice NFT on the Algorand blockchain. Your voice transformation will be minted as a non-fungible token that can be bought, sold, and traded.
+              </p>
+              
+              {/* This would be a form in a real implementation */}
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                    Title
+                  </label>
+                  <input 
+                    type="text" 
+                    className="w-full p-2 bg-gray-100 dark:bg-dark-800 border-none rounded-lg focus:ring-2 focus:ring-primary-500"
+                    placeholder="My Amazing Voice NFT"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                    Description
+                  </label>
+                  <textarea 
+                    className="w-full p-2 bg-gray-100 dark:bg-dark-800 border-none rounded-lg focus:ring-2 focus:ring-primary-500"
+                    placeholder="Describe your voice NFT..."
+                    rows={3}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                    Price (ALGO)
+                  </label>
+                  <input 
+                    type="number" 
+                    className="w-full p-2 bg-gray-100 dark:bg-dark-800 border-none rounded-lg focus:ring-2 focus:ring-primary-500"
+                    placeholder="100"
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                    Royalty Percentage
+                  </label>
+                  <input 
+                    type="number" 
+                    className="w-full p-2 bg-gray-100 dark:bg-dark-800 border-none rounded-lg focus:ring-2 focus:ring-primary-500"
+                    placeholder="10"
+                    min="0"
+                    max="50"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                    Select Voice Transformation
+                  </label>
+                  <select className="w-full p-2 bg-gray-100 dark:bg-dark-800 border-none rounded-lg focus:ring-2 focus:ring-primary-500">
+                    <option value="">Select a voice transformation</option>
+                    <option value="1">Morgan Freeman Narration</option>
+                    <option value="2">Multi-Language Song</option>
+                  </select>
+                </div>
+              </div>
+              
+              {createNFTError && (
+                <div className="mb-4 p-3 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded-lg">
+                  {createNFTError}
+                </div>
+              )}
+              
+              <div className="flex justify-end gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsCreatingNFT(false);
+                    setCreateNFTError(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => {
+                    // This would call the createNFT function in a real implementation
+                    setTransactionStatus({
+                      loading: true,
+                      success: false,
+                      error: null,
+                      message: 'Creating your NFT...'
+                    });
+                    
+                    // Simulate NFT creation
+                    setTimeout(() => {
+                      setIsCreatingNFT(false);
+                      setTransactionStatus({
+                        loading: false,
+                        success: true,
+                        error: null,
+                        message: 'NFT created successfully! It is being minted on the Algorand blockchain.'
+                      });
+                      
+                      // Clear success message after 5 seconds
+                      setTimeout(() => {
+                        setTransactionStatus(prev => ({ ...prev, success: false, message: '' }));
+                      }, 5000);
+                    }, 2000);
+                  }}
+                >
+                  Create NFT
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

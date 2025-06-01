@@ -6,10 +6,13 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
+    "kill-server": "./killserver.sh",
+    "restart": "npm run kill-server && npm run dev",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "@prisma/client": "^5.0.0",
+    "algosdk": "^3.3.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",

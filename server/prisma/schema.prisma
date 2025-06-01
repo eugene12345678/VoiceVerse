@@ -51,6 +51,10 @@ model User {
   savedPosts          SavedPost[]
   shares              Share[]
   commentLikes        CommentLike[]
+  
+  // Algorand-related relations
+  algorandWallet      AlgorandWallet?
+  nftMarketplaceListings NFTMarketplaceListing[] @relation("NFTSeller")
 }
 
 // Existing AudioFile model
@@ -423,30 +427,40 @@ model ChallengeTag {
   @@index([tagId])
 }
 
-// NFT model
+// NFT model - Updated with Algorand fields
 model NFT {
-  id          String    @id @default(uuid())
-  title       String
-  description String    @db.Text
-  creatorId   String
-  ownerId     String
-  audioFileId String    @unique
-  imageUrl    String
-  price       Float
-  currency    String
-  royalty     Float
-  likes       Int       @default(0)
-  createdAt   DateTime  @default(now())
-  isForSale   Boolean   @default(true)
+  id                String    @id @default(uuid())
+  title             String
+  description       String    @db.Text
+  creatorId         String
+  ownerId           String
+  audioFileId       String    @unique
+  imageUrl          String
+  price             Float
+  currency          String
+  royalty           Float
+  likes             Int       @default(0)
+  createdAt         DateTime  @default(now())
+  isForSale         Boolean   @default(true)
+  
+  // New Algorand-specific fields
+  assetId           Int?      // Algorand Asset ID
+  metadata          String?   @db.Text // JSON metadata for the NFT
+  blockchainStatus  String?   // PENDING, MINTED, TRANSFERRED, etc.
   
   // Relations
-  creator     User      @relation("NFTCreator", fields: [creatorId], references: [id])
-  owner       User      @relation("NFTOwner", fields: [ownerId], references: [id])
-  nftLikes    NFTLike[]
-  transactions NFTTransaction[]
+  creator           User      @relation("NFTCreator", fields: [creatorId], references: [id])
+  owner             User      @relation("NFTOwner", fields: [ownerId], references: [id])
+  nftLikes          NFTLike[]
+  transactions      NFTTransaction[]
+  
+  // New Algorand-specific relations
+  algorandTransactions AlgorandTransaction[]
+  marketplaceListings  NFTMarketplaceListing[]
   
   @@index([creatorId])
   @@index([ownerId])
+  @@index([assetId])
 }
 
 // NFT Like model
@@ -546,4 +560,82 @@ model Analytics {
   
   @@unique([userId, date])
   @@index([userId])
+}
+
+// New Algorand-specific models
+
+// Algorand Wallet model
+model AlgorandWallet {
+  id          String    @id @default(uuid())
+  userId      String    @unique
+  address     String    @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([address])
+}
+
+// Algorand Transaction model
+model AlgorandTransaction {
+  id              String    @id @default(uuid())
+  nftId           String
+  type            AlgorandTransactionType
+  fromAddress     String
+  toAddress       String
+  amount          Float
+  status          AlgorandTransactionStatus
+  transactionHash String?
+  errorMessage    String?   @db.Text
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+  
+  // Relations
+  nft             NFT       @relation(fields: [nftId], references: [id])
+  
+  @@index([nftId])
+  @@index([fromAddress])
+  @@index([toAddress])
+  @@index([status])
+}
+
+enum AlgorandTransactionType {
+  MINT
+  TRANSFER
+  SALE
+  ROYALTY
+}
+
+enum AlgorandTransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+// NFT Marketplace Listing model
+model NFTMarketplaceListing {
+  id          String    @id @default(uuid())
+  nftId       String
+  sellerId    String
+  price       Float
+  currency    String
+  status      NFTListingStatus
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+  
+  // Relations
+  nft         NFT       @relation(fields: [nftId], references: [id])
+  seller      User      @relation("NFTSeller", fields: [sellerId], references: [id])
+  
+  @@index([nftId])
+  @@index([sellerId])
+  @@index([status])
+}
+
+enum NFTListingStatus {
+  ACTIVE
+  SOLD
+  CANCELLED
 }

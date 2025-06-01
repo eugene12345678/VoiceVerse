@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
-const authMiddleware = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const { signupValidation, loginValidation } = require('../middleware/validators');
 
 // @route   POST /api/auth/signup
@@ -17,6 +17,6 @@ router.post('/login', loginValidation, authController.login);
 // @route   GET /api/auth/me
 // @desc    Get current user
 // @access  Private
-router.get('/me', authMiddleware, authController.getCurrentUser);
+router.get('/me', authenticateToken, authController.getCurrentUser);
 
 module.exports = router;

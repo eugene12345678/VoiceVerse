@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
  * Authentication middleware
  * Verifies JWT token and adds user to request
  */
-module.exports = async (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
   // Get token from header
   const token = req.header('Authorization')?.replace('Bearer ', '');
 
@@ -42,4 +42,8 @@ module.exports = async (req, res, next) => {
       message: 'Token is not valid'
     });
   }
+};
+
+module.exports = {
+  authenticateToken
 };

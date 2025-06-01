@@ -9,6 +9,7 @@ const translationRoutes = require('./routes/translation');
 const uploadRoutes = require('./routes/upload');
 const feedRoutes = require('./routes/feed');
 const challengeRoutes = require('./routes/challenge');
+const algorandRoutes = require('./routes/algorand');
 require('dotenv').config();
 
 // Initialize Express app
@@ -34,6 +35,7 @@ app.use('/api/translation', translationRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/feed', feedRoutes);
 app.use('/api/challenges', challengeRoutes);
+app.use('/api/algorand', algorandRoutes);
 
 // Root route
 app.get('/', (req, res) => {
@@ -51,9 +53,22 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+const startServer = (port) => {
+  const server = app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+  }).on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`Port ${port} is already in use, trying port ${port + 1}`);
+      startServer(port + 1);
+    } else {
+      console.error('Server error:', err);
+    }
+  });
+  
+  return server;
+};
+
+startServer(PORT);
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {

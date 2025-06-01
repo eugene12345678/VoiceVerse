@@ -1,13 +1,16 @@
 // api.ts
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api';
+// Use environment variable for API URL if available, otherwise use default
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const ALGORAND_API_KEY = '98D9CE80660AD243893D56D9F125CD2D';
 
 // Create axios instance with base URL
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
+    'X-API-Key': ALGORAND_API_KEY
   },
 });
 
@@ -302,6 +305,92 @@ export const challengeAPI = {
   // Get user's challenge participation
   getUserChallenges: async (status: 'joined' | 'created' | 'completed' = 'joined') => {
     const response = await api.get('/challenges/user/challenges', { params: { status } });
+    return response.data;
+  }
+};
+
+// Algorand API
+export const algorandAPI = {
+  // Connect wallet
+  connectWallet: async (userId: string, walletAddress: string) => {
+    const response = await api.post('/algorand/wallet/connect', { userId, walletAddress });
+    return response.data;
+  },
+  
+  // Get wallet info
+  getWalletInfo: async (userId: string) => {
+    const response = await api.get(`/algorand/wallet/${userId}`);
+    return response.data;
+  },
+  
+  // Create NFT
+  createNFT: async (nftData: {
+    userId: string;
+    title: string;
+    description: string;
+    audioFileId: string;
+    imageUrl: string;
+    price: number;
+    royalty?: number;
+  }) => {
+    const response = await api.post('/algorand/nft/create', nftData);
+    return response.data;
+  },
+  
+  // List NFT for sale
+  listNFTForSale: async (nftId: string, price: number, userId: string) => {
+    const response = await api.post('/algorand/nft/list', { nftId, price, userId });
+    return response.data;
+  },
+  
+  // Buy NFT
+  buyNFT: async (nftId: string, buyerId: string) => {
+    const response = await api.post('/algorand/nft/buy', { nftId, buyerId });
+    return response.data;
+  },
+  
+  // Get marketplace NFTs
+  getMarketplaceNFTs: async (page: number = 1, limit: number = 10, filter?: string, sortBy?: string) => {
+    const params = { page, limit, filter, sortBy };
+    const response = await api.get('/algorand/nft/marketplace', { params });
+    return response.data;
+  },
+  
+  // Get user's NFTs
+  getUserNFTs: async (userId: string, page: number = 1, limit: number = 10) => {
+    const params = { page, limit };
+    const response = await api.get(`/algorand/nft/user/${userId}`, { params });
+    return response.data;
+  },
+  
+  // Get NFTs created by a user
+  getCreatedNFTs: async (userId: string, page: number = 1, limit: number = 10) => {
+    const params = { page, limit };
+    const response = await api.get(`/algorand/nft/created/${userId}`, { params });
+    return response.data;
+  },
+  
+  // Get NFT details
+  getNFTDetails: async (nftId: string) => {
+    const response = await api.get(`/algorand/nft/${nftId}`);
+    return response.data;
+  },
+  
+  // Like NFT
+  likeNFT: async (nftId: string, userId: string) => {
+    const response = await api.post('/algorand/nft/like', { nftId, userId });
+    return response.data;
+  },
+  
+  // Get transaction history for an NFT
+  getNFTTransactionHistory: async (nftId: string) => {
+    const response = await api.get(`/algorand/nft/${nftId}/transactions`);
+    return response.data;
+  },
+  
+  // Get transaction status
+  getTransactionStatus: async (transactionId: string) => {
+    const response = await api.get(`/algorand/transaction/${transactionId}`);
     return response.data;
   }
 };

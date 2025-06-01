@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const voiceController = require('../controllers/voiceController');
-const authMiddleware = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const { check } = require('express-validator');
 
 // @route   GET /api/voice/effects
@@ -12,12 +12,12 @@ router.get('/effects', voiceController.getVoiceEffects);
 // @route   GET /api/voice/models
 // @desc    Get all voice models for a user
 // @access  Private
-router.get('/models', authMiddleware, voiceController.getUserVoiceModels);
+router.get('/models', authenticateToken, voiceController.getUserVoiceModels);
 
 // @route   GET /api/voice/elevenlabs/voices
 // @desc    Get available ElevenLabs voices
 // @access  Private
-router.get('/elevenlabs/voices', authMiddleware, voiceController.getElevenLabsVoices);
+router.get('/elevenlabs/voices', authenticateToken, voiceController.getElevenLabsVoices);
 
 // @route   POST /api/voice/clone
 // @desc    Clone a voice using ElevenLabs
@@ -25,7 +25,7 @@ router.get('/elevenlabs/voices', authMiddleware, voiceController.getElevenLabsVo
 router.post(
   '/clone',
   [
-    authMiddleware,
+    authenticateToken,
     check('name', 'Name is required').not().isEmpty(),
     check('audioFileId', 'Audio file ID is required').not().isEmpty()
   ],
@@ -38,7 +38,7 @@ router.post(
 router.post(
   '/transform',
   [
-    authMiddleware,
+    authenticateToken,
     check('audioFileId', 'Audio file ID is required').not().isEmpty(),
     check('effectId', 'Effect ID is required').not().isEmpty()
   ],
@@ -48,11 +48,11 @@ router.post(
 // @route   GET /api/voice/transform/:id
 // @desc    Get transformation status
 // @access  Private
-router.get('/transform/:id', authMiddleware, voiceController.getTransformationStatus);
+router.get('/transform/:id', authenticateToken, voiceController.getTransformationStatus);
 
 // @route   GET /api/voice/history
 // @desc    Get user's transformation history
 // @access  Private
-router.get('/history', authMiddleware, voiceController.getTransformationHistory);
+router.get('/history', authenticateToken, voiceController.getTransformationHistory);
 
 module.exports = router;
