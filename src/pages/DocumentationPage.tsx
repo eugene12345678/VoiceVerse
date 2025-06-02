@@ -4,7 +4,6 @@ import {
   
   Book,
   
-  FileText,
   Copy,
   Check,
   ChevronRight,
