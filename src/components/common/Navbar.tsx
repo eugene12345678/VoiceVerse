@@ -182,12 +182,20 @@ export const Navbar = () => {
               </div>
             ) : (
               <div className="hidden md:flex items-center gap-2">
-                <Button variant="outline" size="sm" as={Link} to="/login">
-                  Log In
-                </Button>
-                <Button size="sm" as={Link} to="/signup">
-                  Sign Up
-                </Button>
+                 <Link 
+                    to="/login" 
+                    onClick={closeMobileMenu}
+                    className=" inline-flex items-center justify-center px-4 py-2 font-medium border border-gray-300 dark:border-dark-700 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-800 transition-colors text-center"
+                  >
+                   Log In
+                  </Link>
+                  <Link 
+                   to="/signup" 
+                   onClick={closeMobileMenu}
+                   className=" inline-flex items-center justify-center px-4 py-2 font-medium border border-gray-300 dark:border-dark-700 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-800 transition-colors text-center"
+                  >
+                   Sign Up
+                  </Link>
               </div>
             )}
 
@@ -239,12 +247,20 @@ export const Navbar = () => {
                 </button>
               ) : (
                 <div className="flex flex-col gap-2 p-4 mt-2">
-                  <Button variant="outline" fullWidth as={Link} to="/login" onClick={closeMobileMenu}>
-                    Log In
-                  </Button>
-                  <Button fullWidth as={Link} to="/signup" onClick={closeMobileMenu}>
-                    Sign Up
-                  </Button>
+                  <Link 
+                    to="/login" 
+                    onClick={closeMobileMenu}
+                    className="w-full inline-flex items-center justify-center px-4 py-2 font-medium border border-gray-300 dark:border-dark-700 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-800 transition-colors text-center"
+                  >
+                   Log In
+                  </Link>
+                  <Link 
+                   to="/signup" 
+                   onClick={closeMobileMenu}
+                   className="w-full inline-flex items-center justify-center px-4 py-2 font-medium border border-gray-300 dark:border-dark-700 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-800 transition-colors text-center"
+                  >
+                   Sign Up
+                  </Link>
                 </div>
               )}
             </div>
