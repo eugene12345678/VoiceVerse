@@ -37,3 +37,47 @@ exports.resetPasswordValidation = [
   // check('password', 'Password must contain at least one number').matches(/[0-9]/),
   // check('password', 'Password must contain at least one special character').matches(/[^A-Za-z0-9]/)
 ];
+
+// Contact form validation
+exports.validateContactForm = [
+  check('name')
+    .trim()
+    .isLength({ min: 2 })
+    .withMessage('Name must be at least 2 characters'),
+  
+  check('email')
+    .trim()
+    .isEmail()
+    .withMessage('Please provide a valid email address'),
+  
+  check('subject')
+    .trim()
+    .isLength({ min: 5 })
+    .withMessage('Subject must be at least 5 characters'),
+  
+  check('message')
+    .trim()
+    .isLength({ min: 20 })
+    .withMessage('Message must be at least 20 characters'),
+  
+  check('priority')
+    .optional()
+    .isIn(['LOW', 'MEDIUM', 'HIGH'])
+    .withMessage('Priority must be LOW, MEDIUM, or HIGH'),
+  
+  check('type')
+    .optional()
+    .isIn(['GENERAL', 'TECHNICAL', 'BILLING', 'SUPPORT', 'FEEDBACK', 'OTHER'])
+    .withMessage('Invalid message type'),
+    
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ 
+        success: false, 
+        errors: errors.array() 
+      });
+    }
+    next();
+  }
+];

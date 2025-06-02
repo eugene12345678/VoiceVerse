@@ -12,6 +12,7 @@ const feedRoutes = require('./routes/feed');
 const challengeRoutes = require('./routes/challenge');
 const algorandRoutes = require('./routes/algorand');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
+const contactRoutes = require('./routes/contactRoutes');
 require('dotenv').config();
 
 // Initialize Express app
@@ -65,6 +66,7 @@ app.use('/api/feed', feedRoutes);
 app.use('/api/challenges', challengeRoutes);
 app.use('/api/algorand', algorandRoutes);
 app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/contact', contactRoutes);
 
 // Special handling for Stripe webhook endpoint
 app.post('/api/subscription/webhook', express.raw({ type: 'application/json' }), (req, res) => {

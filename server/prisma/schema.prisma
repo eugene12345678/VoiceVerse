@@ -66,6 +66,11 @@ model User {
   billingInfo         BillingInfo?
   paymentMethods      PaymentMethod[]
   promoCodeUsages     PromoCodeUsage[]
+  
+  // Contact-related relations
+  contactMessages     ContactMessage[]
+  aiAssistantChats    AIAssistantChat[]
+  calendlyEvents      CalendlyEvent[]
 }
 
 // Existing AudioFile model
@@ -665,6 +670,106 @@ enum NFTListingStatus {
   ACTIVE
   SOLD
   CANCELLED
+}
+
+// Contact-related models
+
+model ContactMessage {
+  id          String    @id @default(uuid())
+  name        String
+  email       String
+  subject     String
+  message     String    @db.Text
+  priority    ContactPriority @default(MEDIUM)
+  type        ContactType @default(GENERAL)
+  status      ContactStatus @default(NEW)
+  timestamp   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Optional fields
+  attachments Json?     // Array of file paths or URLs
+  responseId  String?   // ID of the response message if any
+  userId      String?   // If the message is from a logged-in user
+  
+  // Relations
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  response    ContactResponse? @relation("MessageResponse")
+  
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+}
+
+model ContactResponse {
+  id          String    @id @default(uuid())
+  messageId   String    @unique
+  responderName String?
+  responderEmail String?
+  content     String    @db.Text
+  timestamp   DateTime  @default(now())
+  
+  // Relations
+  message     ContactMessage @relation("MessageResponse", fields: [messageId], references: [id], onDelete: Cascade)
+}
+
+enum ContactPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ContactType {
+  GENERAL
+  TECHNICAL
+  BILLING
+  SUPPORT
+  FEEDBACK
+  OTHER
+}
+
+enum ContactStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model AIAssistantChat {
+  id          String    @id @default(uuid())
+  sessionId   String    @unique
+  userId      String?
+  messages    Json      // Array of message objects with role, content, timestamp
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+}
+
+model CalendlyEvent {
+  id          String    @id @default(uuid())
+  eventType   String    // video_call, demo, etc.
+  eventName   String
+  inviteeEmail String
+  inviteeName String
+  startTime   DateTime
+  endTime     DateTime
+  status      String    // scheduled, canceled, etc.
+  calendlyEventUri String @unique
+  createdAt   DateTime  @default(now())
+  
+  // Optional fields
+  userId      String?
+  notes       String?   @db.Text
+  
+  // Relations
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([eventType])
+  @@index([status])
 }
 
 // Subscription-related models
