@@ -8,6 +8,7 @@ export const Footer = () => {
     <footer className="bg-white dark:bg-dark-950 border-t border-gray-200 dark:border-dark-800 pt-12 pb-8">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          
           {/* Brand column */}
           <div className="col-span-1 md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4">
@@ -22,56 +23,28 @@ export const Footer = () => {
               Transform your voice into magic with cutting-edge AI technology.
             </p>
             <div className="flex gap-4">
-              <motion.a 
-                href="https://twitter.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-dark-500 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-              >
+              <motion.a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="text-dark-500 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
                 <Twitter size={20} />
               </motion.a>
-              <motion.a 
-                href="https://instagram.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-dark-500 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-              >
+              <motion.a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="text-dark-500 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
                 <Instagram size={20} />
               </motion.a>
-              <motion.a 
-                href="https://github.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-dark-500 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-              >
+              <motion.a href="https://github.com" target="_blank" rel="noopener noreferrer" className="text-dark-500 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
                 <Github size={20} />
               </motion.a>
-              <motion.a 
-                href="https://linkedin.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-dark-500 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-              >
+              <motion.a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="text-dark-500 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }}>
                 <Linkedin size={20} />
               </motion.a>
             </div>
           </div>
 
-          {/* Links columns */}
+          {/* Product column */}
           <div className="col-span-1">
             <h6 className="font-semibold text-dark-900 dark:text-white mb-4">Product</h6>
             <ul className="space-y-2">
               {['Features', 'Pricing', 'Voice Studio', 'NFT Marketplace', 'API'].map((item) => (
                 <li key={item}>
-                  <Link to="#" className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors">
+                  <Link to={`/${item.toLowerCase().replace(/ /g, '-')}`} className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors">
                     {item}
                   </Link>
                 </li>
@@ -79,12 +52,13 @@ export const Footer = () => {
             </ul>
           </div>
 
+          {/* Company column */}
           <div className="col-span-1">
             <h6 className="font-semibold text-dark-900 dark:text-white mb-4">Company</h6>
             <ul className="space-y-2">
               {['About', 'Team', 'Careers', 'Blog', 'Press'].map((item) => (
                 <li key={item}>
-                  <Link to="#" className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors">
+                  <Link to={`/${item.toLowerCase().replace(/ /g, '-')}`} className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors">
                     {item}
                   </Link>
                 </li>
@@ -92,6 +66,7 @@ export const Footer = () => {
             </ul>
           </div>
 
+          {/* Support column */}
           <div className="col-span-1">
             <h6 className="font-semibold text-dark-900 dark:text-white mb-4">Support</h6>
             <ul className="space-y-2">
@@ -103,7 +78,7 @@ export const Footer = () => {
               </li>
               {['Help Center', 'Documentation', 'Community', 'Privacy', 'Terms'].map((item) => (
                 <li key={item}>
-                  <Link to="#" className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors">
+                  <Link to={`/${item.toLowerCase().replace(/ /g, '-')}`} className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors">
                     {item}
                   </Link>
                 </li>
@@ -111,7 +86,8 @@ export const Footer = () => {
             </ul>
           </div>
         </div>
-        
+
+        {/* Footer bottom */}
         <div className="border-t border-gray-200 dark:border-dark-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
           <p className="text-dark-500 dark:text-dark-400 text-sm mb-4 md:mb-0">
             © {new Date().getFullYear()} VoiceVerse. All rights reserved.

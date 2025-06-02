@@ -21,6 +21,16 @@ import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { initializeTheme } from './store/themeStore';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { BlogPage } from './pages/BlogPage';
+import { AboutPage } from './pages/AboutPage';
+import { TeamPage } from './pages/TeamPage';
+import { PrivacyPage } from './pages/PrivacyPage';
+import { TermsPage } from './pages/TermsPage';
+import { HelpCenterPage } from './pages/HelpCenterPage';
+import { CommunityPage } from './pages/CommunityPage';
+import { DocumentationPage } from './pages/DocumentationPage';
+import { ApiReferencePage } from './pages/ApiReferencePage';
+
 
 // Initialize theme on app load
 initializeTheme();
@@ -57,18 +67,28 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <Router>
         <Routes>
-          {/* Auth routes - no layout */}
+          
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+
           
           {/* All other routes with layout */}
           <Route element={<Layout />}>
             {/* Public routes */}
             <Route index element={<HomePage />} />
             <Route path="contact" element={<ContactPage />} />
-            
+            <Route path="blog" element={<BlogPage />} />
+            <Route path="about" element={<AboutPage />} />
+            <Route path="team" element={<TeamPage />} />
+            <Route path="privacy" element={<PrivacyPage />} />
+            <Route path="terms" element={<TermsPage />} />
+            <Route path="help" element={<HelpCenterPage />} />
+            <Route path="community" element={<CommunityPage />} />
+            <Route path="docs" element={<DocumentationPage />} />
+            <Route path="api" element={<ApiReferencePage />} />
+
             {/* Protected routes */}
             <Route path="studio" element={
               <ProtectedRoute>

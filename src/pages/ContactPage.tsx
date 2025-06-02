@@ -113,39 +113,26 @@ const supportStats = [
   { label: 'Active Users', value: '50K+', icon: <Users /> }
 ];
 
-// Calendly access token - hardcoded for now, should be moved to environment variables
-const CALENDLY_ACCESS_TOKEN = 'eyJraWQiOiIxY2UxZTEzNjE3ZGNmNzY2YjNjZWJjY2Y4ZGM1YmFmYThhNjVlNjg0MDIzZjdjMzJiZTgzNDliMjM4MDEzNWI0IiwidHlwIjoiUEFUIiwiYWxnIjoiRVMyNTYifQ.eyJpc3MiOiJodHRwczovL2F1dGguY2FsZW5kbHkuY29tIiwiaWF0IjoxNzQ4Nzc4NTE5LCJqdGkiOiJiYjk5OTNkOS1iZjZhLTQxYmQtOTczZC0xNDhlNzA4ZDliOGQiLCJ1c2VyX3V1aWQiOiJlOWY4NDNhMi1hMzI2LTRhMzMtYTlmYy1jMmQ1MDYyNjFlOWMifQ.1PadJP0zg3UaMe8O-USZ---voxgfpHRBp3bn_e6ggZJPA6PWhv0M0MDSJwfDMSfZrSS9jERts-pqmPxseZ73Vg'; // Your Calendly access token if available
+// Calendly configuration
+// Use a valid Calendly URL - this should be your actual Calendly scheduling page
+const CALENDLY_MEETING_URL = 'https://calendly.com/eugene-mathenge/30min'; // Replace with your actual Calendly URL
+const CALENDLY_DEMO_URL = 'https://calendly.com/eugene-mathenge/30min'; // Replace with your actual demo URL
 
 // Load Calendly script
 const loadCalendlyScript = () => {
+  // Remove any existing Calendly scripts to avoid duplicates
+  const existingScript = document.querySelector('script[src*="calendly.com/assets/external/widget.js"]');
+  if (existingScript) {
+    existingScript.remove();
+  }
+
   const script = document.createElement('script');
   script.src = 'https://assets.calendly.com/assets/external/widget.js';
   script.async = true;
   script.onload = () => {
-    console.log('Calendly script loaded');
-    // Initialize Calendly with access token if available
-    if (window.Calendly && CALENDLY_ACCESS_TOKEN) {
-      window.Calendly.initInlineWidget({
-        url: 'https://calendly.com/voiceverse/support-call',
-        parentElement: document.querySelector('.calendly-inline-widget'),
-        prefill: {},
-        utm: {}
-      });
-    }
-    
-    // Always set loaded state to true
-    if (window.Calendly) {
-      // Use setTimeout to ensure the widget has time to initialize
-      setTimeout(() => {
-        // Use a function reference check to avoid the ReferenceError
-        try {
-          setCalendlyLoaded(true);
-        } catch (error) {
-          console.log('Calendly loaded but state setter not available yet');
-        }
-      }, 500);
-    }
+    console.log('Calendly script loaded successfully');
   };
+  
   document.body.appendChild(script);
   
   return () => {
@@ -153,6 +140,33 @@ const loadCalendlyScript = () => {
       document.body.removeChild(script);
     }
   };
+};
+
+// Initialize Calendly widget when needed
+const initCalendlyWidget = (containerSelector: string) => {
+  if (!window.Calendly) {
+    console.warn('Calendly not loaded yet');
+    return false;
+  }
+  
+  const container = document.querySelector(containerSelector);
+  if (!container) {
+    console.warn(`Container ${containerSelector} not found`);
+    return false;
+  }
+  
+  try {
+    window.Calendly.initInlineWidget({
+      url: CALENDLY_MEETING_URL,
+      parentElement: container,
+      prefill: {},
+      utm: {}
+    });
+    return true;
+  } catch (error) {
+    console.error('Error initializing Calendly widget:', error);
+    return false;
+  }
 };
 
 // Declare Calendly on window object for TypeScript
@@ -201,8 +215,45 @@ export const ContactPage = () => {
   // Load Calendly script when component mounts
   useEffect(() => {
     const cleanup = loadCalendlyScript();
-    return cleanup;
+    
+    // Set a timeout to check if Calendly is loaded
+    const checkCalendlyLoaded = setInterval(() => {
+      if (window.Calendly) {
+        setCalendlyLoaded(true);
+        clearInterval(checkCalendlyLoaded);
+        console.log('Calendly is available in the window object');
+      }
+    }, 500);
+    
+    // Set a timeout to stop checking after 10 seconds to prevent infinite checking
+    const timeoutId = setTimeout(() => {
+      if (!window.Calendly) {
+        console.warn('Calendly failed to load after 10 seconds');
+        clearInterval(checkCalendlyLoaded);
+        // We'll keep calendlyLoaded as false to show alternative booking options
+      }
+    }, 10000);
+    
+    // Clean up interval and timeout
+    return () => {
+      cleanup();
+      clearInterval(checkCalendlyLoaded);
+      clearTimeout(timeoutId);
+    };
   }, []);
+  
+  // Initialize Calendly widget when the modal is opened
+  useEffect(() => {
+    if (selectedSupport === 'video' && calendlyLoaded) {
+      // Short delay to ensure the DOM element is ready
+      setTimeout(() => {
+        const initialized = initCalendlyWidget('.calendly-inline-widget');
+        if (initialized) {
+          console.log('Calendly widget initialized successfully');
+        }
+      }, 100);
+    }
+  }, [selectedSupport, calendlyLoaded]);
   
   // Handle file uploads
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
@@ -556,7 +607,15 @@ export const ContactPage = () => {
                         window.location.href = 'tel:+254700581615';
                       } else if (option.type === 'video') {
                         // Open Calendly modal
-                        setSelectedSupport('video');
+                        // Try to use Calendly popup first (more reliable than inline widget)
+                        if (window.Calendly) {
+                          window.Calendly.initPopupWidget({
+                            url: CALENDLY_MEETING_URL
+                          });
+                        } else {
+                          // Fallback to modal if Calendly isn't loaded yet
+                          setSelectedSupport('video');
+                        }
                       }
                     }}
                   >
@@ -973,8 +1032,15 @@ export const ContactPage = () => {
                     if (option.title === 'AI Assistant') {
                       setShowAIChat(true);
                     } else if (option.title === 'Schedule a Demo') {
-                      // Open Calendly for demo
-                      window.open('https://calendly.com/voiceverse/product-demo', '_blank');
+                      // Try to use Calendly popup first (more reliable)
+                      if (window.Calendly) {
+                        window.Calendly.initPopupWidget({
+                          url: CALENDLY_DEMO_URL
+                        });
+                      } else {
+                        // Fallback to new tab if Calendly isn't loaded yet
+                        window.open(CALENDLY_DEMO_URL, '_blank');
+                      }
                     } else if (option.title === 'Developer Support') {
                       // Show docs component
                       setShowDocs(true);
@@ -998,8 +1064,15 @@ export const ContactPage = () => {
                       if (option.title === 'AI Assistant') {
                         setShowAIChat(true);
                       } else if (option.title === 'Schedule a Demo') {
-                        // Open Calendly for demo
-                        window.open('https://calendly.com/voiceverse/product-demo', '_blank');
+                        // Try to use Calendly popup first (more reliable)
+                        if (window.Calendly) {
+                          window.Calendly.initPopupWidget({
+                            url: CALENDLY_DEMO_URL
+                          });
+                        } else {
+                          // Fallback to new tab if Calendly isn't loaded yet
+                          window.open(CALENDLY_DEMO_URL, '_blank');
+                        }
                       } else if (option.title === 'Developer Support') {
                         // Show docs component
                         setShowDocs(true);
@@ -1104,22 +1177,52 @@ export const ContactPage = () => {
                 )}
                 
                 {selectedSupport === 'video' && (
-                  <div className="text-dark-600 dark:text-dark-400 mb-4">
-                    Choose a convenient time for a video call with our support team.
-                  </div>
+                  <>
+                    <div className="text-dark-600 dark:text-dark-400 mb-4">
+                      Choose a convenient time for a video call with our support team.
+                    </div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                      If the calendar doesn't load, you can also 
+                      <Button 
+                        variant="link" 
+                        className="px-1 text-primary-600 dark:text-primary-400"
+                        onClick={() => window.open(CALENDLY_MEETING_URL, '_blank')}
+                      >
+                        schedule directly here
+                      </Button>.
+                    </div>
+                  </>
                 )}
                 
                 {selectedSupport === 'video' ? (
-                  <div>
+                  <div className="relative">
                     <div 
                       className="calendly-inline-widget" 
-                      data-url="https://calendly.com/voiceverse/support-call"
+                      data-url={CALENDLY_MEETING_URL}
                       style={{ minWidth: '320px', height: '580px' }}
                     ></div>
                     {!calendlyLoaded && (
-                      <div className="flex flex-col items-center justify-center h-[580px] bg-gray-50 dark:bg-gray-800 rounded-md">
+                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-md">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
                         <p className="text-gray-600 dark:text-gray-300">Loading calendar...</p>
+                      </div>
+                    )}
+                    
+                    {/* Fallback option if Calendly doesn't load */}
+                    {calendlyLoaded && (
+                      <div className="mt-4 text-center">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                          Having trouble with the calendar?
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            window.open(CALENDLY_MEETING_URL, '_blank');
+                          }}
+                        >
+                          Open in New Tab
+                        </Button>
                       </div>
                     )}
                   </div>
