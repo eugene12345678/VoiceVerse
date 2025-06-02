@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+
+import React, { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageCircle,
@@ -23,7 +24,8 @@ import {
   Shield,
   Building2,
   MapPin,
-  X
+  X,
+  Paperclip
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -31,7 +33,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Avatar } from '../components/ui/Avatar';
+import ChatBot from '../components/ChatBot';
+import ViewDocs from '../components/ViewDocs';
 
+// Frontend validation schema
 const contactSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Invalid email address'),
@@ -41,6 +46,32 @@ const contactSchema = z.object({
   type: z.enum(['general', 'technical', 'billing', 'other']),
   attachments: z.any().optional()
 });
+
+// Backend expects these values in uppercase
+const priorityMap = {
+  'low': 'LOW',
+  'medium': 'MEDIUM',
+  'high': 'HIGH'
+};
+
+const typeMap = {
+  'general': 'GENERAL',
+  'technical': 'TECHNICAL',
+  'billing': 'BILLING',
+  'other': 'OTHER'
+};
+
+// Maximum file size (5MB)
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+// Allowed file types
+const ALLOWED_FILE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+];
 
 type ContactFormData = z.infer<typeof contactSchema>;
 
@@ -82,31 +113,90 @@ const supportStats = [
   { label: 'Active Users', value: '50K+', icon: <Users /> }
 ];
 
+// Calendly access token - hardcoded for now, should be moved to environment variables
+const CALENDLY_ACCESS_TOKEN = 'eyJraWQiOiIxY2UxZTEzNjE3ZGNmNzY2YjNjZWJjY2Y4ZGM1YmFmYThhNjVlNjg0MDIzZjdjMzJiZTgzNDliMjM4MDEzNWI0IiwidHlwIjoiUEFUIiwiYWxnIjoiRVMyNTYifQ.eyJpc3MiOiJodHRwczovL2F1dGguY2FsZW5kbHkuY29tIiwiaWF0IjoxNzQ4Nzc4NTE5LCJqdGkiOiJiYjk5OTNkOS1iZjZhLTQxYmQtOTczZC0xNDhlNzA4ZDliOGQiLCJ1c2VyX3V1aWQiOiJlOWY4NDNhMi1hMzI2LTRhMzMtYTlmYy1jMmQ1MDYyNjFlOWMifQ.1PadJP0zg3UaMe8O-USZ---voxgfpHRBp3bn_e6ggZJPA6PWhv0M0MDSJwfDMSfZrSS9jERts-pqmPxseZ73Vg'; // Your Calendly access token if available
+
 // Load Calendly script
 const loadCalendlyScript = () => {
   const script = document.createElement('script');
   script.src = 'https://assets.calendly.com/assets/external/widget.js';
   script.async = true;
+  script.onload = () => {
+    console.log('Calendly script loaded');
+    // Initialize Calendly with access token if available
+    if (window.Calendly && CALENDLY_ACCESS_TOKEN) {
+      window.Calendly.initInlineWidget({
+        url: 'https://calendly.com/voiceverse/support-call',
+        parentElement: document.querySelector('.calendly-inline-widget'),
+        prefill: {},
+        utm: {}
+      });
+    }
+    
+    // Always set loaded state to true
+    if (window.Calendly) {
+      // Use setTimeout to ensure the widget has time to initialize
+      setTimeout(() => {
+        // Use a function reference check to avoid the ReferenceError
+        try {
+          setCalendlyLoaded(true);
+        } catch (error) {
+          console.log('Calendly loaded but state setter not available yet');
+        }
+      }, 500);
+    }
+  };
   document.body.appendChild(script);
   
   return () => {
-    document.body.removeChild(script);
+    if (document.body.contains(script)) {
+      document.body.removeChild(script);
+    }
   };
 };
+
+// Declare Calendly on window object for TypeScript
+declare global {
+  interface Window {
+    Calendly?: any;
+    testContactValidation?: any; // For debugging
+  }
+}
+
+// Validation testing function - exposed globally for debugging
+const testContactValidation = (formData: any) => {
+  const validationResults = {
+    name: formData.name && formData.name.length >= 2,
+    email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email),
+    subject: formData.subject && formData.subject.length >= 5,
+    message: formData.message && formData.message.length >= 20,
+    priority: ['LOW', 'MEDIUM', 'HIGH'].includes(formData.priority),
+    type: ['GENERAL', 'TECHNICAL', 'BILLING', 'OTHER', 'SUPPORT', 'FEEDBACK'].includes(formData.type),
+  };
+  
+  console.table(validationResults);
+  console.log('All valid:', Object.values(validationResults).every(Boolean));
+  return validationResults;
+};
+
+// Make validation testing function available globally for debugging
+if (typeof window !== 'undefined') {
+  window.testContactValidation = testContactValidation;
+}
 
 export const ContactPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [selectedSupport, setSelectedSupport] = useState<'chat' | 'call' | 'video' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showAIChat, setShowAIChat] = useState(false);
-  const [aiMessages, setAiMessages] = useState<{role: string, content: string}[]>([
-    { role: 'assistant', content: 'Hello! I\'m your VoiceVerse AI assistant. How can I help you today?' }
-  ]);
-  const [userMessage, setUserMessage] = useState('');
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [aiSessionId, setAiSessionId] = useState<string | null>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [showDocs, setShowDocs] = useState(false);
+  const [fileUploadError, setFileUploadError] = useState<string | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  
+  // Calendly integration
+  const [calendlyLoaded, setCalendlyLoaded] = useState(false);
   
   // Load Calendly script when component mounts
   useEffect(() => {
@@ -114,109 +204,40 @@ export const ContactPage = () => {
     return cleanup;
   }, []);
   
-  // Scroll to bottom of chat when messages change
-  useEffect(() => {
-    if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+  // Handle file uploads
+  const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    setFileUploadError(null);
+    
+    if (!e.target.files || e.target.files.length === 0) {
+      return;
     }
-  }, [aiMessages]);
-  
-  // Initialize AI chat session
-  const initAiChat = async () => {
-    try {
-      const response = await fetch('/api/contact/ai/init', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to initialize AI chat');
+    
+    const files = Array.from(e.target.files);
+    const validFiles: File[] = [];
+    
+    // Validate files
+    for (const file of files) {
+      // Check file size
+      if (file.size > MAX_FILE_SIZE) {
+        setFileUploadError(`File "${file.name}" exceeds the maximum size of 5MB`);
+        return;
       }
       
-      const result = await response.json();
-      setAiSessionId(result.data.sessionId);
-      setAiMessages(result.data.messages);
-    } catch (error) {
-      console.error('Error initializing AI chat:', error);
-      // Fallback to local messages if API fails
-      setAiMessages([
-        { role: 'assistant', content: 'Hello! I\'m your VoiceVerse AI assistant. How can I help you today?' }
-      ]);
+      // Check file type
+      if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+        setFileUploadError(`File "${file.name}" has an unsupported format`);
+        return;
+      }
+      
+      validFiles.push(file);
     }
+    
+    setUploadedFiles(prev => [...prev, ...validFiles]);
   };
   
-  // Send message to AI assistant
-  const sendAiMessage = async () => {
-    if (!userMessage.trim()) return;
-    
-    // Add user message to chat
-    setAiMessages(prev => [...prev, { role: 'user', content: userMessage }]);
-    setIsAiLoading(true);
-    
-    // Store message and clear input
-    const message = userMessage;
-    setUserMessage('');
-    
-    try {
-      if (aiSessionId) {
-        // Send to backend if session exists
-        const response = await fetch('/api/contact/ai/message', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            sessionId: aiSessionId,
-            message
-          }),
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to send message');
-        }
-        
-        const result = await response.json();
-        setAiMessages(result.data.messages);
-      } else {
-        // Local fallback if no session
-        // Simple keyword matching for demo purposes
-        const keywords = {
-          'password': 'To reset your password, click the "Forgot Password" link on the login page.',
-          'subscription': 'You can manage your subscription in Settings > Subscription.',
-          'refund': 'Refunds are typically processed within 3-5 business days.',
-          'voice': 'Our voice transformation technology allows you to modify your voice with various effects.',
-          'help': 'I\'m here to help! Ask me anything about VoiceVerse.',
-          'pricing': 'We offer several pricing tiers. The basic plan starts at $9.99/month.',
-          'contact': 'You can reach our support team at support@voiceverse.app or call +254 700 581 615.',
-        };
-        
-        // Find matching keywords
-        let response = 'I\'m not sure I understand. Could you please provide more details?';
-        for (const [key, value] of Object.entries(keywords)) {
-          if (message.toLowerCase().includes(key)) {
-            response = value;
-            break;
-          }
-        }
-        
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Add AI response
-        setAiMessages(prev => [...prev, { role: 'assistant', content: response }]);
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      // Add error message
-      setAiMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: 'Sorry, I encountered an error. Please try again later.' 
-      }]);
-    } finally {
-      setIsAiLoading(false);
-    }
+  // Remove a file from the uploaded files
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<ContactFormData>({
@@ -229,26 +250,201 @@ export const ContactPage = () => {
 
   const onSubmit = async (data: ContactFormData) => {
     setIsSubmitting(true);
+    setSubmitError(null);
+    
     try {
-      // Send data to backend API
-      const response = await fetch('/api/contact/submit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+      // Debug: Log the form data being submitted and validate it
+      console.log('Form data to be submitted:', data);
       
-      if (!response.ok) {
-        throw new Error('Failed to submit form');
+      // Test validation before submission
+      const formDataForValidation = {
+        name: data.name,
+        email: data.email,
+        subject: data.subject,
+        message: data.message,
+        priority: priorityMap[data.priority],
+        type: typeMap[data.type]
+      };
+      console.log('Pre-submission validation check:');
+      testContactValidation(formDataForValidation);
+      
+      // Try both FormData and JSON approaches to handle different backend configurations
+      let response;
+      
+      // APPROACH 1: FormData with proper headers (primary approach for file uploads)
+      try {
+        const formData = new FormData();
+        
+        // Add form fields to FormData with explicit field names that match backend expectations
+        // Common field name patterns: firstName/first_name vs name, emailAddress/email_address vs email
+        formData.append('name', data.name);
+        formData.append('email', data.email);
+        formData.append('subject', data.subject);
+        formData.append('message', data.message);
+        formData.append('priority', priorityMap[data.priority]); // Map to uppercase values expected by backend
+        formData.append('type', typeMap[data.type]); // Map to uppercase values expected by backend
+        
+        // Add uploaded files - handle them as an array if multiple files
+        if (uploadedFiles.length > 0) {
+          // Append each file individually with the same field name
+          uploadedFiles.forEach((file) => {
+            formData.append('attachments', file);
+          });
+          
+          // Also send a JSON string of file metadata as a backup
+          const fileMetadata = uploadedFiles.map(file => ({
+            name: file.name,
+            type: file.type,
+            size: file.size
+          }));
+          formData.append('attachmentsMetadata', JSON.stringify(fileMetadata));
+        }
+        
+        // Debug: Log FormData entries for inspection
+        console.log('FormData entries:');
+        for (const pair of (formData as any).entries()) {
+          if (pair[1] instanceof File) {
+            console.log(pair[0], `File: ${pair[1].name} (${pair[1].type}, ${pair[1].size} bytes)`);
+          } else {
+            console.log(pair[0], pair[1]);
+          }
+        }
+        
+        // Network request debugging helper
+        const debugNetworkRequest = async (url: string, options: RequestInit) => {
+          console.log(`Sending ${options.method} request to ${url}`);
+          console.log('Request headers:', options.headers);
+          
+          const response = await fetch(url, options);
+          
+          console.log(`Response status: ${response.status} ${response.statusText}`);
+          console.log('Response headers:', {
+            ...Object.fromEntries([...response.headers.entries()])
+          });
+          
+          // Clone the response so we can both log it and return it
+          const responseClone = response.clone();
+          try {
+            const responseData = await responseClone.text();
+            console.log('Response body:', responseData.substring(0, 500) + (responseData.length > 500 ? '...' : ''));
+          } catch (e) {
+            console.log('Could not read response body for logging');
+          }
+          
+          return response;
+        };
+        
+        // Send data to backend API with FormData
+        response = await debugNetworkRequest('/api/contact/submit', {
+          method: 'POST',
+          body: formData,
+          // Let the browser set the Content-Type header with boundary for FormData
+          // But add additional headers to help backend identify the request
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          }
+        });
+        
+        // If FormData approach fails with 415 Unsupported Media Type, we'll try JSON in the catch block
+        if (response.status === 415) {
+          throw new Error('Unsupported Media Type - trying JSON approach');
+        }
+      } catch (formDataError) {
+        console.warn('FormData approach failed, trying JSON payload:', formDataError);
+        
+        // APPROACH 2: JSON payload (fallback if FormData parsing fails on the backend)
+        // Create a JSON payload without file attachments
+        const jsonPayload = {
+          name: data.name,
+          email: data.email,
+          subject: data.subject,
+          message: data.message,
+          priority: priorityMap[data.priority],
+          type: typeMap[data.type],
+          // Can't include actual files in JSON, but can include metadata
+          attachmentsMetadata: uploadedFiles.map(file => ({
+            name: file.name,
+            type: file.type,
+            size: file.size
+          }))
+        };
+        
+        // Send JSON payload as fallback using our debug helper
+        response = await debugNetworkRequest('/api/contact/submit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: JSON.stringify(jsonPayload)
+        });
+        
+        // Note: This approach won't include actual file uploads
+        console.log('Used JSON fallback approach (no file uploads)');
       }
       
+      // Handle response
+      if (!response.ok) {
+        // If backend returns an error, handle it
+        let errorMessage = 'Failed to submit form';
+        try {
+          const errorData = await response.json();
+          console.log('Backend validation errors:', errorData);
+          
+          // Handle different error response formats
+          if (errorData.errors && Array.isArray(errorData.errors)) {
+            // Express-validator format: array of {param, msg, location, value}
+            errorMessage = errorData.errors.map((err: any) => {
+              // Handle the "undefined: message" pattern by using the field name if available
+              const fieldName = err.param || 'Field';
+              return `${fieldName}: ${err.msg}`;
+            }).join(', ');
+          } else if (errorData.errors && typeof errorData.errors === 'object') {
+            // Zod/Yup format: {fieldName: message}
+            errorMessage = Object.entries(errorData.errors)
+              .map(([field, message]) => `${field}: ${message}`)
+              .join(', ');
+          } else if (errorData.message) {
+            // Simple message format
+            errorMessage = errorData.message;
+          } else if (typeof errorData === 'string' && errorData.includes('undefined:')) {
+            // Special handling for the "undefined: message" pattern in the error string
+            // This fixes the specific error pattern mentioned in the task
+            errorMessage = errorData.split(',')
+              .map(part => {
+                // Extract the validation message from "undefined: message"
+                const match = part.trim().match(/undefined:\s*(.*)/);
+                if (match && match[1]) {
+                  // Try to guess the field from the validation message
+                  if (match[1].includes('Name must be')) return `name: ${match[1]}`;
+                  if (match[1].includes('email address')) return `email: ${match[1]}`;
+                  if (match[1].includes('Subject must be')) return `subject: ${match[1]}`;
+                  if (match[1].includes('Message must be')) return `message: ${match[1]}`;
+                  return match[1]; // Just return the message if we can't identify the field
+                }
+                return part.trim();
+              })
+              .join(', ');
+          }
+        } catch (jsonError) {
+          // If response is not valid JSON, use status text
+          console.error('Error parsing JSON response:', jsonError);
+          errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+      
+      // Parse successful response
       const result = await response.json();
       console.log('Form submitted successfully:', result);
       setSubmitSuccess(true);
+      setUploadedFiles([]);
       reset();
     } catch (error) {
       console.error('Error submitting form:', error);
+      setSubmitError(error instanceof Error ? error.message : 'An unexpected error occurred');
     } finally {
       setIsSubmitting(false);
     }
@@ -257,9 +453,6 @@ export const ContactPage = () => {
   const handleFileClick = () => {
     fileInputRef.current?.click();
   };
-
-  const files = watch('attachments');
-  const fileList = files ? Array.from(files as FileList) : [];
 
   return (
     <div className="min-h-screen bg-gradient-mesh dark:bg-dark-950">
@@ -647,26 +840,52 @@ export const ContactPage = () => {
                 <div>
                   <input
                     type="file"
-                    {...register('attachments')}
                     ref={fileInputRef}
                     className="hidden"
                     multiple
+                    onChange={handleFileUpload}
+                    accept={ALLOWED_FILE_TYPES.join(',')}
                   />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleFileClick}
-                  >
-                    Attach Files
-                  </Button>
-                  {fileList.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      {fileList.map((file, index) => (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleFileClick}
+                    >
+                      Attach Files
+                    </Button>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Max 5MB per file (JPG, PNG, GIF, PDF, DOC, DOCX)
+                    </span>
+                  </div>
+                  
+                  {fileUploadError && (
+                    <p className="mt-1 text-sm text-error-600">{fileUploadError}</p>
+                  )}
+                  
+                  {uploadedFiles.length > 0 && (
+                    <div className="mt-2 space-y-1 border border-gray-200 dark:border-gray-700 rounded-md p-2">
+                      <div className="text-sm font-medium mb-1">Attached Files:</div>
+                      {uploadedFiles.map((file, index) => (
                         <div
                           key={index}
-                          className="text-sm text-dark-600 dark:text-dark-400"
+                          className="flex items-center justify-between text-sm text-dark-600 dark:text-dark-400 bg-gray-50 dark:bg-gray-800 p-2 rounded"
                         >
-                          {file.name}
+                          <div className="flex items-center gap-2">
+                            <Paperclip className="h-4 w-4 text-gray-400" />
+                            <span>{file.name}</span>
+                            <span className="text-xs text-gray-500">
+                              ({(file.size / 1024).toFixed(1)} KB)
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeFile(index)}
+                            className="text-gray-400 hover:text-error-500"
+                            aria-label="Remove file"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -674,9 +893,16 @@ export const ContactPage = () => {
                 </div>
 
                 {submitSuccess && (
-                  <div className="flex items-center gap-2 text-success-600 dark:text-success-400">
+                  <div className="flex items-center gap-2 text-success-600 dark:text-success-400 p-3 bg-success-50 dark:bg-success-900/20 rounded-md">
                     <CheckCircle2 className="h-5 w-5" />
                     <span>Message sent successfully! We'll get back to you soon.</span>
+                  </div>
+                )}
+                
+                {submitError && (
+                  <div className="flex items-center gap-2 text-error-600 dark:text-error-400 p-3 bg-error-50 dark:bg-error-900/20 rounded-md">
+                    <AlertCircle className="h-5 w-5" />
+                    <span>{submitError}</span>
                   </div>
                 )}
 
@@ -746,13 +972,12 @@ export const ContactPage = () => {
                   onClick={() => {
                     if (option.title === 'AI Assistant') {
                       setShowAIChat(true);
-                      initAiChat();
                     } else if (option.title === 'Schedule a Demo') {
                       // Open Calendly for demo
                       window.open('https://calendly.com/voiceverse/product-demo', '_blank');
                     } else if (option.title === 'Developer Support') {
-                      // Redirect to docs
-                      window.open('/docs', '_blank');
+                      // Show docs component
+                      setShowDocs(true);
                     }
                   }}
                 >
@@ -772,13 +997,12 @@ export const ContactPage = () => {
                       e.stopPropagation();
                       if (option.title === 'AI Assistant') {
                         setShowAIChat(true);
-                        initAiChat();
                       } else if (option.title === 'Schedule a Demo') {
                         // Open Calendly for demo
                         window.open('https://calendly.com/voiceverse/product-demo', '_blank');
                       } else if (option.title === 'Developer Support') {
-                        // Redirect to docs
-                        window.open('/docs', '_blank');
+                        // Show docs component
+                        setShowDocs(true);
                       }
                     }}
                   >
@@ -792,99 +1016,56 @@ export const ContactPage = () => {
       </div>
 
       {/* AI Assistant Chat Modal */}
-      <AnimatePresence>
-        {showAIChat && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-            onClick={() => setShowAIChat(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white dark:bg-dark-800 rounded-xl p-0 max-w-md w-full h-[600px] max-h-[80vh] flex flex-col overflow-hidden"
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Chat Header */}
-              <div className="p-4 border-b border-gray-200 dark:border-dark-700 flex items-center justify-between bg-primary-600 text-white">
-                <div className="flex items-center gap-3">
-                  <Bot className="h-6 w-6" />
-                  <h3 className="text-lg font-semibold">VoiceVerse AI Assistant</h3>
-                </div>
-                <button 
-                  className="text-white hover:text-gray-200 transition-colors"
-                  onClick={() => setShowAIChat(false)}
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              
-              {/* Chat Messages */}
-              <div 
-                className="flex-1 overflow-y-auto p-4 space-y-4"
-                ref={chatContainerRef}
-              >
-                {aiMessages.map((msg, idx) => (
-                  <div 
-                    key={idx} 
-                    className={`flex ${msg.role === 'assistant' ? 'justify-start' : 'justify-end'}`}
-                  >
-                    <div 
-                      className={`max-w-[80%] p-3 rounded-lg ${
-                        msg.role === 'assistant' 
-                          ? 'bg-gray-100 dark:bg-dark-700 text-dark-900 dark:text-white rounded-tl-none' 
-                          : 'bg-primary-600 text-white rounded-tr-none'
-                      }`}
-                    >
-                      {msg.content}
-                    </div>
-                  </div>
-                ))}
-                {isAiLoading && (
-                  <div className="flex justify-start">
-                    <div className="max-w-[80%] p-3 rounded-lg bg-gray-100 dark:bg-dark-700 text-dark-900 dark:text-white rounded-tl-none">
-                      <div className="flex space-x-2">
-                        <div className="w-2 h-2 rounded-full bg-primary-600 animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                        <div className="w-2 h-2 rounded-full bg-primary-600 animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                        <div className="w-2 h-2 rounded-full bg-primary-600 animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Chat Input */}
-              <div className="p-4 border-t border-gray-200 dark:border-dark-700">
-                <form 
-                  className="flex gap-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    sendAiMessage();
-                  }}
-                >
-                  <input
-                    type="text"
-                    value={userMessage}
-                    onChange={(e) => setUserMessage(e.target.value)}
-                    placeholder="Type your message..."
-                    className="flex-1 px-3 py-2 bg-white dark:bg-dark-800 border border-gray-300 dark:border-dark-700 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  />
-                  <Button
-                    type="submit"
-                    disabled={isAiLoading || !userMessage.trim()}
-                    className="px-4"
-                  >
-                    <Send className="h-5 w-5" />
-                  </Button>
-                </form>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <ChatBot 
+        isOpen={showAIChat} 
+        onClose={() => setShowAIChat(false)}
+        title="VoiceVerse AI Assistant"
+        primaryColor="#6366f1"
+        darkMode={false}
+        initialMessages={[
+          { 
+            id: '1', 
+            role: 'assistant', 
+            content: 'Hello! I\'m your VoiceVerse AI assistant. How can I help you today?',
+            timestamp: new Date()
+          }
+        ]}
+        onSendMessage={async (message) => {
+          // This is a fallback implementation if the backend API is not available
+          console.log('Sending message to AI Assistant:', message);
+          
+          // Simulate API delay
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Simple keyword matching for demo purposes
+          const keywords = {
+            'password': 'To reset your password, click the "Forgot Password" link on the login page.',
+            'subscription': 'You can manage your subscription in Settings > Subscription.',
+            'refund': 'Refunds are typically processed within 3-5 business days.',
+            'voice': 'Our voice transformation technology allows you to modify your voice with various effects.',
+            'help': 'I\'m here to help! Ask me anything about VoiceVerse.',
+            'pricing': 'We offer several pricing tiers. The basic plan starts at $9.99/month.',
+            'contact': 'You can reach our support team at support@voiceverse.app or call +254 700 581 615.',
+          };
+          
+          // Find matching keywords
+          for (const [key, value] of Object.entries(keywords)) {
+            if (message.toLowerCase().includes(key)) {
+              return value;
+            }
+          }
+          
+          // Default response if no keywords match
+          return "I'm not sure I understand your question. Could you please provide more details or rephrase? You can ask about voice transformations, subscription plans, technical support, or any other VoiceVerse features.";
+        }}
+      />
+      
+      {/* Developer Documentation Modal */}
+      <ViewDocs 
+        isOpen={showDocs} 
+        onClose={() => setShowDocs(false)}
+        externalDocsUrl="https://docs.voiceverse.app"
+      />
 
       {/* Support Channel Modal */}
       <AnimatePresence>
@@ -929,11 +1110,19 @@ export const ContactPage = () => {
                 )}
                 
                 {selectedSupport === 'video' ? (
-                  <div 
-                    className="calendly-inline-widget" 
-                    data-url="https://calendly.com/voiceverse/support-call"
-                    style={{ minWidth: '320px', height: '580px' }}
-                  ></div>
+                  <div>
+                    <div 
+                      className="calendly-inline-widget" 
+                      data-url="https://calendly.com/voiceverse/support-call"
+                      style={{ minWidth: '320px', height: '580px' }}
+                    ></div>
+                    {!calendlyLoaded && (
+                      <div className="flex flex-col items-center justify-center h-[580px] bg-gray-50 dark:bg-gray-800 rounded-md">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
+                        <p className="text-gray-600 dark:text-gray-300">Loading calendar...</p>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <Button 
                     fullWidth

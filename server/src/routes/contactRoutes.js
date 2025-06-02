@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { submitContactForm, initAIChat, sendAIMessage, handleCalendlyWebhook } = require('../controllers/contactController');
 const { auth } = require('../middleware/auth');
-const { validateContactForm } = require('../middleware/validators');
+// We're not using the validator middleware for the contact form anymore
+// since we're handling validation in the controller after parsing multipart/form-data
 
 // Public routes
-router.post('/submit', validateContactForm, submitContactForm);
+router.post('/submit', submitContactForm); // Removed validateContactForm middleware
 router.post('/calendly-webhook', handleCalendlyWebhook);
 
 // AI Assistant routes

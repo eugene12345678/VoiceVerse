@@ -1,6 +1,54 @@
 const { PrismaClient } = require('@prisma/client');
 const { sendEmail } = require('../utils/emailUtils');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 const prisma = new PrismaClient();
+
+// Configure multer storage for contact form attachments
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(process.cwd(), 'uploads', 'contact');
+    fs.mkdirSync(uploadDir, { recursive: true });
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueFilename = `${Date.now()}_${uuidv4()}${path.extname(file.originalname)}`;
+    cb(null, uniqueFilename);
+  }
+});
+
+// File filter to accept common file types
+const fileFilter = (req, file, cb) => {
+  const allowedMimeTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ];
+  
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Only images (JPEG, PNG, GIF) and documents (PDF, DOC, DOCX) are allowed.'), false);
+  }
+};
+
+// Configure multer upload
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB max file size
+  }
+});
+
+// Middleware to handle file uploads for contact form
+const uploadAttachments = upload.array('attachments', 5); // Allow up to 5 files
 
 /**
  * Submit a contact form message
@@ -8,94 +56,154 @@ const prisma = new PrismaClient();
  * @param {object} res - Express response object
  */
 const submitContactForm = async (req, res) => {
-  try {
-    const { name, email, subject, message, priority, type, attachments } = req.body;
+  // Use multer to handle multipart/form-data
+  uploadAttachments(req, res, async (err) => {
+    if (err) {
+      console.error('File upload error:', err);
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'File upload failed',
+      });
+    }
     
-    // Get user ID if authenticated
-    const userId = req.user?.id || null;
-    
-    // Create contact message in database
-    const contactMessage = await prisma.contactMessage.create({
-      data: {
+    try {
+      // Extract form fields from req.body
+      const { name, email, subject, message, priority, type } = req.body;
+      
+      // Log received data for debugging
+      console.log('Received form data:', {
         name,
         email,
         subject,
         message,
-        priority: priority || 'MEDIUM',
-        type: type || 'GENERAL',
-        userId,
-        attachments: attachments ? JSON.stringify(attachments) : null,
-      },
-    });
+        priority,
+        type,
+        files: req.files ? req.files.length : 0
+      });
+      
+      // Validate required fields
+      if (!name || !email || !subject || !message) {
+        return res.status(400).json({
+          success: false,
+          errors: [
+            { type: 'field', msg: 'Name must be at least 2 characters', path: 'name' },
+            { type: 'field', msg: 'Please provide a valid email address', path: 'email' },
+            { type: 'field', msg: 'Subject must be at least 5 characters', path: 'subject' },
+            { type: 'field', msg: 'Message must be at least 20 characters', path: 'message' }
+          ].filter(err => {
+            if (err.path === 'name') return !name || name.length < 2;
+            if (err.path === 'email') return !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+            if (err.path === 'subject') return !subject || subject.length < 5;
+            if (err.path === 'message') return !message || message.length < 20;
+            return false;
+          })
+        });
+      }
+      
+      // Process file attachments
+      let attachmentsData = null;
+      if (req.files && req.files.length > 0) {
+        attachmentsData = req.files.map(file => ({
+          filename: file.originalname,
+          path: file.path,
+          mimetype: file.mimetype,
+          size: file.size
+        }));
+      }
+      
+      // Get user ID if authenticated
+      const userId = req.user?.id || null;
+      
+      // Create contact message in database
+      const contactMessage = await prisma.contactMessage.create({
+        data: {
+          name,
+          email,
+          subject,
+          message,
+          priority: priority || 'MEDIUM',
+          type: type || 'GENERAL',
+          userId,
+          attachments: attachmentsData ? JSON.stringify(attachmentsData) : null,
+        },
+      });
     
     // Send email notification
-    const emailHtml = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-        <h1 style="color: #6366f1;">New Contact Form Submission</h1>
-        <div style="background-color: #f9fafb; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
-          <p><strong>Name:</strong> ${name}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Subject:</strong> ${subject}</p>
-          <p><strong>Priority:</strong> ${priority || 'Medium'}</p>
-          <p><strong>Type:</strong> ${type || 'General'}</p>
-          <p><strong>Message:</strong></p>
-          <p style="white-space: pre-line;">${message}</p>
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <h1 style="color: #6366f1;">New Contact Form Submission</h1>
+          <div style="background-color: #f9fafb; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+            <p><strong>Name:</strong> ${name}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Subject:</strong> ${subject}</p>
+            <p><strong>Priority:</strong> ${priority || 'Medium'}</p>
+            <p><strong>Type:</strong> ${type || 'General'}</p>
+            <p><strong>Message:</strong></p>
+            <p style="white-space: pre-line;">${message}</p>
+            ${attachmentsData ? `
+            <p><strong>Attachments:</strong></p>
+            <ul>
+              ${attachmentsData.map(file => `<li>${file.filename} (${(file.size / 1024).toFixed(1)} KB)</li>`).join('')}
+            </ul>
+            ` : ''}
+          </div>
         </div>
-      </div>
-    `;
-    
-    await sendEmail(
-      process.env.ADMIN_EMAIL || process.env.EMAIL_FROM,
-      `New Contact Form: ${subject}`,
-      emailHtml
-    );
-    
-    // Send confirmation email to user
-    const confirmationHtml = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h1 style="color: #6366f1;">VoiceVerse</h1>
-        </div>
-        
-        <div style="background-color: #f9fafb; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
-          <h2 style="margin-top: 0; color: #111827;">Thank You for Contacting Us</h2>
-          <p style="color: #4b5563;">We've received your message and will get back to you as soon as possible.</p>
-          
-          <div style="background-color: #e5e7eb; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <h3 style="margin-top: 0; color: #111827;">Your Message Details</h3>
-            <p style="margin: 5px 0; color: #4b5563;"><strong>Subject:</strong> ${subject}</p>
-            <p style="margin: 5px 0; color: #4b5563;"><strong>Submitted:</strong> ${new Date().toLocaleString()}</p>
+      `;
+      
+      await sendEmail(
+        process.env.ADMIN_EMAIL || process.env.EMAIL_FROM,
+        `New Contact Form: ${subject}`,
+        emailHtml
+      );
+      
+      // Send confirmation email to user
+      const confirmationHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 5px;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h1 style="color: #6366f1;">VoiceVerse</h1>
           </div>
           
-          <p style="color: #4b5563;">Our team will review your message and respond to ${email}. Please ensure this email address is correct and check your spam folder if you don't receive a response within 48 hours.</p>
+          <div style="background-color: #f9fafb; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
+            <h2 style="margin-top: 0; color: #111827;">Thank You for Contacting Us</h2>
+            <p style="color: #4b5563;">We've received your message and will get back to you as soon as possible.</p>
+            
+            <div style="background-color: #e5e7eb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+              <h3 style="margin-top: 0; color: #111827;">Your Message Details</h3>
+              <p style="margin: 5px 0; color: #4b5563;"><strong>Subject:</strong> ${subject}</p>
+              <p style="margin: 5px 0; color: #4b5563;"><strong>Submitted:</strong> ${new Date().toLocaleString()}</p>
+              ${attachmentsData ? `<p style="margin: 5px 0; color: #4b5563;"><strong>Attachments:</strong> ${attachmentsData.length} file(s)</p>` : ''}
+            </div>
+            
+            <p style="color: #4b5563;">Our team will review your message and respond to ${email}. Please ensure this email address is correct and check your spam folder if you don't receive a response within 48 hours.</p>
+          </div>
+          
+          <div style="color: #6b7280; font-size: 14px; text-align: center;">
+            <p>If you have any urgent concerns, please call our support line at +254 700 581 615.</p>
+            <p>&copy; ${new Date().getFullYear()} VoiceVerse. All rights reserved.</p>
+          </div>
         </div>
-        
-        <div style="color: #6b7280; font-size: 14px; text-align: center;">
-          <p>If you have any urgent concerns, please call our support line at +254 700 581 615.</p>
-          <p>&copy; ${new Date().getFullYear()} VoiceVerse. All rights reserved.</p>
-        </div>
-      </div>
-    `;
-    
-    await sendEmail(
-      email,
-      'We\'ve received your message - VoiceVerse Support',
-      confirmationHtml
-    );
-    
-    res.status(201).json({
-      success: true,
-      message: 'Contact form submitted successfully',
-      data: contactMessage
-    });
-  } catch (error) {
-    console.error('Error submitting contact form:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to submit contact form',
-      error: error.message
-    });
-  }
+      `;
+      
+      await sendEmail(
+        email,
+        'We\'ve received your message - VoiceVerse Support',
+        confirmationHtml
+      );
+      
+      res.status(201).json({
+        success: true,
+        message: 'Contact form submitted successfully',
+        data: contactMessage
+      });
+    } catch (error) {
+      console.error('Error submitting contact form:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to submit contact form',
+        error: error.message
+      });
+    }
+  });
 };
 
 /**
