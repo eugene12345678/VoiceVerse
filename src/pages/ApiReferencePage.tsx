@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Code,
+  
   Terminal,
   Copy,
   Check,
   Search,
-  ExternalLink,
+  
   Key,
-  Lock,
+  
   Zap,
   Webhook,
   Database,
-  Server,
+
   MessageCircle,
   ArrowRight,
-  AlertCircle,
+
   ChevronDown,
   ChevronUp,
   Globe,
