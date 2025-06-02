@@ -13,7 +13,7 @@ import {
   
   RefreshCw,
   Clock,
-  Sparkles,
+  
   Check,
   X,
   Fingerprint,
