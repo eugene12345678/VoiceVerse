@@ -14,7 +14,7 @@ import {
   Zap,
   Webhook,
   
-  Server,
+  
   MessageCircle,
   ArrowRight,
   AlertCircle
