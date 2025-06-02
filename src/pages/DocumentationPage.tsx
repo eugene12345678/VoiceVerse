@@ -13,7 +13,7 @@ import {
  
   Zap,
   Webhook,
-  Database,
+  
   Server,
   MessageCircle,
   ArrowRight,
