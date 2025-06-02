@@ -1,14 +1,14 @@
 
-import React, { useState, useRef, useEffect, ChangeEvent } from 'react';
+import { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  MessageCircle,
+ 
   Mail,
   Phone,
   Globe,
   Send,
   Clock,
-  HelpCircle,
+  
   MessageSquare,
   AlertCircle,
   CheckCircle2,
