@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QRCodeSVG } from 'qrcode.react';
+import { useAuth } from '../lib/auth';
+import { createPaymentIntent, createSubscription, validatePromoCode } from '../lib/api/subscription';
 import {
   CreditCard,
   Gift,
@@ -40,7 +42,7 @@ import { Card } from '../components/ui/Card';
 import { toast } from 'react-hot-toast';
 
 // Initialize Stripe
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_your_key');
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_51RVYNb2LAZDhQpmh9r7lBGbE7KHulla475ZPfQtqk88kAr4VyCgfJXeoOfmAo47LKOa8tefIzRrjk6hn2scxIKQw0010zcz8NN');
 
 // Custom styling for the card elements
 const cardStyle = {
@@ -93,8 +95,16 @@ const features = [
   }
 ];
 
-const PaymentForm = ({ total, onSuccess, onError }: { 
+const PaymentForm = ({ 
+  total, 
+  priceId, 
+  promoCode, 
+  onSuccess, 
+  onError 
+}: { 
   total: number;
+  priceId: string;
+  promoCode?: string;
   onSuccess: () => void;
   onError: () => void;
 }) => {
@@ -124,12 +134,35 @@ const PaymentForm = ({ total, onSuccess, onError }: {
     setIsProcessing(true);
 
     try {
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Create a payment method
+      const cardElement = elements.getElement(CardNumberElement);
+      if (!cardElement) {
+        throw new Error('Card element not found');
+      }
+
+      const { error, paymentMethod } = await stripe.createPaymentMethod({
+        type: 'card',
+        card: cardElement,
+        billing_details: {
+          name: cardName,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // Create subscription with the payment method
+      await createSubscription(
+        priceId,
+        paymentMethod.id,
+        promoCode
+      );
+
       onSuccess();
     } catch (error) {
       console.error('Payment failed:', error);
-      setError('Payment failed. Please try again.');
+      setError(error.message || 'Payment failed. Please try again.');
       onError();
     } finally {
       setIsProcessing(false);
@@ -321,7 +354,7 @@ const PaymentForm = ({ total, onSuccess, onError }: {
         <div className="flex items-center justify-center gap-4">
           <img src="https://www.pngall.com/wp-content/uploads/2017/05/Visa-Logo-PNG-Pic.png" alt="Visa" className="h-6 opacity-50" />
           <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/MasterCard_Logo.svg/1280px-MasterCard_Logo.svg.png" alt="Mastercard" className="h-6 opacity-50" />
-          <img src="https://www.pngall.com/wp-content/uploads/2017/05/American-Express-Logo-PNG-Pic.png" alt="Amex" className="h-6 opacity-50" />
+          <img src="https://static-00.iconduck.com/assets.00/amex-icon-2048x1286-jssggdy1.png" alt="Amex" className="h-6 opacity-50" />
         </div>
       </div>
     </form>
@@ -331,12 +364,14 @@ const PaymentForm = ({ total, onSuccess, onError }: {
 export const CheckoutPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [promoCode, setPromoCode] = useState('');
   const [discount, setDiscount] = useState(0);
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [showOrderSummary, setShowOrderSummary] = useState(true);
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [showFeatures, setShowFeatures] = useState(true);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   const item: CheckoutItem = location.state?.item || {
     name: 'Pro Plan',
@@ -345,24 +380,59 @@ export const CheckoutPage = () => {
     billingPeriod: 'yearly'
   };
 
+  // This would come from your backend in a real app
+  const stripePriceId = 'price_1RVYNb2LAZDhQpmh9r7lBGbE7'; // Replace with actual Stripe price ID
+
   const TAX_RATE = 0.08;
   const subtotal = item.price;
   const taxAmount = (subtotal - discount) * TAX_RATE;
   const total = subtotal - discount + taxAmount;
 
+  // Initialize payment intent when component loads
+  useEffect(() => {
+    const initializePaymentIntent = async () => {
+      if (!user) return;
+      
+      try {
+        const { clientSecret: secret } = await createPaymentIntent(
+          stripePriceId,
+          promoCode || undefined
+        );
+        setClientSecret(secret);
+      } catch (error) {
+        console.error('Error initializing payment:', error);
+        toast.error('Failed to initialize payment. Please try again.');
+      }
+    };
+
+    initializePaymentIntent();
+  }, [user, promoCode]);
+
   const handlePromoCode = async () => {
     setIsApplyingPromo(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await validatePromoCode(promoCode);
       
-      if (promoCode.toUpperCase() === 'WELCOME20') {
-        setDiscount(subtotal * 0.2);
-        toast.success('20% discount applied successfully!');
+      if (result) {
+        if (result.discountPercent) {
+          setDiscount(subtotal * (result.discountPercent / 100));
+          toast.success(`${result.discountPercent}% discount applied successfully!`);
+        } else if (result.discountAmount) {
+          setDiscount(result.discountAmount);
+          toast.success(`${result.discountAmount} discount applied successfully!`);
+        }
+        
+        // Reinitialize payment intent with promo code
+        const { clientSecret: secret } = await createPaymentIntent(
+          stripePriceId,
+          promoCode
+        );
+        setClientSecret(secret);
       } else {
         throw new Error('Invalid promo code');
       }
     } catch (error) {
-      toast.error('Invalid promo code. Try WELCOME20 for 20% off!');
+      toast.error('Invalid promo code. Please try again.');
     } finally {
       setIsApplyingPromo(false);
     }
@@ -402,6 +472,8 @@ export const CheckoutPage = () => {
                     <Elements stripe={stripePromise}>
                       <PaymentForm
                         total={total}
+                        priceId={stripePriceId}
+                        promoCode={promoCode || undefined}
                         onSuccess={() => setPaymentStatus('success')}
                         onError={() => setPaymentStatus('error')}
                       />

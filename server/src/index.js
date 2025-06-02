@@ -11,6 +11,7 @@ const uploadRoutes = require('./routes/upload');
 const feedRoutes = require('./routes/feed');
 const challengeRoutes = require('./routes/challenge');
 const algorandRoutes = require('./routes/algorand');
+const subscriptionRoutes = require('./routes/subscriptionRoutes');
 require('dotenv').config();
 
 // Initialize Express app
@@ -63,6 +64,13 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/feed', feedRoutes);
 app.use('/api/challenges', challengeRoutes);
 app.use('/api/algorand', algorandRoutes);
+app.use('/api/subscription', subscriptionRoutes);
+
+// Special handling for Stripe webhook endpoint
+app.post('/api/subscription/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const subscriptionController = require('./controllers/subscriptionController');
+  subscriptionController.handleWebhook(req, res);
+});
 
 // Direct NFT route for backward compatibility
 app.post('/nft/create', (req, res, next) => {
