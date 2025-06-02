@@ -16,7 +16,7 @@ import {
   Crown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '../ui/Button';
+
 import { IconButton } from '../ui/IconButton';
 import { Avatar } from '../ui/Avatar';
 import { useAuthStore } from '../../store/authStore';
