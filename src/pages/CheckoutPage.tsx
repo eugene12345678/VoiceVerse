@@ -394,11 +394,17 @@ export const CheckoutPage = () => {
       if (!user) return;
       
       try {
-        const { clientSecret: secret } = await createPaymentIntent(
+        const { clientSecret: secret, priceId: actualPriceId } = await createPaymentIntent(
           stripePriceId,
           promoCode || undefined
         );
         setClientSecret(secret);
+        
+        // Update the price ID if it's different from what we sent
+        if (actualPriceId && actualPriceId !== stripePriceId) {
+          console.log(`Using actual price ID: ${actualPriceId}`);
+          // We could update the stripePriceId state here if needed
+        }
       } catch (error) {
         console.error('Error initializing payment:', error);
         toast.error('Failed to initialize payment. Please try again.');

@@ -80,7 +80,7 @@ export const getPlans = async (): Promise<Plan[]> => {
 export const createPaymentIntent = async (
   priceId: string,
   promoCode?: string
-): Promise<{ clientSecret: string; amount: number; currency: string }> => {
+): Promise<{ clientSecret: string; amount: number; currency: string; priceId?: string }> => {
   const response = await api.post('/subscription/create-payment-intent', {
     priceId,
     promoCode,

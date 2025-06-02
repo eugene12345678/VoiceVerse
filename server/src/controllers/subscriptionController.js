@@ -20,65 +20,167 @@ const {
  */
 exports.getPlans = async (req, res) => {
   try {
-    // Define plans - in a real app, these would likely come from Stripe or a database
-    const plans = [
-      {
-        id: 'pro_monthly',
-        name: 'Pro',
-        description: 'Perfect for individual creators',
-        price: 29.99,
-        interval: 'monthly',
-        features: [
-          'Access to all voice models',
-          'Priority processing',
-          'Unlimited transformations',
-          'Commercial usage rights'
-        ],
-        stripePriceId: 'price_1RVYNb2LAZDhQpmh9r7lBGbE7'  // Replace with actual Stripe price ID
-      },
-      {
-        id: 'pro_yearly',
-        name: 'Pro',
-        description: 'Perfect for individual creators',
-        price: 290,
-        interval: 'yearly',
-        features: [
-          'Access to all voice models',
-          'Priority processing',
-          'Unlimited transformations',
-          'Commercial usage rights'
-        ],
-        stripePriceId: 'price_1RVYNb2LAZDhQpmh9r7lBGbE7'  // Replace with actual Stripe price ID
-      },
-      {
-        id: 'premium_monthly',
-        name: 'Premium',
-        description: 'Ideal for professional creators',
-        price: 49.99,
-        interval: 'monthly',
-        features: [
-          'All Pro features',
-          'Team sharing (up to 5 members)',
-          'Advanced voice customization',
-          'Priority support'
-        ],
-        stripePriceId: 'price_1RVYNb2LAZDhQpmh9r7lBGbE7'  // Replace with actual Stripe price ID
-      },
-      {
-        id: 'premium_yearly',
-        name: 'Premium',
-        description: 'Ideal for professional creators',
-        price: 490,
-        interval: 'yearly',
-        features: [
-          'All Pro features',
-          'Team sharing (up to 5 members)',
-          'Advanced voice customization',
-          'Priority support'
-        ],
-        stripePriceId: 'price_1RVYNb2LAZDhQpmh9r7lBGbE7'  // Replace with actual Stripe price ID
+    // Try to get prices from Stripe
+    let stripeProducts = [];
+    let stripePrices = [];
+    
+    try {
+      // Get all active products
+      const productsResponse = await stripe.products.list({
+        active: true,
+        limit: 100
+      });
+      stripeProducts = productsResponse.data;
+      
+      // Get all active prices
+      const pricesResponse = await stripe.prices.list({
+        active: true,
+        limit: 100
+      });
+      stripePrices = pricesResponse.data;
+    } catch (error) {
+      console.error('Error fetching Stripe products/prices:', error);
+      // Continue with default plans if Stripe API fails
+    }
+    
+    // If we have Stripe products and prices, use them
+    let plans = [];
+    
+    if (stripeProducts.length > 0 && stripePrices.length > 0) {
+      // Map Stripe products and prices to our plan format
+      for (const product of stripeProducts) {
+        const productPrices = stripePrices.filter(price => price.product === product.id);
+        
+        for (const price of productPrices) {
+          if (price.recurring) {
+            const planType = price.metadata?.planType || 'PRO';
+            const interval = price.recurring.interval;
+            
+            plans.push({
+              id: `${planType.toLowerCase()}_${interval}`,
+              name: planType,
+              description: product.description || `${planType} subscription`,
+              price: price.unit_amount / 100, // Convert from cents
+              interval: interval,
+              features: product.metadata?.features ? 
+                JSON.parse(product.metadata.features) : 
+                ['Access to all voice models', 'Priority processing'],
+              stripePriceId: price.id
+            });
+          }
+        }
       }
-    ];
+    }
+    
+    // If no plans were found in Stripe, use default plans
+    if (plans.length === 0) {
+      // Get a dynamic price ID for each plan
+      let proPriceId, premiumPriceId;
+      
+      try {
+        // Create products and prices if they don't exist
+        const proProduct = await stripe.products.create({
+          name: 'VoiceVerse Pro',
+          description: 'Perfect for individual creators',
+        });
+        
+        const proPrice = await stripe.prices.create({
+          product: proProduct.id,
+          unit_amount: 29000, // $290.00
+          currency: 'usd',
+          recurring: {
+            interval: 'year',
+          },
+          metadata: {
+            planType: 'PRO'
+          }
+        });
+        proPriceId = proPrice.id;
+        
+        const premiumProduct = await stripe.products.create({
+          name: 'VoiceVerse Premium',
+          description: 'Ideal for professional creators',
+        });
+        
+        const premiumPrice = await stripe.prices.create({
+          product: premiumProduct.id,
+          unit_amount: 49000, // $490.00
+          currency: 'usd',
+          recurring: {
+            interval: 'year',
+          },
+          metadata: {
+            planType: 'PREMIUM'
+          }
+        });
+        premiumPriceId = premiumPrice.id;
+      } catch (error) {
+        console.error('Error creating Stripe products/prices:', error);
+        // Use placeholder IDs if creation fails
+        proPriceId = 'price_pro_placeholder';
+        premiumPriceId = 'price_premium_placeholder';
+      }
+      
+      // Define default plans
+      plans = [
+        {
+          id: 'pro_monthly',
+          name: 'Pro',
+          description: 'Perfect for individual creators',
+          price: 29.99,
+          interval: 'monthly',
+          features: [
+            'Access to all voice models',
+            'Priority processing',
+            'Unlimited transformations',
+            'Commercial usage rights'
+          ],
+          stripePriceId: proPriceId
+        },
+        {
+          id: 'pro_yearly',
+          name: 'Pro',
+          description: 'Perfect for individual creators',
+          price: 290,
+          interval: 'yearly',
+          features: [
+            'Access to all voice models',
+            'Priority processing',
+            'Unlimited transformations',
+            'Commercial usage rights'
+          ],
+          stripePriceId: proPriceId
+        },
+        {
+          id: 'premium_monthly',
+          name: 'Premium',
+          description: 'Ideal for professional creators',
+          price: 49.99,
+          interval: 'monthly',
+          features: [
+            'All Pro features',
+            'Team sharing (up to 5 members)',
+            'Advanced voice customization',
+            'Priority support'
+          ],
+          stripePriceId: premiumPriceId
+        },
+        {
+          id: 'premium_yearly',
+          name: 'Premium',
+          description: 'Ideal for professional creators',
+          price: 490,
+          interval: 'yearly',
+          features: [
+            'All Pro features',
+            'Team sharing (up to 5 members)',
+            'Advanced voice customization',
+            'Priority support'
+          ],
+          stripePriceId: premiumPriceId
+        }
+      ];
+    }
 
     res.status(200).json({ plans });
   } catch (error) {
@@ -109,8 +211,41 @@ exports.createPaymentIntent = async (req, res) => {
     // Get or create Stripe customer
     const customerId = await getOrCreateCustomer(user);
 
-    // Get price from Stripe
-    const price = await stripe.prices.retrieve(priceId);
+    // Get or create price in Stripe
+    let price;
+    try {
+      // Try to retrieve the price
+      price = await stripe.prices.retrieve(priceId);
+    } catch (error) {
+      // If price doesn't exist, create a new one
+      if (error.type === 'StripeInvalidRequestError' && error.raw.code === 'resource_missing') {
+        console.log(`Price ${priceId} not found, creating a new price`);
+        
+        // Create a product first
+        const product = await stripe.products.create({
+          name: 'VoiceVerse Pro Subscription',
+          description: 'Access to premium voice transformation features',
+        });
+        
+        // Create a price for the product
+        price = await stripe.prices.create({
+          product: product.id,
+          unit_amount: 29900, // $299.00
+          currency: 'usd',
+          recurring: {
+            interval: 'year',
+          },
+          metadata: {
+            planType: 'PRO'
+          }
+        });
+        
+        console.log(`Created new price: ${price.id}`);
+      } else {
+        // If it's another error, rethrow it
+        throw error;
+      }
+    }
     
     // Calculate amount with promo code if applicable
     let amount = price.unit_amount;
@@ -134,7 +269,7 @@ exports.createPaymentIntent = async (req, res) => {
       customer: customerId,
       metadata: {
         userId,
-        priceId,
+        priceId: price.id, // Use the actual price ID
         promoCode: promoCode || ''
       }
     });
@@ -142,7 +277,8 @@ exports.createPaymentIntent = async (req, res) => {
     res.status(200).json({
       clientSecret: paymentIntent.client_secret,
       amount,
-      currency: price.currency
+      currency: price.currency,
+      priceId: price.id // Return the actual price ID
     });
   } catch (error) {
     console.error('Error creating payment intent:', error);
@@ -175,8 +311,45 @@ exports.createSubscription = async (req, res) => {
     // Attach payment method to customer
     await attachPaymentMethod(customerId, paymentMethodId, true);
 
+    // Get or create price in Stripe
+    let actualPriceId = priceId;
+    try {
+      // Try to retrieve the price
+      await stripe.prices.retrieve(priceId);
+    } catch (error) {
+      // If price doesn't exist, create a new one
+      if (error.type === 'StripeInvalidRequestError' && error.raw.code === 'resource_missing') {
+        console.log(`Price ${priceId} not found, creating a new price`);
+        
+        // Create a product first
+        const product = await stripe.products.create({
+          name: 'VoiceVerse Pro Subscription',
+          description: 'Access to premium voice transformation features',
+        });
+        
+        // Create a price for the product
+        const newPrice = await stripe.prices.create({
+          product: product.id,
+          unit_amount: 29900, // $299.00
+          currency: 'usd',
+          recurring: {
+            interval: 'year',
+          },
+          metadata: {
+            planType: 'PRO'
+          }
+        });
+        
+        actualPriceId = newPrice.id;
+        console.log(`Created new price: ${actualPriceId}`);
+      } else {
+        // If it's another error, rethrow it
+        throw error;
+      }
+    }
+
     // Create subscription
-    const subscription = await createSubscription(customerId, priceId, userId, promoCode);
+    const subscription = await createSubscription(customerId, actualPriceId, userId, promoCode);
 
     // Record promo code usage if applicable
     if (promoCode && subscription.status !== 'incomplete') {
