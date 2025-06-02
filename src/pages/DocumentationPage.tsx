@@ -10,7 +10,7 @@ import {
   Search,
   ExternalLink,
   Key,
-  Lock,
+ 
   Zap,
   Webhook,
   Database,
