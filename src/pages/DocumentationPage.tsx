@@ -4,7 +4,7 @@ import {
   
   Book,
   
-  Copy,
+  
   Check,
   ChevronRight,
   Search,
