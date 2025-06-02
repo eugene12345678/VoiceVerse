@@ -1,19 +1,14 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Calendar,
   Clock,
-  Tag,
+  
   Share2,
   MessageCircle,
   ChevronRight,
   Search,
-  Filter,
-  Sparkles,
-  Brain,
-  Cpu,
-  Globe,
-  Zap,
+ 
   X
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
