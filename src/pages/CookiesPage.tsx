@@ -6,11 +6,7 @@ import {
   Settings,
   Eye,
   Globe,
-  MessageCircle,
-  ArrowRight,
-  Check,
-  X,
-  AlertCircle,
+  
   Lock,
   Sparkles
 } from 'lucide-react';
