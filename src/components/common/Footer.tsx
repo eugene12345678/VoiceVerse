@@ -4,6 +4,10 @@ import { Mic2, Twitter, Instagram, Github, Linkedin, MessageCircle } from 'lucid
 import { motion } from 'framer-motion';
 
 export const Footer = () => {
+  const handleLinkClick = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <footer className="bg-white dark:bg-dark-950 border-t border-gray-200 dark:border-dark-800 pt-12 pb-8">
       <div className="container mx-auto px-4">
@@ -11,7 +15,7 @@ export const Footer = () => {
           
           {/* Brand column */}
           <div className="col-span-1 md:col-span-1">
-            <Link to="/" className="flex items-center gap-2 mb-4">
+            <Link to="/" onClick={handleLinkClick} className="flex items-center gap-2 mb-4">
               <div className="flex items-center space-x-1">
                 <div className="bg-primary-600 text-white p-1.5 rounded-lg">
                   <Mic2 className="h-5 w-5" />
@@ -44,7 +48,11 @@ export const Footer = () => {
             <ul className="space-y-2">
               {['Features', 'Pricing', 'Voice Studio', 'NFT Marketplace', 'API'].map((item) => (
                 <li key={item}>
-                  <Link to={`/${item.toLowerCase().replace(/ /g, '-')}`} className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors">
+                  <Link 
+                    to={`/${item.toLowerCase().replace(/ /g, '-')}`} 
+                    onClick={handleLinkClick}
+                    className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors"
+                  >
                     {item}
                   </Link>
                 </li>
@@ -58,7 +66,11 @@ export const Footer = () => {
             <ul className="space-y-2">
               {['About', 'Team', 'Careers', 'Blog', 'Press'].map((item) => (
                 <li key={item}>
-                  <Link to={`/${item.toLowerCase().replace(/ /g, '-')}`} className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors">
+                  <Link 
+                    to={`/${item.toLowerCase().replace(/ /g, '-')}`} 
+                    onClick={handleLinkClick}
+                    className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors"
+                  >
                     {item}
                   </Link>
                 </li>
@@ -71,14 +83,22 @@ export const Footer = () => {
             <h6 className="font-semibold text-dark-900 dark:text-white mb-4">Support</h6>
             <ul className="space-y-2">
               <li>
-                <Link to="/contact" className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors flex items-center gap-2">
+                <Link 
+                  to="/contact" 
+                  onClick={handleLinkClick}
+                  className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors flex items-center gap-2"
+                >
                   <MessageCircle className="h-4 w-4" />
                   Contact Support
                 </Link>
               </li>
               {['Help Center', 'Documentation', 'Community', 'Privacy', 'Terms'].map((item) => (
                 <li key={item}>
-                  <Link to={`/${item.toLowerCase().replace(/ /g, '-')}`} className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors">
+                  <Link 
+                    to={`/${item.toLowerCase().replace(/ /g, '-')}`} 
+                    onClick={handleLinkClick}
+                    className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 transition-colors"
+                  >
                     {item}
                   </Link>
                 </li>
@@ -93,13 +113,25 @@ export const Footer = () => {
             © {new Date().getFullYear()} VoiceVerse. All rights reserved.
           </p>
           <div className="flex gap-6">
-            <Link to="/privacy" className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 text-sm transition-colors">
+            <Link 
+              to="/privacy" 
+              onClick={handleLinkClick}
+              className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 text-sm transition-colors"
+            >
               Privacy Policy
             </Link>
-            <Link to="/terms" className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 text-sm transition-colors">
+            <Link 
+              to="/terms" 
+              onClick={handleLinkClick}
+              className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 text-sm transition-colors"
+            >
               Terms of Service
             </Link>
-            <Link to="/cookies" className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 text-sm transition-colors">
+            <Link 
+              to="/cookies" 
+              onClick={handleLinkClick}
+              className="text-dark-600 hover:text-primary-600 dark:text-dark-400 dark:hover:text-primary-400 text-sm transition-colors"
+            >
               Cookie Policy
             </Link>
           </div>

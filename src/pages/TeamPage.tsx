@@ -162,14 +162,14 @@ export const TeamPage = () => {
                 <div className="flex flex-wrap gap-2">
                   <Button
                     leftIcon={<Mail className="h-5 w-5" />}
-                    onClick={() => window.location.href = 'mailto:contact@voiceverse.ai'}
+                    onClick={() => window.location.href = 'mailto:eugene.mathenge.secdev@gmail.com'}
                   >
                     Contact Me
                   </Button>
                   <Button
                     variant="outline"
                     leftIcon={<Globe className="h-5 w-5" />}
-                    onClick={() => window.open('https://yourportfolio.com')}
+                    onClick={() => window.open('https://eugene-portfolio-six.vercel.app/')}
                   >
                     Portfolio
                   </Button>
