@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search,
   Book,
-  HelpCircle,
+ 
   Video,
-  FileText,
+  
   MessageCircle,
   ArrowRight,
   ChevronRight,
   Lightbulb,
-  Zap,
+ 
   Shield,
   Settings,
   PlayCircle,

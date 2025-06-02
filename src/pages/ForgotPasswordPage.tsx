@@ -5,8 +5,7 @@ import { authAPI } from '../lib/api';
 import {
   Mail,
   ArrowLeft,
-  AlertCircle,
-  CheckCircle2,
+ 
   Lock,
   Shield,
   RefreshCw,
