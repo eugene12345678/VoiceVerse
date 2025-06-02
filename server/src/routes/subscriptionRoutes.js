@@ -2,17 +2,17 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const subscriptionController = require('../controllers/subscriptionController');
-const { authenticate } = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const { validate } = require('../middleware/validators');
 
 // Public routes
 router.get('/plans', subscriptionController.getPlans);
-router.post('/webhook', express.raw({ type: 'application/json' }), subscriptionController.handleWebhook);
+// Webhook route is handled directly in index.js
 
 // Protected routes
 router.post(
   '/create-payment-intent',
-  authenticate,
+  authenticateToken,
   [
     body('priceId').notEmpty().withMessage('Price ID is required'),
   ],
@@ -22,7 +22,7 @@ router.post(
 
 router.post(
   '/create',
-  authenticate,
+  authenticateToken,
   [
     body('priceId').notEmpty().withMessage('Price ID is required'),
     body('paymentMethodId').notEmpty().withMessage('Payment method ID is required'),
@@ -33,25 +33,25 @@ router.post(
 
 router.get(
   '/current',
-  authenticate,
+  authenticateToken,
   subscriptionController.getCurrentSubscription
 );
 
 router.post(
   '/:subscriptionId/cancel',
-  authenticate,
+  authenticateToken,
   subscriptionController.cancelSubscription
 );
 
 router.post(
   '/:subscriptionId/reactivate',
-  authenticate,
+  authenticateToken,
   subscriptionController.reactivateSubscription
 );
 
 router.post(
   '/payment-method',
-  authenticate,
+  authenticateToken,
   [
     body('paymentMethodId').notEmpty().withMessage('Payment method ID is required'),
   ],
@@ -61,13 +61,13 @@ router.post(
 
 router.get(
   '/payment-methods',
-  authenticate,
+  authenticateToken,
   subscriptionController.getPaymentMethods
 );
 
 router.post(
   '/billing-info',
-  authenticate,
+  authenticateToken,
   [
     body('name').notEmpty().withMessage('Name is required'),
   ],
@@ -77,7 +77,7 @@ router.post(
 
 router.get(
   '/billing-info',
-  authenticate,
+  authenticateToken,
   subscriptionController.getBillingInfo
 );
 
@@ -88,7 +88,7 @@ router.get(
 
 router.get(
   '/invoices',
-  authenticate,
+  authenticateToken,
   subscriptionController.getInvoiceHistory
 );
 
