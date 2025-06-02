@@ -5,7 +5,7 @@ import {
   Book,
   
   
-  Check,
+  
   ChevronRight,
   Search,
   ExternalLink,
