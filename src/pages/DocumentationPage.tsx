@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   
   Book,
-  Terminal,
+  
   FileText,
   Copy,
   Check,
