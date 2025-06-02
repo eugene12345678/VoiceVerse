@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Users,
@@ -7,12 +7,11 @@ import {
   Share2,
   Globe,
   Award,
-  Sparkles,
-  TrendingUp,
+  
   Search,
   Filter,
   Plus,
-  ChevronRight,
+ 
   ArrowRight,
   Star
 } from 'lucide-react';
