@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Link } from 'react-router-dom';
 import { Mic2, Twitter, Instagram, Github, Linkedin, MessageCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
