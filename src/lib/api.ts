@@ -77,6 +77,22 @@ export const authAPI = {
     const response = await api.get('/auth/me');
     return response.data; // Backend returns { status, user }
   },
+  
+  forgotPassword: async (email: string) => {
+    const response = await api.post('/auth/forgot-password', { email });
+    return response.data; // Backend returns { status, message }
+  },
+  
+  resetPassword: async (token: string, password: string) => {
+    try {
+      console.log(`Resetting password with token: ${token}`);
+      const response = await api.post(`/auth/reset-password/${token}`, { password });
+      return response.data; // Backend returns { status, message }
+    } catch (error) {
+      console.error('Error in resetPassword API call:', error);
+      throw error;
+    }
+  },
 };
 
 // Voice API

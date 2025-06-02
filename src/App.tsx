@@ -19,6 +19,8 @@ import { Layout } from './components/common/Layout';
 import { IntroLoader } from './components/IntroLoader';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
 import { initializeTheme } from './store/themeStore';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 
 // Initialize theme on app load
 initializeTheme();
@@ -58,6 +60,8 @@ function App() {
           {/* Auth routes - no layout */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
           
           {/* All other routes with layout */}
           <Route element={<Layout />}>

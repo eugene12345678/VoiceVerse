@@ -119,6 +119,8 @@ app.get('/', (req, res) => {
   res.json({ message: 'Welcome to VoiceVerse API' });
 });
 
+// Remove the redirect that's causing the infinite loop
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);

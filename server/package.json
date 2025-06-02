@@ -24,6 +24,7 @@
     "morgan": "^1.10.0",
     "multer": "^2.0.0",
     "music-metadata": "^11.2.3",
+    "nodemailer": "^6.10.1",
     "sharp": "^0.34.2"
   },
   "devDependencies": {

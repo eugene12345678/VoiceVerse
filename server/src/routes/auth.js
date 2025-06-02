@@ -2,7 +2,12 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
 const { authenticateToken } = require('../middleware/auth');
-const { signupValidation, loginValidation } = require('../middleware/validators');
+const { 
+  signupValidation, 
+  loginValidation, 
+  forgotPasswordValidation, 
+  resetPasswordValidation 
+} = require('../middleware/validators');
 
 // @route   POST /api/auth/signup
 // @desc    Register a new user
@@ -18,5 +23,15 @@ router.post('/login', loginValidation, authController.login);
 // @desc    Get current user
 // @access  Private
 router.get('/me', authenticateToken, authController.getCurrentUser);
+
+// @route   POST /api/auth/forgot-password
+// @desc    Request password reset email
+// @access  Public
+router.post('/forgot-password', forgotPasswordValidation, authController.forgotPassword);
+
+// @route   POST /api/auth/reset-password/:token
+// @desc    Reset password with token
+// @access  Public
+router.post('/reset-password/:token', resetPasswordValidation, authController.resetPassword);
 
 module.exports = router;

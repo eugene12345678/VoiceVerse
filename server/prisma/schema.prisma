@@ -24,6 +24,8 @@ model User {
   updatedAt           DateTime
   isPro               Boolean               @default(false)
   preferredLanguage   String                @default("en")
+  resetPasswordToken  String?               @unique
+  resetPasswordExpires DateTime?
   
   // Existing relations
   audioFiles          AudioFile[]
