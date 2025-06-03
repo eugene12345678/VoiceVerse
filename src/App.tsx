@@ -31,6 +31,7 @@ import { CommunityPage } from './pages/CommunityPage';
 import { DocumentationPage } from './pages/DocumentationPage';
 import { ApiReferencePage } from './pages/ApiReferencePage';
 import { CookiesPage } from './pages/CookiesPage';
+import { VoicesPage } from './pages/VoicesPage';
 
 
 // Initialize theme on app load
@@ -90,6 +91,7 @@ function App() {
             <Route path="docs" element={<DocumentationPage />} />
             <Route path="api" element={<ApiReferencePage />} />
             <Route path="cookies" element={<CookiesPage />} />
+            <Route path="voices" element={<VoicesPage />} />
 
             {/* Protected routes */}
             <Route path="studio" element={

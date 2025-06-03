@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic2 } from 'lucide-react';
 import { Button } from './ui/Button';
@@ -7,15 +7,43 @@ import { cn, delay } from '../lib/utils';
 interface IntroLoaderProps {
   onComplete: () => void;
   skipIntro?: boolean;
+  audioFile?: string; // Path to your audio file
 }
 
 export const IntroLoader: React.FC<IntroLoaderProps> = ({
   onComplete,
-  skipIntro = false
+  skipIntro = false,
+  audioFile = '/Back-home.mp3' // Default path, adjust as needed
 }) => {
   const [progress, setProgress] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
+  const [audioPlayed, setAudioPlayed] = useState(false);
+  const [userInteracted, setUserInteracted] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  const playAudio = async () => {
+    if (audioRef.current && !audioPlayed) {
+      try {
+        audioRef.current.volume = 0.8;
+        audioRef.current.currentTime = 0;
+        console.log('Attempting to play audio...');
+        await audioRef.current.play();
+        setAudioPlayed(true);
+        console.log('✅ Audio is now playing!');
+      } catch (error) {
+        console.error('❌ Audio playback failed:', error);
+      }
+    }
+  };
+
+  const handleUserInteraction = async () => {
+    if (!userInteracted) {
+      console.log('🖱️ User interaction detected, trying to play audio...');
+      setUserInteracted(true);
+      await playAudio();
+    }
+  };
 
   useEffect(() => {
     const loadApp = async () => {
@@ -38,26 +66,69 @@ export const IntroLoader: React.FC<IntroLoaderProps> = ({
       await delay(1000); // Show complete state for 1 second
       setIsVisible(false);
       await delay(500); // Wait for exit animation
+      
+      // Stop audio when exiting
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      
       onComplete();
     };
 
     loadApp();
   }, [onComplete, skipIntro]);
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    await handleUserInteraction();
+    
+    // Give audio a moment to start before stopping
+    setTimeout(() => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    }, 200);
+    
     setIsVisible(false);
     setTimeout(onComplete, 500);
   };
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+    };
+  }, []);
 
   return (
     <AnimatePresence>
       {isVisible && (
         <motion.div
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-mesh dark:bg-dark-950"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-mesh dark:bg-dark-950 cursor-pointer"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.5 }}
+          onClick={handleUserInteraction}
+          onMouseDown={handleUserInteraction}
+          onTouchStart={handleUserInteraction}
         >
+          {/* Audio element - simplified */}
+          <audio
+            ref={audioRef}
+            preload="auto"
+            onCanPlay={() => console.log('🎵 Audio ready to play')}
+            onPlay={() => console.log('▶️ Audio started playing')}
+            onError={(e) => console.error('🚨 Audio error:', e)}
+          >
+            <source src={audioFile} type="audio/mpeg" />
+            <source src={audioFile} type="audio/mp3" />
+            Your browser does not support the audio element.
+          </audio>
+
           <div className="audio-particles">
             <div className="audio-particle"></div>
             <div className="audio-particle"></div>
@@ -65,10 +136,10 @@ export const IntroLoader: React.FC<IntroLoaderProps> = ({
             <div className="audio-particle"></div>
           </div>
           
-          <div className="text-center max-w-md px-4">
+          <div className="text-center max-w-md px-4" onClick={(e) => e.stopPropagation()}>
             {/* Logo */}
             <motion.div
-              className="mb-8 inline-flex items-center justify-center h-24 w-24 rounded-2xl bg-primary-600 text-white"
+              className="mb-8 inline-flex items-center justify-center h-24 w-24 rounded-2xl bg-primary-600 text-white cursor-pointer"
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ 
@@ -77,6 +148,7 @@ export const IntroLoader: React.FC<IntroLoaderProps> = ({
                 damping: 20,
                 delay: 0.3 
               }}
+              onClick={handleUserInteraction}
             >
               <Mic2 className="h-12 w-12" />
               
@@ -178,6 +250,18 @@ export const IntroLoader: React.FC<IntroLoaderProps> = ({
             >
               {isLoaded ? "Ready to transform your voice" : "Loading your voice journey..."}
             </motion.p>
+            
+            {/* Audio hint */}
+            {!audioPlayed && (
+              <motion.p
+                className="text-primary-600 dark:text-primary-400 text-sm mb-4 animate-pulse"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 1.5, duration: 0.5 }}
+              >
+                🔊 Click anywhere to enable audio
+              </motion.p>
+            )}
             
             {/* Progress bar */}
             <motion.div
