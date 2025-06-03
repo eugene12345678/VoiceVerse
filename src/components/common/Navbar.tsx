@@ -13,7 +13,8 @@ import {
   Moon, 
   Sun,
   LogOut,
-  Crown
+  Crown,
+  Volume2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -88,6 +89,7 @@ export const Navbar = () => {
     { path: '/', label: 'Home', icon: <Home className="h-5 w-5" /> },
     { path: '/studio', label: 'Studio', icon: <Mic2 className="h-5 w-5" /> },
     { path: '/feed', label: 'Feed', icon: <Play className="h-5 w-5" /> },
+    { path: '/voices', label: 'Voices', icon: <Volume2 className="h-5 w-5" /> },
     { path: '/challenges', label: 'Challenges', icon: <Trophy className="h-5 w-5" /> },
     { path: '/marketplace', label: 'NFTs', icon: <Diamond className="h-5 w-5" /> },
     { path: '/subscription', label: 'Pro', icon: <Crown className="h-5 w-5" />, badge: 'Upgrade' },
@@ -129,7 +131,7 @@ export const Navbar = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-1">
-            {navLinks.slice(0, 6).map((link) => (
+            {navLinks.slice(0, 7).map((link) => (
               <Link
                 key={link.path}
                 to={link.path}

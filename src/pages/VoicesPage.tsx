@@ -176,58 +176,332 @@ const mockPosts: VoicePost[] = [
       category: 'Accent',
       description: 'Authentic Russian accent transformation'
     }
+  },
+  {
+    id: '3',
+    audioUrl: '/funny-evil-cartoon-voice-with-laugh-14623.mp3',
+    duration: 25,
+    title: 'Evil Cartoon Villain',
+    caption: 'Muhahaha! My evil cartoon voice is complete! 😈 #cartoon #villain #evil',
+    tags: ['cartoon', 'villain', 'evil', 'funny'],
+    user: {
+      id: 'user3',
+      username: 'cartoonvoices',
+      displayName: 'Cartoon Voices',
+      avatarUrl: 'https://images.pexels.com/photos/1181519/pexels-photo-1181519.jpeg?auto=compress&cs=tinysrgb&w=600',
+      isVerified: false,
+      followerCount: 12000,
+      followingCount: 500,
+      bio: 'Bringing cartoons to life with my voice! 🎨🎤',
+      postsCount: 67
+    },
+    createdAt: '2024-03-01T09:15:00Z',
+    stats: {
+      plays: 45000,
+      likes: 18000,
+      comments: 300,
+      shares: 150
+    },
+    userInteractions: {
+      isLiked: false,
+      isSaved: true,
+      isFollowing: false
+    },
+    voiceEffect: {
+      name: 'Evil Cartoon',
+      category: 'Character',
+      description: 'Comically sinister cartoon villain voice'
+    }
+  },
+  {
+    id: '4',
+    audioUrl: '/horror-voice-flashbacks-14469.mp3',
+    duration: 60,
+    title: 'Horror Flashback',
+    caption: 'That night... the memories still haunt me 😰 #horror #flashback #scary',
+    tags: ['horror', 'flashback', 'scary', 'dramatic'],
+    user: {
+      id: 'user4',
+      username: 'horrorvoice',
+      displayName: 'Horror Voice',
+      avatarUrl: 'https://images.pexels.com/photos/1379636/pexels-photo-1379636.jpeg?auto=compress&cs=tinysrgb&w=600',
+      isVerified: true,
+      followerCount: 78000,
+      followingCount: 300,
+      bio: 'Spine-chilling voices for your nightmares 🎭💀',
+      postsCount: 234
+    },
+    createdAt: '2024-02-29T18:45:00Z',
+    stats: {
+      plays: 120000,
+      likes: 45000,
+      comments: 890,
+      shares: 400
+    },
+    userInteractions: {
+      isLiked: true,
+      isSaved: true,
+      isFollowing: true
+    },
+    voiceEffect: {
+      name: 'Horror Flashback',
+      category: 'Cinematic',
+      description: 'Haunting, traumatic memory voice effect'
+    }
+  },
+  {
+    id: '5',
+    audioUrl: '/medieval-gamer-voice-donx27t-forget-to-subscribe-226581.mp3',
+    duration: 35,
+    title: 'Gamer Voice',
+    caption: 'What\'s up gamers! Don\'t forget to like and subscribe! 🎮 #gaming #youtube #subscribe',
+    tags: ['gaming', 'youtube', 'subscribe', 'energetic'],
+    user: {
+      id: 'user5',
+      username: 'gamingvoice',
+      displayName: 'Gaming Voice',
+      avatarUrl: 'https://images.pexels.com/photos/1181263/pexels-photo-1181263.jpeg?auto=compress&cs=tinysrgb&w=600',
+      isVerified: false,
+      followerCount: 35000,
+      followingCount: 1500,
+      bio: 'Professional gaming content creator voice 🎮🎙️',
+      postsCount: 156
+    },
+    createdAt: '2024-02-29T15:20:00Z',
+    stats: {
+      plays: 95000,
+      likes: 28000,
+      comments: 650,
+      shares: 320
+    },
+    userInteractions: {
+      isLiked: false,
+      isSaved: false,
+      isFollowing: false
+    },
+    voiceEffect: {
+      name: 'Gaming YouTuber',
+      category: 'Content Creator',
+      description: 'High-energy gaming content voice'
+    }
+  },
+  {
+    id: '6',
+    audioUrl: '/medieval-gamer-voice-wisdom-will-come-my-friend-226577.mp3',
+    duration: 40,
+    title: 'Ancient Wisdom',
+    caption: 'Patience, young one. Wisdom will come, my friend 🧙‍♂️ #wisdom #mentor #ancient',
+    tags: ['wisdom', 'mentor', 'ancient', 'sage'],
+    user: {
+      id: 'user6',
+      username: 'wisevoice',
+      displayName: 'Wise Voice',
+      avatarUrl: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600',
+      isVerified: true,
+      followerCount: 67000,
+      followingCount: 200,
+      bio: 'Ancient wisdom through voice 🧙‍♂️✨',
+      postsCount: 89
+    },
+    createdAt: '2024-02-29T11:30:00Z',
+    stats: {
+      plays: 85000,
+      likes: 42000,
+      comments: 520,
+      shares: 280
+    },
+    userInteractions: {
+      isLiked: true,
+      isSaved: false,
+      isFollowing: false
+    },
+    voiceEffect: {
+      name: 'Ancient Sage',
+      category: 'Fantasy',
+      description: 'Wise, ancient mentor voice'
+    }
+  },
+  {
+    id: '7',
+    audioUrl: '/medieval-gamer-voice-protect-us-at-all-costs-the-future-with-you-226590.mp3',
+    duration: 50,
+    title: 'Protective Guardian',
+    caption: 'We must protect them at all costs. The future depends on you! 🛡️ #guardian #protect #future',
+    tags: ['guardian', 'protect', 'future', 'heroic'],
+    user: {
+      id: 'user7',
+      username: 'herovoice',
+      displayName: 'Hero Voice',
+      avatarUrl: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=600',
+      isVerified: false,
+      followerCount: 29000,
+      followingCount: 800,
+      bio: 'Heroic voices for epic moments 🦸‍♂️🎭',
+      postsCount: 112
+    },
+    createdAt: '2024-02-28T20:10:00Z',
+    stats: {
+      plays: 72000,
+      likes: 31000,
+      comments: 450,
+      shares: 200
+    },
+    userInteractions: {
+      isLiked: false,
+      isSaved: true,
+      isFollowing: true
+    },
+    voiceEffect: {
+      name: 'Guardian Hero',
+      category: 'Heroic',
+      description: 'Noble protector voice with determination'
+    }
+  },
+  {
+    id: '8',
+    audioUrl: '/reliable-safe-327618.mp3',
+    duration: 30,
+    title: 'Battle Cry',
+    caption: 'To battle! For honor and glory! ⚔️ #battle #warrior #medieval',
+    tags: ['battle', 'warrior', 'medieval', 'epic'],
+    user: {
+      id: 'user8',
+      username: 'battlevoice',
+      displayName: 'Battle Voice',
+      avatarUrl: 'https://images.pexels.com/photos/1468379/pexels-photo-1468379.jpeg?auto=compress&cs=tinysrgb&w=600',
+      isVerified: false,
+      followerCount: 18000,
+      followingCount: 600,
+      bio: 'Epic battle voices and war cries ⚔️🎙️',
+      postsCount: 76
+    },
+    createdAt: '2024-02-28T16:45:00Z',
+    stats: {
+      plays: 55000,
+      likes: 22000,
+      comments: 380,
+      shares: 150
+    },
+    userInteractions: {
+      isLiked: true,
+      isSaved: false,
+      isFollowing: false
+    },
+    voiceEffect: {
+      name: 'Battle Warrior',
+      category: 'Epic',
+      description: 'Fierce warrior battle cry voice'
+    }
+  },
+  {
+    id: '9',
+    audioUrl: '/knight-spawn-97118.mp3',
+    duration: 38,
+    title: 'Knight Spawn',
+    caption: 'A knight has spawned! Ready for the quest! 🏰 #knight #spawn #fantasy',
+    tags: ['knight', 'spawn', 'fantasy', 'rpg'],
+    user: {
+      id: 'user9',
+      username: 'fantasyvoice',
+      displayName: 'Fantasy Voice',
+      avatarUrl: 'https://images.pexels.com/photos/1559486/pexels-photo-1559486.jpeg?auto=compress&cs=tinysrgb&w=600',
+      isVerified: true,
+      followerCount: 41000,
+      followingCount: 400,
+      bio: 'Fantasy RPG voices and characters 🏰🎭',
+      postsCount: 198
+    },
+    createdAt: '2024-02-28T14:20:00Z',
+    stats: {
+      plays: 63000,
+      likes: 26000,
+      comments: 420,
+      shares: 180
+    },
+    userInteractions: {
+      isLiked: false,
+      isSaved: false,
+      isFollowing: true
+    },
+    voiceEffect: {
+      name: 'Noble Knight',
+      category: 'Fantasy',
+      description: 'Chivalrous knight character voice'
+    }
+  },
+  {
+    id: '10',
+    audioUrl: '/male-voice-bum-bum-104098.mp3',
+    duration: 20,
+    title: 'Male Voice Bum Bum',
+    caption: 'Bum bum bum! Deep male voice vibes 🎵 #male #voice #beat',
+    tags: ['male', 'voice', 'beat', 'rhythm'],
+    user: {
+      id: 'user10',
+      username: 'deepvoice',
+      displayName: 'Deep Voice',
+      avatarUrl: 'https://images.pexels.com/photos/1379636/pexels-photo-1379636.jpeg?auto=compress&cs=tinysrgb&w=600',
+      isVerified: false,
+      followerCount: 15000,
+      followingCount: 300,
+      bio: 'Deep male voices and vocal percussion 🎤🥁',
+      postsCount: 54
+    },
+    createdAt: '2024-02-28T12:00:00Z',
+    stats: {
+      plays: 38000,
+      likes: 15000,
+      comments: 220,
+      shares: 90
+    },
+    userInteractions: {
+      isLiked: false,
+      isSaved: false,
+      isFollowing: false
+    },
+    voiceEffect: {
+      name: 'Deep Bass',
+      category: 'Vocal',
+      description: 'Rich, deep male voice with rhythm'
+    }
+  },
+  {
+    id: '11',
+    audioUrl: '/medieval-gamer-voice-darkness-hunts-us-what-youx27ve-learned-stay-226596.mp3',
+    duration: 55,
+    title: 'Darkness Hunts',
+    caption: 'The darkness hunts us... Use what you\'ve learned and stay the course 🌑 #darkness #survival #determination',
+    tags: ['darkness', 'survival', 'determination', 'dramatic'],
+    user: {
+      id: 'user11',
+      username: 'darkvoice',
+      displayName: 'Dark Voice',
+      avatarUrl: 'https://images.pexels.com/photos/1181519/pexels-photo-1181519.jpeg?auto=compress&cs=tinysrgb&w=600',
+      isVerified: true,
+      followerCount: 52000,
+      followingCount: 250,
+      bio: 'Dark, atmospheric voices for intense moments 🌑🎭',
+      postsCount: 143
+    },
+    createdAt: '2024-02-27T19:30:00Z',
+    stats: {
+      plays: 89000,
+      likes: 38000,
+      comments: 670,
+      shares: 290
+    },
+    userInteractions: {
+      isLiked: true,
+      isSaved: true,
+      isFollowing: false
+    },
+    voiceEffect: {
+      name: 'Dark Survivor',
+      category: 'Thriller',
+      description: 'Intense, survival-focused dark voice'
+    }
   }
 ];
-
-// Mock comments data
-const mockComments: Record<string, Comment[]> = {
-  '1': [
-    {
-      id: 'c1',
-      content: 'This is incredible! Sounds exactly like Morgan Freeman!',
-      user: {
-        id: 'commenter1',
-        username: 'audiophile',
-        displayName: 'Audio Lover',
-        avatarUrl: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=600',
-        isVerified: false
-      },
-      createdAt: '2024-03-01T12:30:00Z',
-      likes: 45,
-      isLiked: false
-    },
-    {
-      id: 'c2',
-      content: 'Please do more celebrity impressions! 🙏',
-      user: {
-        id: 'commenter2',
-        username: 'voicefan',
-        displayName: 'Voice Fan',
-        avatarUrl: 'https://images.pexels.com/photos/1468379/pexels-photo-1468379.jpeg?auto=compress&cs=tinysrgb&w=600',
-        isVerified: false
-      },
-      createdAt: '2024-03-01T13:15:00Z',
-      likes: 23,
-      isLiked: true
-    }
-  ],
-  '2': [
-    {
-      id: 'c3',
-      content: 'Perfect Russian accent! Очень хорошо! 👏',
-      user: {
-        id: 'commenter3',
-        username: 'russianvoice',
-        displayName: 'Russian Voice',
-        avatarUrl: 'https://images.pexels.com/photos/1559486/pexels-photo-1559486.jpeg?auto=compress&cs=tinysrgb&w=600',
-        isVerified: true
-      },
-      createdAt: '2024-03-01T11:00:00Z',
-      likes: 67,
-      isLiked: false
-    }
-  ]
-};
 
 interface VoicePostProps {
   post: VoicePost;
@@ -362,7 +636,7 @@ const VoicePost: React.FC<VoicePostProps> = ({
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/50" />
 
       {/* Main content container */}
-      <div className="relative h-full flex items-center justify-center p-4" onClick={handleTap}>
+      <div className="relative h-full flex items-center justify-center p-4 group" onClick={handleTap}>
         {/* Voice effect indicator */}
         {post.voiceEffect && (
           <motion.div
@@ -527,16 +801,18 @@ const VoicePost: React.FC<VoicePostProps> = ({
           </div>
         </div>
 
-        {/* Progress bar */}
+        {/* Progress bar - hidden by default, visible on hover */}
         <div className="absolute bottom-16 left-4 right-4">
-          <div className="bg-white/20 backdrop-blur-sm rounded-full p-4">
+          <div 
+            className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-in-out p-4"
+          >
             <div className="flex items-center gap-4 mb-2">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsPlaying(!isPlaying);
                 }}
-                className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 flex items-center justify-center transition-colors"
+                className="w-10 h-10 rounded-full text-white hover:text-white/80 flex items-center justify-center transition-colors"
               >
                 {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
               </button>
@@ -564,7 +840,7 @@ const VoicePost: React.FC<VoicePostProps> = ({
                   e.stopPropagation();
                   setIsMuted(!isMuted);
                 }}
-                className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 flex items-center justify-center transition-colors"
+                className="w-10 h-10 rounded-full text-white hover:text-white/80 flex items-center justify-center transition-colors"
               >
                 {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
               </button>
@@ -581,7 +857,7 @@ const VoicePost: React.FC<VoicePostProps> = ({
                   e.stopPropagation();
                   setPlaybackRate(Number(e.target.value));
                 }}
-                className="bg-transparent text-white text-xs border border-white/20 rounded px-2 py-1"
+                className="bg-transparent text-white text-xs border-none rounded px-2 py-1"
                 onClick={(e) => e.stopPropagation()}
               >
                 <option value={0.5}>0.5x</option>
@@ -596,6 +872,7 @@ const VoicePost: React.FC<VoicePostProps> = ({
     </motion.div>
   );
 };
+
 
 // Comments Panel Component
 const CommentsPanel: React.FC<{
