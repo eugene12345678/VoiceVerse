@@ -12,18 +12,16 @@ import {
   Volume2,
   VolumeX,
   MoreHorizontal,
-  FastForward,
-  Rewind,
-  User,
+ 
   Music,
   Wand2,
   X,
-  Send,
+  
   UserPlus,
   UserMinus,
   Grid3X3,
-  Users,
-  Instagram,
+  
+  
   MessageSquare,
   Link as LinkIcon,
   Copy
