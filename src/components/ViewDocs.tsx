@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ExternalLink, Book, Code, FileText, Terminal, Server, Database, Lock } from 'lucide-react';
+import { X, ExternalLink, Book, FileText, Terminal, Server, Database, Lock } from 'lucide-react';
 import { Button } from './ui/Button';
 
 interface ViewDocsProps {
