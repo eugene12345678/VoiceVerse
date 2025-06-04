@@ -149,18 +149,41 @@ const PaymentForm = ({
       });
 
       if (error) {
-        throw error;
+        // Handle specific Stripe errors
+        if (error.type === 'card_error') {
+          throw new Error(`Card error: ${error.message}`);
+        } else {
+          throw error;
+        }
+      }
+
+      if (!paymentMethod || !paymentMethod.id) {
+        throw new Error('Failed to create payment method');
       }
 
       // Create subscription with the payment method
-      await createSubscription(
-        priceId,
-        paymentMethod.id,
-        promoCode
-      );
-
-      onSuccess();
-    } catch (error) {
+      try {
+        await createSubscription(
+          priceId,
+          paymentMethod.id,
+          promoCode
+        );
+        onSuccess();
+      } catch (subscriptionError: any) {
+        console.error('Subscription creation failed:', subscriptionError);
+        
+        // Check if the error has a response with a message
+        if (subscriptionError.response?.data?.message) {
+          throw new Error(subscriptionError.response.data.message);
+        } else if (subscriptionError.message && subscriptionError.message.includes('test_mode_live_card')) {
+          throw new Error('Please use a test card number. For testing, use 4242 4242 4242 4242 with any future expiry date and any CVC.');
+        } else if (subscriptionError.message && subscriptionError.message.includes('Invalid Date')) {
+          throw new Error('There was an issue processing your payment. Please try again later or contact support.');
+        } else {
+          throw new Error('Failed to create subscription. Please check your payment details and try again.');
+        }
+      }
+    } catch (error: any) {
       console.error('Payment failed:', error);
       setError(error.message || 'Payment failed. Please try again.');
       onError();
@@ -244,6 +267,9 @@ const PaymentForm = ({
                 onChange={handleCardChange}
               />
             </div>
+            <p className="text-xs text-dark-500 dark:text-dark-400 mt-1">
+              For testing, use 4242 4242 4242 4242
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -329,9 +355,22 @@ const PaymentForm = ({
       )}
 
       {error && (
-        <div className="text-error-600 dark:text-error-400 text-sm flex items-center gap-2">
-          <AlertCircle className="h-4 w-4" />
-          {error}
+        <div className="text-error-600 dark:text-error-400 text-sm flex items-start gap-2 p-3 bg-error-50 dark:bg-error-900/20 border border-error-200 dark:border-error-800 rounded-lg mb-4">
+          <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium">{error}</p>
+            {error.includes('test card') && (
+              <p className="mt-1 text-dark-500 dark:text-dark-400">
+                For testing, use these card numbers:
+                <ul className="mt-1 list-disc list-inside">
+                  <li>Success: 4242 4242 4242 4242</li>
+                  <li>Requires authentication: 4000 0025 0000 3155</li>
+                  <li>Payment fails: 4000 0000 0000 0002</li>
+                </ul>
+                <span className="block mt-1">Use any future expiry date and any CVC.</span>
+              </p>
+            )}
+          </div>
         </div>
       )}
 
