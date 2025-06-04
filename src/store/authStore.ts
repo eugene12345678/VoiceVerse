@@ -1,14 +1,37 @@
 import { create } from 'zustand';
 import { AuthState, User } from '../types';
 import { authAPI } from '../lib/api';
+import { firebaseAuth } from '../lib/firebase';
+import { UserCredential } from 'firebase/auth';
 
 interface AuthStore extends AuthState {
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  loginWithGithub: () => Promise<void>;
   logout: () => void;
   register: (username: string, email: string, password: string) => Promise<void>;
+  registerWithGoogle: () => Promise<void>;
+  registerWithGithub: () => Promise<void>;
   updateProfile: (userData: Partial<User>) => Promise<void>;
   checkAuth: () => Promise<void>;
 }
+
+// Helper function to process Firebase user credentials
+const processFirebaseUser = async (userCredential: UserCredential): Promise<{user: User, token: string}> => {
+  const { user } = userCredential;
+  const token = await user.getIdToken();
+  
+  // Create a user object that matches our app's User type
+  const appUser: User = {
+    id: user.uid,
+    username: user.displayName || user.email?.split('@')[0] || 'User',
+    email: user.email || '',
+    profilePicture: user.photoURL || '',
+    createdAt: user.metadata.creationTime || new Date().toISOString(),
+  };
+  
+  return { user: appUser, token };
+};
 
 export const useAuthStore = create<AuthStore>((set) => ({
   user: null,
@@ -20,18 +43,20 @@ export const useAuthStore = create<AuthStore>((set) => ({
     set({ isLoading: true, error: null });
     
     try {
-      const response = await authAPI.login(email, password);
+      // Use Firebase authentication
+      const userCredential = await firebaseAuth.signInWithEmail(email, password);
+      const { user, token } = await processFirebaseUser(userCredential);
       
       // Store token in localStorage
-      localStorage.setItem('token', response.token);
+      localStorage.setItem('token', token);
       
       set({ 
-        user: response.user,
+        user,
         isAuthenticated: true,
         isLoading: false
       });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Login failed';
+      const errorMessage = error.message || 'Login failed';
       set({ 
         error: errorMessage,
         isLoading: false 
@@ -40,33 +65,145 @@ export const useAuthStore = create<AuthStore>((set) => ({
     }
   },
 
-  logout: () => {
-    // Remove token from localStorage
-    localStorage.removeItem('token');
+  loginWithGoogle: async () => {
+    set({ isLoading: true, error: null });
     
-    set({ 
-      user: null,
-      isAuthenticated: false,
-      error: null
-    });
+    try {
+      const userCredential = await firebaseAuth.signInWithGoogle();
+      const { user, token } = await processFirebaseUser(userCredential);
+      
+      // Store token in localStorage
+      localStorage.setItem('token', token);
+      
+      set({ 
+        user,
+        isAuthenticated: true,
+        isLoading: false
+      });
+    } catch (error: any) {
+      const errorMessage = error.message || 'Google login failed';
+      set({ 
+        error: errorMessage,
+        isLoading: false 
+      });
+      throw new Error(errorMessage);
+    }
+  },
+
+  loginWithGithub: async () => {
+    set({ isLoading: true, error: null });
+    
+    try {
+      const userCredential = await firebaseAuth.signInWithGithub();
+      const { user, token } = await processFirebaseUser(userCredential);
+      
+      // Store token in localStorage
+      localStorage.setItem('token', token);
+      
+      set({ 
+        user,
+        isAuthenticated: true,
+        isLoading: false
+      });
+    } catch (error: any) {
+      const errorMessage = error.message || 'GitHub login failed';
+      set({ 
+        error: errorMessage,
+        isLoading: false 
+      });
+      throw new Error(errorMessage);
+    }
+  },
+
+  logout: async () => {
+    try {
+      // Sign out from Firebase
+      await firebaseAuth.signOut();
+      
+      // Remove token from localStorage
+      localStorage.removeItem('token');
+      
+      set({ 
+        user: null,
+        isAuthenticated: false,
+        error: null
+      });
+    } catch (error: any) {
+      console.error('Logout error:', error);
+    }
   },
 
   register: async (username: string, email: string, password: string) => {
     set({ isLoading: true, error: null });
     
     try {
-      const response = await authAPI.signup(username, email, password);
+      // Use Firebase authentication for signup
+      const userCredential = await firebaseAuth.signUpWithEmail(email, password);
+      const { user, token } = await processFirebaseUser(userCredential);
       
       // Store token in localStorage
-      localStorage.setItem('token', response.token);
+      localStorage.setItem('token', token);
+      
+      // Update the user profile with the username
+      // This would typically be done through a separate API call or Firebase user profile update
       
       set({ 
-        user: response.user,
+        user: { ...user, username },
         isAuthenticated: true,
         isLoading: false
       });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Registration failed';
+      const errorMessage = error.message || 'Registration failed';
+      set({ 
+        error: errorMessage,
+        isLoading: false 
+      });
+      throw new Error(errorMessage);
+    }
+  },
+
+  registerWithGoogle: async () => {
+    set({ isLoading: true, error: null });
+    
+    try {
+      const userCredential = await firebaseAuth.signInWithGoogle();
+      const { user, token } = await processFirebaseUser(userCredential);
+      
+      // Store token in localStorage
+      localStorage.setItem('token', token);
+      
+      set({ 
+        user,
+        isAuthenticated: true,
+        isLoading: false
+      });
+    } catch (error: any) {
+      const errorMessage = error.message || 'Google registration failed';
+      set({ 
+        error: errorMessage,
+        isLoading: false 
+      });
+      throw new Error(errorMessage);
+    }
+  },
+
+  registerWithGithub: async () => {
+    set({ isLoading: true, error: null });
+    
+    try {
+      const userCredential = await firebaseAuth.signInWithGithub();
+      const { user, token } = await processFirebaseUser(userCredential);
+      
+      // Store token in localStorage
+      localStorage.setItem('token', token);
+      
+      set({ 
+        user,
+        isAuthenticated: true,
+        isLoading: false
+      });
+    } catch (error: any) {
+      const errorMessage = error.message || 'GitHub registration failed';
       set({ 
         error: errorMessage,
         isLoading: false 
@@ -79,14 +216,15 @@ export const useAuthStore = create<AuthStore>((set) => ({
     set({ isLoading: true, error: null });
     
     try {
-      // API call would go here
+      // This would typically update the Firebase user profile
+      // For now, we'll just update the local state
       
       set(state => ({
         user: state.user ? { ...state.user, ...userData } : null,
         isLoading: false
       }));
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Profile update failed';
+      const errorMessage = error.message || 'Profile update failed';
       set({ 
         error: errorMessage,
         isLoading: false 
@@ -95,19 +233,32 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
   
   checkAuth: async () => {
-    const token = localStorage.getItem('token');
+    const currentUser = firebaseAuth.getCurrentUser();
     
-    if (!token) {
+    if (!currentUser) {
       return;
     }
     
     set({ isLoading: true });
     
     try {
-      const response = await authAPI.getCurrentUser();
+      // Get the token
+      const token = await currentUser.getIdToken();
+      
+      // Create a user object
+      const user: User = {
+        id: currentUser.uid,
+        username: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+        email: currentUser.email || '',
+        profilePicture: currentUser.photoURL || '',
+        createdAt: currentUser.metadata.creationTime || new Date().toISOString(),
+      };
+      
+      // Store token in localStorage
+      localStorage.setItem('token', token);
       
       set({
-        user: response.user,
+        user,
         isAuthenticated: true,
         isLoading: false
       });

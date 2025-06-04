@@ -137,7 +137,13 @@ export const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
       if (!containerRef.current) return;
       
       try {
-        // Initialize with safer options and MediaElement backend for better format support
+        // Check if the browser supports AudioContext
+        const hasAudioContext = !!(window.AudioContext || (window as any).webkitAudioContext);
+        
+        // Choose the appropriate backend based on browser capabilities
+        const backend = hasAudioContext ? 'WebAudio' : 'MediaElement';
+        
+        // Initialize with safer options and appropriate backend
         const wavesurfer = WaveSurfer.create({
           container: containerRef.current,
           waveColor,
@@ -149,8 +155,8 @@ export const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
           cursorWidth: 0,
           normalize: true,
           responsive: true,
-          // Use MediaElement backend for better format support
-          backend: 'MediaElement',
+          // Use the appropriate backend
+          backend,
           // Disable features that might cause issues
           autoCenter: false,
           fillParent: true,
@@ -158,6 +164,32 @@ export const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
           mediaControls: false,
           // Prevent decoding errors
           partialRender: true,
+          // Add additional options for better performance
+          xhr: {
+            cache: 'force-cache',
+            mode: 'cors',
+            credentials: 'same-origin',
+            headers: [
+              { key: 'Cache-Control', value: 'max-age=31536000' }
+            ]
+          },
+          // Improve loading performance
+          minPxPerSec: 50,
+          // Reduce initial load time by using a lower sample rate
+          audioRate: 1,
+          // Improve rendering performance
+          drawingContextAttributes: {
+            desynchronized: true,
+            alpha: false
+          },
+          // Add better error handling
+          fetchParams: {
+            cache: 'force-cache',
+            mode: 'cors',
+            credentials: 'same-origin'
+          },
+          // Add a longer timeout for decoding
+          decodeTimeOut: 15000
         });
         
         // Store the instance
@@ -232,39 +264,306 @@ export const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
         audioElement.crossOrigin = 'anonymous';
         
         // Set up error handling for the audio element
-        const handleAudioError = () => {
-          console.warn('Audio format not supported, using fallback visualization');
-          createFallbackVisualization();
+        const handleAudioError = (event) => {
+          // Check the specific error code to provide better diagnostics
+          const mediaError = event.target?.error;
+          let errorMessage = 'Audio format not supported, using fallback visualization';
           
-          // Try loading with wavesurfer anyway, it might have better format support
-          try {
-            wavesurfer.load(normalizedUrl);
-          } catch (e) {
-            console.warn('Secondary wavesurfer load also failed:', e);
+          if (mediaError) {
+            switch (mediaError.code) {
+              case MediaError.MEDIA_ERR_ABORTED:
+                errorMessage = 'Audio loading aborted, using fallback visualization';
+                break;
+              case MediaError.MEDIA_ERR_NETWORK:
+                errorMessage = 'Network error while loading audio, using fallback visualization';
+                break;
+              case MediaError.MEDIA_ERR_DECODE:
+                errorMessage = 'Audio decoding error, using fallback visualization';
+                break;
+              case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                errorMessage = 'Audio format not supported, using fallback visualization';
+                break;
+            }
           }
+          
+          console.warn(errorMessage);
+          
+          // Try to load the audio directly as an ArrayBuffer instead
+          const fetchAudio = async () => {
+            try {
+              const response = await fetch(normalizedUrl);
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              
+              const arrayBuffer = await response.arrayBuffer();
+              if (arrayBuffer && arrayBuffer.byteLength > 0) {
+                // If we have the audio data, try to load it with wavesurfer
+                if (isMountedRef.current && wavesurferRef.current) {
+                  try {
+                    // Create a blob from the array buffer
+                    const blob = new Blob([arrayBuffer], { type: 'audio/mpeg' });
+                    const blobUrl = URL.createObjectURL(blob);
+                    
+                    // Load the blob URL
+                    wavesurferRef.current.load(blobUrl);
+                    
+                    // Clean up the blob URL when done
+                    wavesurferRef.current.once('ready', () => {
+                      URL.revokeObjectURL(blobUrl);
+                    });
+                    
+                    return; // Exit if successful
+                  } catch (e) {
+                    console.warn('Failed to load audio from ArrayBuffer:', e);
+                  }
+                }
+              }
+              
+              // If we get here, all attempts failed
+              createFallbackVisualization();
+            } catch (fetchError) {
+              console.warn('Fetch error:', fetchError);
+              createFallbackVisualization();
+              
+              // Last resort: try loading with wavesurfer directly
+              if (isMountedRef.current && wavesurferRef.current) {
+                try {
+                  wavesurferRef.current.load(normalizedUrl);
+                } catch (e) {
+                  console.warn('Secondary wavesurfer load also failed:', e);
+                }
+              }
+            }
+          };
+          
+          // Start the fetch process
+          fetchAudio();
         };
         
         // Set up success handling for the audio element
         const handleCanPlay = () => {
           if (!isMountedRef.current) return;
           
+          // Cancel any existing timeout to prevent race conditions
+          let timeoutId: NodeJS.Timeout | null = null;
+          
           // If audio element can play the format, load with wavesurfer
           try {
-            wavesurfer.load(normalizedUrl);
+            // Create a more reliable loading approach using fetch API
+            const loadAudioWithFetch = async () => {
+              try {
+                // Fetch the audio file
+                const response = await fetch(normalizedUrl, {
+                  method: 'GET',
+                  cache: 'force-cache',
+                  headers: {
+                    'Cache-Control': 'max-age=31536000',
+                  }
+                });
+                
+                if (!response.ok) {
+                  throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // Get the audio data as ArrayBuffer
+                const arrayBuffer = await response.arrayBuffer();
+                
+                // Check if component is still mounted
+                if (!isMountedRef.current || !wavesurferRef.current) {
+                  return;
+                }
+                
+                // Create an AudioContext
+                const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                
+                // Decode the audio data
+                try {
+                  // First check if the array buffer is valid
+                  if (!arrayBuffer || arrayBuffer.byteLength === 0) {
+                    throw new Error('Empty or invalid audio data received');
+                  }
+                  
+                  // Create a copy of the array buffer to prevent issues with concurrent access
+                  const bufferCopy = arrayBuffer.slice(0);
+                  
+                  // Decode with a timeout to prevent hanging
+                  const decodePromise = audioContext.decodeAudioData(bufferCopy);
+                  const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('Audio decoding timeout')), 10000);
+                  });
+                  
+                  // Race between decoding and timeout
+                  const audioBuffer = await Promise.race([
+                    decodePromise,
+                    timeoutPromise
+                  ]) as AudioBuffer;
+                  
+                  // Check if component is still mounted
+                  if (!isMountedRef.current || !wavesurferRef.current) {
+                    return;
+                  }
+                  
+                  // Determine the correct MIME type based on response headers and file extension
+                  let mimeType = response.headers.get('content-type') || 'audio/mpeg';
+                  const fileExtension = normalizedUrl.split('.').pop()?.toLowerCase();
+                  
+                  if (fileExtension) {
+                    switch (fileExtension) {
+                      case 'mp3':
+                        mimeType = 'audio/mpeg';
+                        break;
+                      case 'wav':
+                        mimeType = 'audio/wav';
+                        break;
+                      case 'ogg':
+                        mimeType = 'audio/ogg';
+                        break;
+                      case 'm4a':
+                        mimeType = 'audio/mp4';
+                        break;
+                      case 'aac':
+                        mimeType = 'audio/aac';
+                        break;
+                      // Add more formats as needed
+                    }
+                  }
+                  
+                  // Create a blob from the array buffer with the correct MIME type
+                  const blob = new Blob([bufferCopy], { type: mimeType });
+                  const blobUrl = URL.createObjectURL(blob);
+                  
+                  // Load the blob URL into wavesurfer
+                  wavesurferRef.current.load(blobUrl);
+                  
+                  // Clean up the blob URL when done
+                  wavesurferRef.current.once('ready', () => {
+                    URL.revokeObjectURL(blobUrl);
+                    
+                    // Clear the timeout since loading succeeded
+                    if (timeoutId) {
+                      clearTimeout(timeoutId);
+                      timeoutId = null;
+                    }
+                  });
+                  
+                  // Set a shorter timeout for blob loading
+                  if (timeoutId) clearTimeout(timeoutId);
+                  timeoutId = setTimeout(() => {
+                    if (isMountedRef.current && wavesurferRef.current && 
+                        (!wavesurferRef.current.getDuration() || wavesurferRef.current.getDuration() === 0)) {
+                      console.warn('Blob loading timeout, falling back to direct loading');
+                      // Try direct loading as a last resort
+                      wavesurferRef.current.load(normalizedUrl);
+                    }
+                  }, 5000);
+                  
+                } catch (decodeError) {
+                  console.warn('Error decoding audio data:', decodeError);
+                  
+                  // Try a different approach with MediaElement backend
+                  if (isMountedRef.current && wavesurferRef.current) {
+                    try {
+                      // Destroy the current instance
+                      wavesurferRef.current.unAll();
+                      wavesurferRef.current.destroy();
+                      
+                      // Create a new instance with MediaElement backend
+                      if (containerRef.current) {
+                        wavesurferRef.current = WaveSurfer.create({
+                          container: containerRef.current,
+                          waveColor,
+                          progressColor,
+                          barWidth,
+                          barGap,
+                          barRadius,
+                          height,
+                          cursorWidth: 0,
+                          normalize: true,
+                          responsive: true,
+                          // Use MediaElement backend as fallback
+                          backend: 'MediaElement',
+                          // Disable features that might cause issues
+                          autoCenter: false,
+                          fillParent: true,
+                          mediaControls: false
+                        });
+                        
+                        // Set up event handlers again
+                        wavesurferRef.current.on('error', (err) => {
+                          console.warn('WaveSurfer MediaElement fallback error:', err);
+                          if (isMountedRef.current) {
+                            createFallbackVisualization();
+                          }
+                        });
+                        
+                        wavesurferRef.current.on('ready', () => {
+                          if (isMountedRef.current) {
+                            onReady?.(wavesurferRef.current!.getDuration());
+                            
+                            // Handle playback state
+                            if (isPlaying && wavesurferRef.current!.getDuration() > 0) {
+                              setTimeout(() => {
+                                if (isMountedRef.current && wavesurferRef.current) {
+                                  try {
+                                    wavesurferRef.current.play();
+                                  } catch (playErr) {
+                                    console.warn('Error playing after ready:', playErr);
+                                  }
+                                }
+                              }, 100);
+                            }
+                          }
+                        });
+                        
+                        wavesurferRef.current.on('click', () => {
+                          if (isMountedRef.current) {
+                            onPlayPause();
+                          }
+                        });
+                        
+                        // Load the audio directly
+                        wavesurferRef.current.load(normalizedUrl);
+                      }
+                    } catch (fallbackError) {
+                      console.warn('MediaElement fallback failed:', fallbackError);
+                      createFallbackVisualization();
+                    }
+                  } else {
+                    createFallbackVisualization();
+                  }
+                }
+              } catch (fetchError) {
+                console.warn('Error fetching audio:', fetchError);
+                
+                // Fall back to direct loading if fetch fails
+                if (isMountedRef.current && wavesurferRef.current) {
+                  wavesurferRef.current.load(normalizedUrl);
+                }
+              }
+            };
             
-            // Set timeout to check if loading succeeded
-            const timeoutId = setTimeout(() => {
+            // Start the loading process
+            loadAudioWithFetch();
+            
+            // Set a master timeout as a final fallback
+            timeoutId = setTimeout(() => {
               if (isMountedRef.current && wavesurferRef.current && 
                   (!wavesurferRef.current.getDuration() || wavesurferRef.current.getDuration() === 0)) {
                 console.warn('Audio loading timeout, creating fallback visualization');
                 createFallbackVisualization();
               }
-            }, 5000); // 5 second timeout
+            }, 15000); // 15 second timeout
             
-            // Clear timeout on cleanup
-            return () => clearTimeout(timeoutId);
-          } catch (loadErr) {
-            console.warn('Error loading audio with wavesurfer:', loadErr);
+            // Return cleanup function
+            return () => {
+              if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+              }
+            };
+          } catch (error) {
+            console.warn('Error in audio loading process:', error);
             createFallbackVisualization();
           }
         };
@@ -340,7 +639,8 @@ export const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
         {audioUrl && (
           <audio 
             controls={false}
-            preload="metadata"
+            preload="auto" // Changed from metadata to auto for better loading
+            crossOrigin="anonymous" // Added for CORS support
             ref={(audio) => {
               if (!audio) return;
               
@@ -366,40 +666,89 @@ export const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
                 }
               }
               
-              // Add source elements for different formats
+              // Try to detect the MIME type from the URL
               const fileExtension = normalizedUrl.split('.').pop()?.toLowerCase();
-              
-              // Add the main source with appropriate type
-              const source = document.createElement('source');
-              source.src = normalizedUrl;
+              let mimeType = 'audio/mpeg'; // Default to MP3
               
               if (fileExtension) {
                 switch (fileExtension) {
                   case 'mp3':
-                    source.type = 'audio/mpeg';
+                    mimeType = 'audio/mpeg';
                     break;
                   case 'wav':
-                    source.type = 'audio/wav';
+                    mimeType = 'audio/wav';
                     break;
                   case 'ogg':
-                    source.type = 'audio/ogg';
+                    mimeType = 'audio/ogg';
                     break;
                   case 'm4a':
-                    source.type = 'audio/mp4';
+                    mimeType = 'audio/mp4';
                     break;
                   case 'aac':
-                    source.type = 'audio/aac';
+                    mimeType = 'audio/aac';
                     break;
                   // Add more formats as needed
                 }
               }
               
-              audio.appendChild(source);
+              // Add multiple source elements for different formats to improve compatibility
+              const formats = [
+                { type: mimeType, src: normalizedUrl },
+                // Add fallback formats if needed
+              ];
               
-              // Add error handling
-              audio.onerror = () => {
-                console.warn('Fallback audio element error');
+              // Add each source to the audio element
+              formats.forEach(format => {
+                const source = document.createElement('source');
+                source.type = format.type;
+                source.src = format.src;
+                audio.appendChild(source);
+              });
+              
+              // Add comprehensive error handling
+              audio.onerror = (e) => {
+                const mediaError = audio.error;
+                let errorMessage = 'Unknown audio error';
+                
+                if (mediaError) {
+                  switch (mediaError.code) {
+                    case MediaError.MEDIA_ERR_ABORTED:
+                      errorMessage = 'Audio loading aborted';
+                      break;
+                    case MediaError.MEDIA_ERR_NETWORK:
+                      errorMessage = 'Network error while loading audio';
+                      break;
+                    case MediaError.MEDIA_ERR_DECODE:
+                      errorMessage = 'Audio decoding error';
+                      break;
+                    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                      errorMessage = 'Audio format not supported';
+                      break;
+                  }
+                }
+                
+                console.warn(`Fallback audio element error: ${errorMessage}`, e);
+                
+                // Try to recover by switching to a different format if possible
+                const currentSrc = audio.currentSrc;
+                const sources = Array.from(audio.getElementsByTagName('source'));
+                const currentIndex = sources.findIndex(source => source.src === currentSrc);
+                
+                if (currentIndex < sources.length - 1) {
+                  // Try the next source
+                  audio.src = sources[currentIndex + 1].src;
+                  audio.load();
+                }
               };
+              
+              // Add success handling
+              audio.oncanplaythrough = () => {
+                // Audio is loaded and can be played
+                console.log('Fallback audio element loaded successfully');
+              };
+              
+              // Force load the audio
+              audio.load();
             }}
           />
         )}

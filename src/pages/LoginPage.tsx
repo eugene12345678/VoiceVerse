@@ -1,19 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Mic2,
   LogIn,
   Mail,
   Lock,
-  ArrowRight,
+  
   Eye,
   EyeOff,
   AlertCircle,
   CheckCircle2,
   Github,
-  Twitter,
-  Linkedin,
   Globe,
   Shield,
   Fingerprint,
@@ -56,12 +54,13 @@ const securityFeatures = [
 export const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isLoading } = useAuthStore();
+  const { login, loginWithGoogle, loginWithGithub, isLoading } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [showTwoFactor, setShowTwoFactor] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [socialLoading, setSocialLoading] = useState<string | null>(null);
   
   // Get redirect path from URL query params
   const searchParams = new URLSearchParams(location.search);
@@ -94,8 +93,48 @@ export const LoginPage = () => {
       } else {
         navigate('/');
       }
-    } catch (error) {
-      setLoginError('Invalid email or password. Please try again.');
+    } catch (error: any) {
+      setLoginError(error.message || 'Invalid email or password. Please try again.');
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setLoginError(null);
+    setSocialLoading('google');
+    try {
+      await loginWithGoogle();
+      setLoginSuccess(true);
+      
+      // Redirect after successful login
+      if (redirectPath) {
+        navigate(`/${redirectPath}`);
+      } else {
+        navigate('/');
+      }
+    } catch (error: any) {
+      setLoginError(error.message || 'Google login failed. Please try again.');
+    } finally {
+      setSocialLoading(null);
+    }
+  };
+
+  const handleGithubLogin = async () => {
+    setLoginError(null);
+    setSocialLoading('github');
+    try {
+      await loginWithGithub();
+      setLoginSuccess(true);
+      
+      // Redirect after successful login
+      if (redirectPath) {
+        navigate(`/${redirectPath}`);
+      } else {
+        navigate('/');
+      }
+    } catch (error: any) {
+      setLoginError(error.message || 'GitHub login failed. Please try again.');
+    } finally {
+      setSocialLoading(null);
     }
   };
 
@@ -310,27 +349,24 @@ export const LoginPage = () => {
                   </div>
                 </div>
 
-                <div className="mt-6 grid grid-cols-3 gap-3">
+                <div className="mt-6 grid grid-cols-2 gap-3">
+                  <Button
+                    variant="outline"
+                    fullWidth
+                    leftIcon={<Globe className="h-5 w-5" />}
+                    onClick={handleGoogleLogin}
+                    isLoading={socialLoading === 'google'}
+                  >
+                    Google
+                  </Button>
                   <Button
                     variant="outline"
                     fullWidth
                     leftIcon={<Github className="h-5 w-5" />}
+                    onClick={handleGithubLogin}
+                    isLoading={socialLoading === 'github'}
                   >
                     GitHub
-                  </Button>
-                  <Button
-                    variant="outline"
-                    fullWidth
-                    leftIcon={<Twitter className="h-5 w-5" />}
-                  >
-                    Twitter
-                  </Button>
-                  <Button
-                    variant="outline"
-                    fullWidth
-                    leftIcon={<Linkedin className="h-5 w-5" />}
-                  >
-                    LinkedIn
                   </Button>
                 </div>
               </div>

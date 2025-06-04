@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { motion, useScroll, useTransform, useSpring, useInView } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
 import { 
@@ -22,7 +22,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Card, CardContent } from '../components/ui/Card';
 import { Avatar } from '../components/ui/Avatar';
-import { AudioRecorder } from '../components/audio/AudioRecorder';
+
 import { WaveformVisualizer } from '../components/audio/WaveformVisualizer';
 import { formatNumber } from '../lib/utils';
 
@@ -227,7 +227,7 @@ const mockTrendingVoices = [
   {
     id: '1',
     caption: 'Just tried the new Morgan Freeman voice effect! 🤯',
-    audioUrl: 'https://www2.cs.uic.edu/~i101/SoundFiles/BabyElephantWalk60.wav',
+    audioUrl: '/Back-home.mp3',
     user: {
       id: 'user1',
       displayName: 'Voice Master',
@@ -240,7 +240,7 @@ const mockTrendingVoices = [
   {
     id: '2',
     caption: 'My Russian accent transformation is hilarious! 😂',
-    audioUrl: 'https://www2.cs.uic.edu/~i101/SoundFiles/CantinaBand3.wav',
+    audioUrl: '/russian-poem-about-julmust-70666.mp3',
     user: {
       id: 'user2',
       displayName: 'VoiceExplorer',
@@ -743,7 +743,7 @@ export const HomePage = () => {
               <Button 
                 variant="outline" 
                 as={Link} 
-                to="/feed"
+                to="/voices"
                 rightIcon={<Play size={16} />}
               >
                 View All

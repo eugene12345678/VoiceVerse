@@ -15,7 +15,6 @@ import {
   AlertCircle,
   Github,
   Globe,
-  Twitter,
   Star,
   Users,
   Award,
@@ -79,11 +78,12 @@ const stats = [
 
 export const SignupPage = () => {
   const navigate = useNavigate();
-  const { register: registerUser, isLoading } = useAuthStore();
+  const { register: registerUser, registerWithGoogle, registerWithGithub, isLoading } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
+  const [socialLoading, setSocialLoading] = useState<string | null>(null);
   
   const { register, handleSubmit, formState: { errors }, watch } = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),
@@ -121,6 +121,36 @@ export const SignupPage = () => {
     } catch (error: any) {
       console.error('Registration failed:', error);
       setSignupError(error.message || 'Registration failed. Please try again.');
+    }
+  };
+
+  const handleGoogleSignup = async () => {
+    setSignupError(null);
+    setSocialLoading('google');
+    try {
+      await registerWithGoogle();
+      setSignupSuccess(true);
+      setTimeout(() => navigate('/'), 2000);
+    } catch (error: any) {
+      console.error('Google registration failed:', error);
+      setSignupError(error.message || 'Google registration failed. Please try again.');
+    } finally {
+      setSocialLoading(null);
+    }
+  };
+
+  const handleGithubSignup = async () => {
+    setSignupError(null);
+    setSocialLoading('github');
+    try {
+      await registerWithGithub();
+      setSignupSuccess(true);
+      setTimeout(() => navigate('/'), 2000);
+    } catch (error: any) {
+      console.error('GitHub registration failed:', error);
+      setSignupError(error.message || 'GitHub registration failed. Please try again.');
+    } finally {
+      setSocialLoading(null);
     }
   };
 
@@ -360,11 +390,13 @@ export const SignupPage = () => {
                   </div>
                 </div>
 
-                <div className="mt-6 grid grid-cols-3 gap-3">
+                <div className="mt-6 grid grid-cols-2 gap-3">
                   <Button
                     variant="outline"
                     fullWidth
                     leftIcon={<Globe className="h-5 w-5" />}
+                    onClick={handleGoogleSignup}
+                    isLoading={socialLoading === 'google'}
                   >
                     Google
                   </Button>
@@ -372,15 +404,10 @@ export const SignupPage = () => {
                     variant="outline"
                     fullWidth
                     leftIcon={<Github className="h-5 w-5" />}
+                    onClick={handleGithubSignup}
+                    isLoading={socialLoading === 'github'}
                   >
                     GitHub
-                  </Button>
-                  <Button
-                    variant="outline"
-                    fullWidth
-                    leftIcon={<Twitter className="h-5 w-5" />}
-                  >
-                    Twitter
                   </Button>
                 </div>
               </div>
