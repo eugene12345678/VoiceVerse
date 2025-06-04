@@ -52,11 +52,14 @@ exports.signup = async (req, res) => {
       }
     });
 
-    // Create JWT token
+    // Create JWT token with explicit algorithm
     const token = jwt.sign(
       { id: user.id },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+      { 
+        expiresIn: process.env.JWT_EXPIRES_IN,
+        algorithm: 'HS256' // Specify the algorithm explicitly
+      }
     );
 
     // Return user data without password
@@ -111,11 +114,14 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Create JWT token
+    // Create JWT token with explicit algorithm
     const token = jwt.sign(
       { id: user.id },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+      { 
+        expiresIn: process.env.JWT_EXPIRES_IN,
+        algorithm: 'HS256' // Specify the algorithm explicitly
+      }
     );
 
     // Return user data without password

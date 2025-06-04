@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, useScroll, useTransform, useSpring, useInView } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
 import { 
@@ -240,7 +240,7 @@ const mockTrendingVoices = [
   {
     id: '2',
     caption: 'My Russian accent transformation is hilarious! 😂',
-    audioUrl: '/russian-poem-about-julmust-70666.mp3',
+    audioUrl: '/medieval-gamer-voice-donx27t-forget-to-subscribe-226581.mp3',
     user: {
       id: 'user2',
       displayName: 'VoiceExplorer',
@@ -253,7 +253,7 @@ const mockTrendingVoices = [
   {
     id: '3',
     caption: 'Pitched my voice up for this baby talk challenge 👶',
-    audioUrl: 'https://www2.cs.uic.edu/~i101/SoundFiles/BabyElephantWalk60.wav',
+    audioUrl: '/funny-evil-cartoon-voice-with-laugh-14623.mp3',
     user: {
       id: 'user3',
       displayName: 'AudioMaster',
@@ -266,7 +266,7 @@ const mockTrendingVoices = [
   {
     id: '4',
     caption: 'Just made a dramatic trailer voice-over for fun!',
-    audioUrl: 'https://www2.cs.uic.edu/~i101/SoundFiles/CantinaBand3.wav',
+    audioUrl: '/horror-voice-flashbacks-14469.mp3',
     user: {
       id: 'user4',
       displayName: 'VoiceCreator',
@@ -317,11 +317,38 @@ const TrendingVoiceCard: React.FC<TrendingVoiceCardProps> = ({ voice }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const cardRef = React.useRef(null);
+  const audioRef = React.useRef<HTMLAudioElement>(null);
   const isInView = useInView(cardRef, { once: true });
 
   const togglePlay = () => {
-    setIsPlaying(!isPlaying);
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play().catch(err => {
+          console.error("Error playing audio:", err);
+        });
+      }
+      setIsPlaying(!isPlaying);
+    }
   };
+
+  // Handle audio ended event
+  useEffect(() => {
+    const audioElement = audioRef.current;
+    
+    const handleEnded = () => {
+      setIsPlaying(false);
+    };
+    
+    if (audioElement) {
+      audioElement.addEventListener('ended', handleEnded);
+      
+      return () => {
+        audioElement.removeEventListener('ended', handleEnded);
+      };
+    }
+  }, []);
 
   return (
     <motion.div
@@ -345,6 +372,9 @@ const TrendingVoiceCard: React.FC<TrendingVoiceCardProps> = ({ voice }) => {
             transition={{ duration: 0.3 }}
           />
           
+          {/* Hidden audio element */}
+          <audio ref={audioRef} src={voice.audioUrl} preload="metadata" />
+          
           <div className="relative">
             <div className="flex items-center gap-3 mb-3">
               <Avatar 
@@ -367,13 +397,19 @@ const TrendingVoiceCard: React.FC<TrendingVoiceCardProps> = ({ voice }) => {
               {voice.caption}
             </p>
             
-            <div className="mb-3">
-              <WaveformVisualizer
-                audioUrl={voice.audioUrl}
-                isPlaying={isPlaying}
-                onPlayPause={togglePlay}
-                height={48}
-              />
+            <div className="mb-3 bg-dark-100 dark:bg-dark-800 rounded-lg p-2">
+              <div className="flex items-center justify-center h-[48px]">
+                <div className={`flex items-center justify-center w-full h-full ${isPlaying ? 'animate-pulse' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-1 h-8 bg-primary-500 rounded-full ${isPlaying ? 'animate-[bounce_1s_infinite]' : ''}`} style={{ animationDelay: '0ms' }}></div>
+                    <div className={`w-1 h-12 bg-primary-500 rounded-full ${isPlaying ? 'animate-[bounce_1s_infinite]' : ''}`} style={{ animationDelay: '150ms' }}></div>
+                    <div className={`w-1 h-6 bg-primary-500 rounded-full ${isPlaying ? 'animate-[bounce_1s_infinite]' : ''}`} style={{ animationDelay: '300ms' }}></div>
+                    <div className={`w-1 h-10 bg-primary-500 rounded-full ${isPlaying ? 'animate-[bounce_1s_infinite]' : ''}`} style={{ animationDelay: '450ms' }}></div>
+                    <div className={`w-1 h-4 bg-primary-500 rounded-full ${isPlaying ? 'animate-[bounce_1s_infinite]' : ''}`} style={{ animationDelay: '600ms' }}></div>
+                    <div className={`w-1 h-8 bg-primary-500 rounded-full ${isPlaying ? 'animate-[bounce_1s_infinite]' : ''}`} style={{ animationDelay: '750ms' }}></div>
+                  </div>
+                </div>
+              </div>
             </div>
             
             <div className="flex items-center justify-between">
@@ -745,6 +781,7 @@ export const HomePage = () => {
                 as={Link} 
                 to="/voices"
                 rightIcon={<Play size={16} />}
+                onClick={() => window.location.href = '/voices'}
               >
                 View All
               </Button>

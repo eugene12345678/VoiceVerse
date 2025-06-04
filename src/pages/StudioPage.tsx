@@ -46,6 +46,23 @@ interface VoiceEffect {
   elevenLabsVoiceId?: string;
 }
 
+// ElevenLabs voice model interface
+interface ElevenLabsVoice {
+  voice_id: string;
+  name: string;
+  category?: string;
+  description?: string;
+  preview_url?: string;
+  labels?: Record<string, string>;
+  available_for_tiers: string[];
+  settings?: {
+    stability: number;
+    similarity_boost: number;
+    style?: number;
+    use_speaker_boost?: boolean;
+  };
+}
+
 // Default voice effects (will be replaced with API data)
 const defaultVoiceEffects = [
   // Celebrity voices
@@ -495,7 +512,10 @@ export const StudioPage = () => {
           setTranslationInProgress(false);
           
           // Create a URL for the translated audio
-          setTranslatedAudio(`/api/audio/${translationData.translatedAudioId}`);
+          // Use the correct path for translated audio files
+          // The translatedAudioId is the ID of the audio file record, which is also used in the filename
+          setTranslatedAudio(`/api/audio/translated/translated_${translationData.translatedAudioId}.mp3`);
+          console.log(`Setting translated audio URL: /api/audio/translated/translated_${translationData.translatedAudioId}.mp3`);
         } else if (translationData.status === 'failed') {
           setTranslationInProgress(false);
           setTranslationError(translationData.errorMessage || 'Translation failed');
@@ -648,12 +668,35 @@ export const StudioPage = () => {
                 </div>
 
                 <div className="space-y-6">
-                  <WaveformVisualizer
-                    audioUrl={translatedAudio || transformedAudio || recordedAudio}
-                    isPlaying={isPlaying}
-                    onPlayPause={() => setIsPlaying(!isPlaying)}
-                    height={120}
-                  />
+                  <div className="relative">
+                    <WaveformVisualizer
+                      audioUrl={translatedAudio || transformedAudio || recordedAudio}
+                      isPlaying={isPlaying}
+                      onPlayPause={() => setIsPlaying(!isPlaying)}
+                      height={120}
+                    />
+                    
+                    {/* Play button overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Button
+                        variant="primary"
+                        size="lg"
+                        className="rounded-full w-16 h-16 flex items-center justify-center bg-primary-600/90 hover:bg-primary-700 backdrop-blur-sm"
+                        onClick={() => setIsPlaying(!isPlaying)}
+                      >
+                        {isPlaying ? (
+                          <span className="text-2xl">◼</span>
+                        ) : (
+                          <span className="flex items-center justify-center">
+                            {/* Using the imported Play icon */}
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1">
+                              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                          </span>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                   
                   {/* Translation Controls */}
                   {languages.length > 0 && audioFile && (

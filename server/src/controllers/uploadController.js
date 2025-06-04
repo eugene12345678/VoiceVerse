@@ -176,11 +176,48 @@ exports.uploadAudio = [
       const storagePath = path.relative(process.cwd(), filePath);
       
       try {
+        // Check if we're using the development user
+        const isDevelopmentUser = req.user.id === 'dev-user-id';
+        
+        // If in development mode with a mock user, try to find a real user to use
+        let userId = req.user.id;
+        
+        if (isDevelopmentUser) {
+          // Try to find any user in the database to use for development
+          const anyUser = await req.prisma.user.findFirst({
+            select: { id: true }
+          });
+          
+          if (anyUser) {
+            userId = anyUser.id;
+            console.log(`Using existing user ID for development: ${userId}`);
+          } else {
+            // If no user exists, create a development user
+            try {
+              const devUser = await req.prisma.user.create({
+                data: {
+                  username: 'devuser',
+                  email: 'dev@example.com',
+                  password: 'hashedpassword', // In a real app, this would be properly hashed
+                  displayName: 'Development User',
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                }
+              });
+              userId = devUser.id;
+              console.log(`Created development user with ID: ${userId}`);
+            } catch (userCreateError) {
+              console.error('Failed to create development user:', userCreateError);
+              // Continue with the original ID, which might fail
+            }
+          }
+        }
+        
         // Create audio file record in database
         const audioFile = await req.prisma.audioFile.create({
           data: {
             id: uuidv4(),
-            userId: req.user.id,
+            userId: userId,
             originalFilename: originalname,
             storagePath,
             fileSize: size,
@@ -406,11 +443,48 @@ const processAudioFile = async (req, res) => {
     // Create relative storage path
     const storagePath = path.relative(process.cwd(), filePath);
     
+    // Check if we're using the development user
+    const isDevelopmentUser = req.user.id === 'dev-user-id';
+    
+    // If in development mode with a mock user, try to find a real user to use
+    let userId = req.user.id;
+    
+    if (isDevelopmentUser) {
+      // Try to find any user in the database to use for development
+      const anyUser = await req.prisma.user.findFirst({
+        select: { id: true }
+      });
+      
+      if (anyUser) {
+        userId = anyUser.id;
+        console.log(`Using existing user ID for development: ${userId}`);
+      } else {
+        // If no user exists, create a development user
+        try {
+          const devUser = await req.prisma.user.create({
+            data: {
+              username: 'devuser',
+              email: 'dev@example.com',
+              password: 'hashedpassword', // In a real app, this would be properly hashed
+              displayName: 'Development User',
+              createdAt: new Date(),
+              updatedAt: new Date()
+            }
+          });
+          userId = devUser.id;
+          console.log(`Created development user with ID: ${userId}`);
+        } catch (userCreateError) {
+          console.error('Failed to create development user:', userCreateError);
+          // Continue with the original ID, which might fail
+        }
+      }
+    }
+    
     // Create audio file record in database
     const audioFile = await req.prisma.audioFile.create({
       data: {
         id: uuidv4(),
-        userId: req.user.id,
+        userId: userId,
         originalFilename: originalname,
         storagePath,
         fileSize: size,

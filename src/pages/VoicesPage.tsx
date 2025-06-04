@@ -29,7 +29,6 @@ import {
 import { Button } from '../components/ui/Button';
 import { IconButton } from '../components/ui/IconButton';
 import { Avatar } from '../components/ui/Avatar';
-import { WaveformVisualizer } from '../components/audio/WaveformVisualizer';
 import { formatNumber, formatTimeAgo } from '../lib/utils';
 import { voicesAPI } from '../lib/api/voices';
 
@@ -652,14 +651,32 @@ const VoicePost: React.FC<VoicePostProps> = ({
 
         {/* Audio visualization */}
         <div className="w-full max-w-2xl">
-          <WaveformVisualizer
-            audioUrl={post.audioUrl}
-            isPlaying={isPlaying && !isMuted}
-            onPlayPause={() => setIsPlaying(!isPlaying)}
-            height={200}
-            waveColor="rgba(255, 255, 255, 0.4)"
-            progressColor="rgba(255, 255, 255, 0.8)"
-          />
+          <div className="bg-dark-800/50 backdrop-blur-sm rounded-lg p-4">
+            <div className="flex items-center justify-center h-[200px]">
+              <div className={`flex items-center justify-center w-full h-full ${isPlaying ? 'animate-pulse' : ''}`}>
+                <div className="flex items-center gap-4">
+                  <div className={`w-2 h-16 bg-white/60 rounded-full ${isPlaying ? 'animate-[bounce_1s_infinite]' : ''}`} style={{ animationDelay: '0ms' }}></div>
+                  <div className={`w-2 h-32 bg-white/70 rounded-full ${isPlaying ? 'animate-[bounce_1s_infinite]' : ''}`} style={{ animationDelay: '150ms' }}></div>
+                  <div className={`w-2 h-24 bg-white/80 rounded-full ${isPlaying ? 'animate-[bounce_1s_infinite]' : ''}`} style={{ animationDelay: '300ms' }}></div>
+                  <div className={`w-2 h-48 bg-white rounded-full ${isPlaying ? 'animate-[bounce_1s_infinite]' : ''}`} style={{ animationDelay: '450ms' }}></div>
+                  <div className={`w-2 h-32 bg-white/80 rounded-full ${isPlaying ? 'animate-[bounce_1s_infinite]' : ''}`} style={{ animationDelay: '600ms' }}></div>
+                  <div className={`w-2 h-24 bg-white/70 rounded-full ${isPlaying ? 'animate-[bounce_1s_infinite]' : ''}`} style={{ animationDelay: '750ms' }}></div>
+                  <div className={`w-2 h-16 bg-white/60 rounded-full ${isPlaying ? 'animate-[bounce_1s_infinite]' : ''}`} style={{ animationDelay: '900ms' }}></div>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex items-center justify-center">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsPlaying(!isPlaying);
+                }}
+                className="w-12 h-12 rounded-full bg-primary-500 text-white hover:bg-primary-600 flex items-center justify-center transition-colors"
+              >
+                {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6 ml-0.5" />}
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Double tap like animation */}
@@ -1671,7 +1688,57 @@ export const VoicesPage: React.FC = () => {
     }
   };
   
-  // Handle opening comments
+  // Mock comments data
+const mockComments: Record<string, Comment[]> = {
+  '1': [
+    {
+      id: 'comment1',
+      content: 'This is amazing! Your Morgan Freeman impression is spot on!',
+      user: {
+        id: 'user5',
+        username: 'voicefan',
+        displayName: 'Voice Fan',
+        avatarUrl: 'https://images.pexels.com/photos/1382731/pexels-photo-1382731.jpeg?auto=compress&cs=tinysrgb&w=600',
+        isVerified: false
+      },
+      createdAt: '2024-03-01T14:30:00Z',
+      likes: 42,
+      isLiked: false
+    },
+    {
+      id: 'comment2',
+      content: 'How did you get your voice so deep? Any tips?',
+      user: {
+        id: 'user6',
+        username: 'learningvoice',
+        displayName: 'Learning Voice',
+        avatarUrl: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=600',
+        isVerified: false
+      },
+      createdAt: '2024-03-01T13:15:00Z',
+      likes: 18,
+      isLiked: true
+    }
+  ],
+  '2': [
+    {
+      id: 'comment3',
+      content: 'Your Russian accent is hilarious! 😂',
+      user: {
+        id: 'user7',
+        username: 'accentlover',
+        displayName: 'Accent Lover',
+        avatarUrl: 'https://images.pexels.com/photos/1065084/pexels-photo-1065084.jpeg?auto=compress&cs=tinysrgb&w=600',
+        isVerified: false
+      },
+      createdAt: '2024-03-01T11:45:00Z',
+      likes: 31,
+      isLiked: false
+    }
+  ]
+};
+
+// Handle opening comments
   const handleOpenComments = async (postId: string) => {
     setActivePostId(postId);
     setCommentsOpen(true);

@@ -27,6 +27,7 @@ app.use(morgan('dev'));
 // Serve static files
 app.use('/api/audio', express.static(path.join(process.cwd(), 'uploads', 'audio')));
 app.use('/api/audio/original', express.static(path.join(process.cwd(), 'uploads', 'audio', 'original')));
+app.use('/api/audio/translated', express.static(path.join(process.cwd(), 'uploads', 'audio', 'translated')));
 app.use('/api/images', express.static(path.join(process.cwd(), 'uploads', 'images')));
 app.use('/api/images/nft', express.static(path.join(process.cwd(), 'uploads', 'images', 'nft')));
 
@@ -36,6 +37,7 @@ const ensureDirectoriesExist = () => {
     path.join(process.cwd(), 'uploads'),
     path.join(process.cwd(), 'uploads', 'audio'),
     path.join(process.cwd(), 'uploads', 'audio', 'original'),
+    path.join(process.cwd(), 'uploads', 'audio', 'translated'),
     path.join(process.cwd(), 'uploads', 'images'),
     path.join(process.cwd(), 'uploads', 'images', 'nft')
   ];

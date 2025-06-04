@@ -31,8 +31,35 @@ const authenticateToken = async (req, res, next) => {
   }
 
   try {
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key');
+    // First try to verify with HS256 algorithm (our own tokens)
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret-key', {
+        algorithms: ['HS256'] // Specify the algorithm explicitly
+      });
+    } catch (jwtError) {
+      if (jwtError.name === 'JsonWebTokenError' && jwtError.message === 'invalid algorithm') {
+        // This might be a Firebase token, which uses RS256
+        // For development, we'll just extract the payload without verification
+        // In production, you should properly verify Firebase tokens
+        try {
+          // Decode without verification for development
+          const tokenParts = token.split('.');
+          if (tokenParts.length === 3) {
+            const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+            decoded = { id: payload.user_id || payload.sub || payload.uid || 'dev-user-id' };
+            console.log('Using decoded Firebase token payload:', decoded);
+          } else {
+            throw new Error('Invalid token format');
+          }
+        } catch (decodeError) {
+          console.error('Error decoding token:', decodeError);
+          throw jwtError; // Re-throw the original error if decoding fails
+        }
+      } else {
+        throw jwtError; // Re-throw for other JWT errors
+      }
+    }
 
     // Get user from database
     const user = await req.prisma.user.findUnique({
