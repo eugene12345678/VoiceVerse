@@ -86,6 +86,29 @@ async function createSubscription(customerId, priceId, userId, promoCode = null)
   const planType = subscription.items.data[0].price.metadata.planType || 'PRO';
   const billingPeriod = subscription.items.data[0].price.recurring.interval === 'year' ? 'YEARLY' : 'MONTHLY';
 
+  // Ensure we have valid timestamps before creating Date objects
+  let currentPeriodStart = new Date();
+  let currentPeriodEnd = new Date();
+  
+  if (subscription.current_period_start) {
+    currentPeriodStart = new Date(subscription.current_period_start * 1000);
+  }
+  
+  if (subscription.current_period_end) {
+    currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+  }
+
+  // Validate dates before saving to database
+  if (isNaN(currentPeriodStart.getTime())) {
+    currentPeriodStart = new Date(); // Fallback to current date
+  }
+  
+  if (isNaN(currentPeriodEnd.getTime())) {
+    // Fallback to current date + 30 days
+    currentPeriodEnd = new Date();
+    currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30);
+  }
+
   await prisma.subscription.create({
     data: {
       userId,
@@ -93,8 +116,8 @@ async function createSubscription(customerId, priceId, userId, promoCode = null)
       status: mapSubscriptionStatus(subscription.status),
       planType,
       billingPeriod,
-      currentPeriodStart: new Date(subscription.current_period_start * 1000),
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+      currentPeriodStart,
+      currentPeriodEnd,
     }
   });
 
@@ -265,24 +288,47 @@ async function handleSubscriptionUpdate(subscription) {
       return;
     }
 
+    // Ensure we have valid timestamps before creating Date objects
+    let currentPeriodStart = new Date();
+    let currentPeriodEnd = new Date();
+    
+    if (subscription.current_period_start) {
+      currentPeriodStart = new Date(subscription.current_period_start * 1000);
+    }
+    
+    if (subscription.current_period_end) {
+      currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+    }
+
+    // Validate dates before saving to database
+    if (isNaN(currentPeriodStart.getTime())) {
+      currentPeriodStart = new Date(); // Fallback to current date
+    }
+    
+    if (isNaN(currentPeriodEnd.getTime())) {
+      // Fallback to current date + 30 days
+      currentPeriodEnd = new Date();
+      currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30);
+    }
+
     // Update subscription in database
     await prisma.subscription.upsert({
       where: { stripeSubscriptionId: subscription.id },
       update: {
         status: mapSubscriptionStatus(subscription.status),
-        currentPeriodStart: new Date(subscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        currentPeriodStart,
+        currentPeriodEnd,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
       },
       create: {
         userId: user.id,
         stripeSubscriptionId: subscription.id,
         status: mapSubscriptionStatus(subscription.status),
-        planType: subscription.items.data[0].price.metadata.planType || 'PRO',
-        billingPeriod: subscription.items.data[0].price.recurring.interval === 'year' ? 'YEARLY' : 'MONTHLY',
-        currentPeriodStart: new Date(subscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        planType: subscription.items.data[0]?.price?.metadata?.planType || 'PRO',
+        billingPeriod: subscription.items.data[0]?.price?.recurring?.interval === 'year' ? 'YEARLY' : 'MONTHLY',
+        currentPeriodStart,
+        currentPeriodEnd,
+        cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
       }
     });
 
