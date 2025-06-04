@@ -109,7 +109,8 @@ async function createSubscription(customerId, priceId, userId, promoCode = null)
     currentPeriodEnd.setDate(currentPeriodEnd.getDate() + 30);
   }
 
-  await prisma.subscription.create({
+  // Create the subscription in the database
+  const dbSubscription = await prisma.subscription.create({
     data: {
       userId,
       stripeSubscriptionId: subscription.id,
@@ -131,17 +132,22 @@ async function createSubscription(customerId, priceId, userId, promoCode = null)
 
   // Store invoice information
   if (subscription.latest_invoice) {
-    await prisma.invoice.create({
-      data: {
-        subscriptionId: subscription.id,
-        stripeInvoiceId: subscription.latest_invoice.id,
-        amount: subscription.latest_invoice.amount_paid / 100, // Convert from cents
-        currency: subscription.latest_invoice.currency,
-        status: mapInvoiceStatus(subscription.latest_invoice.status),
-        invoiceUrl: subscription.latest_invoice.hosted_invoice_url,
-        pdfUrl: subscription.latest_invoice.invoice_pdf,
-      }
-    });
+    try {
+      await prisma.invoice.create({
+        data: {
+          subscriptionId: dbSubscription.id, // Use the database subscription ID, not the Stripe subscription ID
+          stripeInvoiceId: subscription.latest_invoice.id,
+          amount: subscription.latest_invoice.amount_paid / 100, // Convert from cents
+          currency: subscription.latest_invoice.currency || 'usd',
+          status: mapInvoiceStatus(subscription.latest_invoice.status),
+          invoiceUrl: subscription.latest_invoice.hosted_invoice_url || '',
+          pdfUrl: subscription.latest_invoice.invoice_pdf || '',
+        }
+      });
+    } catch (error) {
+      console.error('Error creating invoice record:', error);
+      // Continue even if invoice creation fails
+    }
   }
 
   return subscription;

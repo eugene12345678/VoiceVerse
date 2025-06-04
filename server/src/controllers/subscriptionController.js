@@ -296,6 +296,11 @@ exports.createSubscription = async (req, res) => {
     const { priceId, paymentMethodId, promoCode } = req.body;
     const userId = req.user.id;
 
+    // Validate required fields
+    if (!priceId || !paymentMethodId) {
+      return res.status(400).json({ message: 'Price ID and payment method ID are required' });
+    }
+
     // Get user
     const user = await prisma.user.findUnique({
       where: { id: userId }
@@ -305,74 +310,102 @@ exports.createSubscription = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Get or create Stripe customer
-    const customerId = await getOrCreateCustomer(user);
-
-    // Attach payment method to customer
-    await attachPaymentMethod(customerId, paymentMethodId, true);
-
-    // Get or create price in Stripe
-    let actualPriceId = priceId;
     try {
-      // Try to retrieve the price
-      await stripe.prices.retrieve(priceId);
-    } catch (error) {
-      // If price doesn't exist, create a new one
-      if (error.type === 'StripeInvalidRequestError' && error.raw.code === 'resource_missing') {
-        console.log(`Price ${priceId} not found, creating a new price`);
-        
-        // Create a product first
-        const product = await stripe.products.create({
-          name: 'VoiceVerse Pro Subscription',
-          description: 'Access to premium voice transformation features',
+      // Get or create Stripe customer
+      const customerId = await getOrCreateCustomer(user);
+
+      // Attach payment method to customer
+      await attachPaymentMethod(customerId, paymentMethodId, true);
+
+      // Get or create price in Stripe
+      let actualPriceId = priceId;
+      try {
+        // Try to retrieve the price
+        await stripe.prices.retrieve(priceId);
+      } catch (error) {
+        // If price doesn't exist, create a new one
+        if (error.type === 'StripeInvalidRequestError' && error.raw.code === 'resource_missing') {
+          console.log(`Price ${priceId} not found, creating a new price`);
+          
+          // Create a product first
+          const product = await stripe.products.create({
+            name: 'VoiceVerse Pro Subscription',
+            description: 'Access to premium voice transformation features',
+          });
+          
+          // Create a price for the product
+          const newPrice = await stripe.prices.create({
+            product: product.id,
+            unit_amount: 29900, // $299.00
+            currency: 'usd',
+            recurring: {
+              interval: 'year',
+            },
+            metadata: {
+              planType: 'PRO'
+            }
+          });
+          
+          actualPriceId = newPrice.id;
+          console.log(`Created new price: ${actualPriceId}`);
+        } else {
+          // If it's another error, rethrow it
+          throw error;
+        }
+      }
+
+      // Create subscription
+      const subscription = await createSubscription(customerId, actualPriceId, userId, promoCode);
+
+      // Record promo code usage if applicable
+      if (promoCode && subscription.status !== 'incomplete') {
+        await recordPromoCodeUsage(userId, promoCode);
+      }
+
+      // Send confirmation email
+      try {
+        const dbSubscription = await prisma.subscription.findUnique({
+          where: { stripeSubscriptionId: subscription.id }
         });
-        
-        // Create a price for the product
-        const newPrice = await stripe.prices.create({
-          product: product.id,
-          unit_amount: 29900, // $299.00
-          currency: 'usd',
-          recurring: {
-            interval: 'year',
-          },
-          metadata: {
-            planType: 'PRO'
-          }
+
+        if (dbSubscription) {
+          await sendSubscriptionConfirmationEmail(user.email, dbSubscription);
+        }
+      } catch (emailError) {
+        console.error('Error sending confirmation email:', emailError);
+        // Continue even if email fails
+      }
+
+      res.status(200).json({
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000)
+      });
+    } catch (stripeError) {
+      console.error('Stripe error creating subscription:', stripeError);
+      
+      // Handle specific Stripe errors
+      if (stripeError.type === 'StripeCardError') {
+        return res.status(400).json({ 
+          message: stripeError.message || 'Your card was declined',
+          code: stripeError.code || 'card_error'
         });
-        
-        actualPriceId = newPrice.id;
-        console.log(`Created new price: ${actualPriceId}`);
       } else {
-        // If it's another error, rethrow it
-        throw error;
+        throw stripeError; // Re-throw for general error handling
       }
     }
-
-    // Create subscription
-    const subscription = await createSubscription(customerId, actualPriceId, userId, promoCode);
-
-    // Record promo code usage if applicable
-    if (promoCode && subscription.status !== 'incomplete') {
-      await recordPromoCodeUsage(userId, promoCode);
-    }
-
-    // Send confirmation email
-    const dbSubscription = await prisma.subscription.findUnique({
-      where: { stripeSubscriptionId: subscription.id }
-    });
-
-    if (dbSubscription) {
-      await sendSubscriptionConfirmationEmail(user.email, dbSubscription);
-    }
-
-    res.status(200).json({
-      subscriptionId: subscription.id,
-      status: subscription.status,
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000)
-    });
   } catch (error) {
     console.error('Error creating subscription:', error);
-    res.status(500).json({ message: 'Failed to create subscription' });
+    
+    // Determine appropriate status code
+    const statusCode = error.statusCode || 500;
+    
+    // Send detailed error message in development, generic in production
+    const errorMessage = process.env.NODE_ENV === 'development' 
+      ? `Failed to create subscription: ${error.message}`
+      : 'Failed to create subscription. Please try again later.';
+    
+    res.status(statusCode).json({ message: errorMessage });
   }
 };
 
