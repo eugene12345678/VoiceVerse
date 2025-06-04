@@ -179,6 +179,10 @@ const PaymentForm = ({
           throw new Error('Please use a test card number. For testing, use 4242 4242 4242 4242 with any future expiry date and any CVC.');
         } else if (subscriptionError.message && subscriptionError.message.includes('Invalid Date')) {
           throw new Error('There was an issue processing your payment. Please try again later or contact support.');
+        } else if (subscriptionError.message && subscriptionError.message.includes('Foreign key constraint')) {
+          throw new Error('There was an issue with your subscription. Please try again or contact support.');
+        } else if (subscriptionError.message && subscriptionError.message.includes('card_declined')) {
+          throw new Error('Your card was declined. Please try a different payment method or contact your bank.');
         } else {
           throw new Error('Failed to create subscription. Please check your payment details and try again.');
         }
