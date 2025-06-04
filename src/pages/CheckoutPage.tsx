@@ -41,8 +41,8 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { toast } from 'react-hot-toast';
 
-// Initialize Stripe
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_51RVYNb2LAZDhQpmh9r7lBGbE7KHulla475ZPfQtqk88kAr4VyCgfJXeoOfmAo47LKOa8tefIzRrjk6hn2scxIKQw0010zcz8NN');
+// Initialize Stripe with the publishable key only
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_51RVYNb2LAZDhQpmhcP0c9KkDAYOjOvF9W4mib4Yg5wAoxFfWgrm7cyFFfIRAm3lrmiohttkZ44O6lnSRi3Xupt3700fU0DHkfc');
 
 // Custom styling for the card elements
 const cardStyle = {
