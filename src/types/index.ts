@@ -10,6 +10,41 @@ export interface User {
   following: number;
   joined: string;
   isVerified: boolean;
+  isPublic?: boolean;
+  profilePicture?: string; // For backward compatibility
+  createdAt?: string; // For backward compatibility
+  stats?: {
+    totalPlays: number;
+    voicePosts: number;
+    challengesWon: number;
+  };
+}
+
+export interface Badge {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  unlockedAt?: string;
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  date: string;
+  icon: string;
+  progress?: number;
+  maxProgress?: number;
+}
+
+export interface ActivityEvent {
+  id: string;
+  type: 'post' | 'like' | 'comment' | 'follow' | 'challenge' | 'nft' | 'achievement';
+  description: string;
+  date: string;
+  relatedId?: string;
+  metadata?: any;
 }
 
 // Authentication types

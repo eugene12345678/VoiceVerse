@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useAuthStore } from './store/authStore';
 import { firebaseApp } from './lib/firebase'; // Import Firebase app
+import { ToastContainer } from './components/ui/Toast';
 import { HomePage } from './pages/HomePage';
 import { StudioPage } from './pages/StudioPage';
 import { FeedPage } from './pages/FeedPage';
@@ -140,6 +141,7 @@ function App() {
         </Routes>
       </Router>
       <ReactQueryDevtools initialIsOpen={false} />
+      <ToastContainer />
     </QueryClientProvider>
   );
 }
