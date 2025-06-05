@@ -36,7 +36,8 @@ import {
   CheckCircle,
   Eye,
   EyeOff,
-  Activity
+  Activity,
+  Settings
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -734,13 +735,22 @@ export const ProfilePage = () => {
               ) : (
                 <>
                   {isOwnProfile ? (
-                    <Button
-                      variant="outline"
-                      leftIcon={<Edit3 className="h-4 w-4" />}
-                      onClick={() => setIsEditing(true)}
-                    >
-                      Edit Profile
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        leftIcon={<Edit3 className="h-4 w-4" />}
+                        onClick={() => setIsEditing(true)}
+                      >
+                        Edit Profile
+                      </Button>
+                      <Button
+                        variant="outline"
+                        leftIcon={<Settings className="h-4 w-4" />}
+                        onClick={() => navigate('/settings')}
+                      >
+                        Settings
+                      </Button>
+                    </>
                   ) : (
                     <Button
                       variant={isFollowing ? "outline" : "default"}
