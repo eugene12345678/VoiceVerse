@@ -213,6 +213,9 @@ exports.uploadAudio = [
           }
         }
         
+        // Read the file data to store in the database
+        const audioData = fs.readFileSync(filePath);
+        
         // Create audio file record in database
         const audioFile = await req.prisma.audioFile.create({
           data: {
@@ -224,6 +227,7 @@ exports.uploadAudio = [
             duration,
             mimeType: mimetype,
             isPublic: false,
+            audioData, // Store the audio data in the database
             createdAt: new Date(),
             updatedAt: new Date()
           }
@@ -480,6 +484,9 @@ const processAudioFile = async (req, res) => {
       }
     }
     
+    // Read the file data to store in the database
+    const audioData = fs.readFileSync(filePath);
+    
     // Create audio file record in database
     const audioFile = await req.prisma.audioFile.create({
       data: {
@@ -490,6 +497,7 @@ const processAudioFile = async (req, res) => {
         fileSize: size,
         duration,
         mimeType: mimetype,
+        audioData, // Store the audio data in the database
         isPublic: true, // NFT audio files are public
         createdAt: new Date(),
         updatedAt: new Date()

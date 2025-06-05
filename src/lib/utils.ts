@@ -10,8 +10,14 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Formats a number as a readable string (e.g., 1000 -> 1K)
+ * Safely handles undefined or null values
  */
-export function formatNumber(num: number): string {
+export function formatNumber(num: number | undefined | null): string {
+  // Return '0' for undefined, null, or NaN values
+  if (num === undefined || num === null || isNaN(num)) {
+    return '0';
+  }
+  
   if (num >= 1000000) {
     return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
   }

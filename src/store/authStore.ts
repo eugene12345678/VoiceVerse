@@ -137,15 +137,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
     set({ isLoading: true, error: null });
     
     try {
-      // Use Firebase authentication for signup
-      const userCredential = await firebaseAuth.signUpWithEmail(email, password);
+      // Use backend authentication for signup via the Firebase adapter
+      const userCredential = await firebaseAuth.signUpWithEmail(email, password, username);
       const { user, token } = await processFirebaseUser(userCredential);
       
       // Store token in localStorage
       localStorage.setItem('token', token);
-      
-      // Update the user profile with the username
-      // This would typically be done through a separate API call or Firebase user profile update
       
       set({ 
         user: { ...user, username },
@@ -233,37 +230,70 @@ export const useAuthStore = create<AuthStore>((set) => ({
   },
   
   checkAuth: async () => {
-    const currentUser = firebaseAuth.getCurrentUser();
-    
-    if (!currentUser) {
-      return;
-    }
-    
     set({ isLoading: true });
     
     try {
-      // Get the token
-      const token = await currentUser.getIdToken();
+      // First check if we have a Firebase user
+      const currentUser = firebaseAuth.getCurrentUser();
       
-      // Create a user object
-      const user: User = {
-        id: currentUser.uid,
-        username: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-        email: currentUser.email || '',
-        profilePicture: currentUser.photoURL || '',
-        createdAt: currentUser.metadata.creationTime || new Date().toISOString(),
-      };
+      if (currentUser) {
+        // Get the token from Firebase
+        const token = await currentUser.getIdToken();
+        
+        // Create a user object from Firebase user
+        const user: User = {
+          id: currentUser.uid,
+          username: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+          email: currentUser.email || '',
+          profilePicture: currentUser.photoURL || '',
+          createdAt: currentUser.metadata.creationTime || new Date().toISOString(),
+        };
+        
+        // Store token in localStorage
+        localStorage.setItem('token', token);
+        
+        set({
+          user,
+          isAuthenticated: true,
+          isLoading: false
+        });
+        return;
+      }
       
-      // Store token in localStorage
-      localStorage.setItem('token', token);
+      // If no Firebase user, check if we have a token in localStorage
+      const token = localStorage.getItem('token');
       
-      set({
-        user,
-        isAuthenticated: true,
-        isLoading: false
-      });
+      if (!token) {
+        set({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false
+        });
+        return;
+      }
+      
+      // Verify the token with the backend
+      try {
+        const { user } = await authAPI.getCurrentUser();
+        
+        set({
+          user,
+          isAuthenticated: true,
+          isLoading: false
+        });
+      } catch (error) {
+        // If token is invalid, remove it
+        localStorage.removeItem('token');
+        
+        set({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false
+        });
+      }
     } catch (error) {
-      // If token is invalid, remove it
+      console.error('Error checking authentication:', error);
+      // If any error occurs, clear the auth state
       localStorage.removeItem('token');
       
       set({

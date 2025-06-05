@@ -546,19 +546,140 @@ const VoicePost: React.FC<VoicePostProps> = ({
     }
   }, [inView, isActive]);
 
+  // Load audio source
+  useEffect(() => {
+    // Make sure the audio source is properly set before attempting to play
+    if (audioRef.current) {
+      // Clear any existing sources
+      while (audioRef.current.firstChild) {
+        audioRef.current.removeChild(audioRef.current.firstChild);
+      }
+      
+      // Normalize the URL
+      const normalizedUrl = post.audioUrl.startsWith('http') || post.audioUrl.startsWith('/') 
+        ? post.audioUrl 
+        : `/${post.audioUrl}`;
+      
+      // Create a full URL if it's an API path
+      let fullUrl = normalizedUrl;
+      if (normalizedUrl.includes('/api/audio/') && !normalizedUrl.startsWith('http')) {
+        const baseUrl = window.location.origin;
+        fullUrl = baseUrl + normalizedUrl;
+      }
+      
+      // Create source elements for different formats
+      const createSource = (url, type) => {
+        const source = document.createElement('source');
+        source.src = url;
+        source.type = type;
+        return source;
+      };
+      
+      // Try to detect the MIME type from the URL
+      const fileExtension = fullUrl.split('.').pop()?.toLowerCase();
+      let mimeType = 'audio/mpeg'; // Default to MP3
+      
+      if (fileExtension) {
+        switch (fileExtension) {
+          case 'mp3':
+            mimeType = 'audio/mpeg';
+            break;
+          case 'wav':
+            mimeType = 'audio/wav';
+            break;
+          case 'ogg':
+            mimeType = 'audio/ogg';
+            break;
+          case 'm4a':
+            mimeType = 'audio/mp4';
+            break;
+          case 'aac':
+            mimeType = 'audio/aac';
+            break;
+        }
+      }
+      
+      // Add the primary source
+      audioRef.current.appendChild(createSource(fullUrl, mimeType));
+      
+      // Add fallback sources
+      const fallbackSources = [
+        { url: '/sound-design-elements-sfx-ps-022-302865.mp3', type: 'audio/mpeg' },
+        { url: '/male-voice-bum-bum-104098.mp3', type: 'audio/mpeg' }
+      ];
+      
+      fallbackSources.forEach(source => {
+        audioRef.current.appendChild(createSource(source.url, source.type));
+      });
+      
+      // Load the audio
+      audioRef.current.load();
+      
+      // Log the sources for debugging
+      console.log('Audio sources:', Array.from(audioRef.current.children).map(source => (source as HTMLSourceElement).src));
+    }
+  }, [post.audioUrl]);
+
   // Audio control effects
   useEffect(() => {
     if (audioRef.current) {
       if (isPlaying) {
-        audioRef.current.play().catch(error => {
-          console.error('Error playing audio:', error);
-          setIsPlaying(false);
-        });
+        // Make sure the audio is loaded before playing
+        if (audioRef.current.readyState === 0) {
+          audioRef.current.load();
+        }
+        
+        // Add a small delay before playing to ensure the audio is ready
+        const playPromise = setTimeout(() => {
+          if (audioRef.current) {
+            audioRef.current.play().catch(error => {
+              console.error('Error playing audio:', error);
+              setIsPlaying(false);
+              
+              // Try to recover by reloading the audio
+              if (audioRef.current) {
+                // Clear any existing sources
+                while (audioRef.current.firstChild) {
+                  audioRef.current.removeChild(audioRef.current.firstChild);
+                }
+                
+                // Try the fallback sources directly
+                const fallbackSources = [
+                  { url: '/sound-design-elements-sfx-ps-022-302865.mp3', type: 'audio/mpeg' },
+                  { url: '/male-voice-bum-bum-104098.mp3', type: 'audio/mpeg' }
+                ];
+                
+                fallbackSources.forEach(source => {
+                  const sourceElement = document.createElement('source');
+                  sourceElement.src = source.url;
+                  sourceElement.type = source.type;
+                  audioRef.current?.appendChild(sourceElement);
+                });
+                
+                audioRef.current.load();
+                
+                // Try to play again after a short delay
+                setTimeout(() => {
+                  if (audioRef.current && isPlaying) {
+                    audioRef.current.play().catch(secondError => {
+                      console.error('Error playing fallback audio:', secondError);
+                      setIsPlaying(false);
+                    });
+                  }
+                }, 500);
+              }
+            });
+          }
+        }, 100);
+        
+        return () => clearTimeout(playPromise);
       } else {
-        audioRef.current.pause();
+        if (audioRef.current.paused === false) {
+          audioRef.current.pause();
+        }
       }
     }
-  }, [isPlaying]);
+  }, [isPlaying, post.audioUrl]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -625,11 +746,31 @@ const VoicePost: React.FC<VoicePostProps> = ({
       {/* Hidden audio element */}
       <audio
         ref={audioRef}
-        src={post.audioUrl}
         onTimeUpdate={handleTimeUpdate}
         onEnded={() => setIsPlaying(false)}
         preload="metadata"
-      />
+      >
+        {/* Primary source */}
+        <source 
+          src={post.audioUrl.startsWith('http') || post.audioUrl.startsWith('/') 
+            ? post.audioUrl 
+            : `/${post.audioUrl}`} 
+          type="audio/mpeg" 
+        />
+        
+        {/* Fallback sources */}
+        <source 
+          src={`/sound-design-elements-sfx-ps-022-302865.mp3`} 
+          type="audio/mpeg" 
+        />
+        <source 
+          src={`/male-voice-bum-bum-104098.mp3`} 
+          type="audio/mpeg" 
+        />
+        
+        {/* Error message for browsers that don't support audio */}
+        Your browser does not support the audio element.
+      </audio>
 
       {/* Background gradient effect */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/20 to-black/50" />
@@ -1399,43 +1540,58 @@ export const VoicesPage: React.FC = () => {
       const response = await voicesAPI.getVoicePosts();
       if (response.status === 'success' && response.data && response.data.length > 0) {
         // Transform feed posts to match our VoicePost interface
-        const transformedPosts = response.data.map((post: any) => ({
-          id: post.id,
-          audioUrl: post.audioUrl || post.audioFile?.storagePath || '/sound-design-elements-sfx-ps-022-302865.mp3',
-          waveformData: post.waveformData,
-          duration: post.audioFile?.duration || post.duration || 30,
-          title: post.title || post.caption || 'Voice Post',
-          caption: post.caption || post.description,
-          tags: post.tags || [],
-          user: {
-            id: post.user.id,
-            username: post.user.username,
-            displayName: post.user.displayName || post.user.username,
-            avatarUrl: post.user.avatar || post.user.avatarUrl || 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600',
-            isVerified: post.user.isVerified || false,
-            followerCount: post.user.followerCount || 0,
-            followingCount: post.user.followingCount || 0,
-            bio: post.user.bio || '',
-            postsCount: post.user.postsCount || 0
-          },
-          createdAt: post.createdAt,
-          stats: {
-            plays: post.stats?.plays || post.plays || 0,
-            likes: post.likes || post.stats?.likes || 0,
-            comments: post.comments || post.stats?.comments || 0,
-            shares: post.shares || post.stats?.shares || 0
-          },
-          userInteractions: {
-            isLiked: post.isLiked || post.userInteractions?.isLiked || false,
-            isSaved: post.isSaved || post.userInteractions?.isSaved || false,
-            isFollowing: post.user.isFollowing || post.userInteractions?.isFollowing || false
-          },
-          voiceEffect: post.voiceEffect || {
-            name: 'Voice Effect',
-            category: 'Standard',
-            description: 'Standard voice effect'
+        const transformedPosts = response.data.map((post: any) => {
+          // Ensure audio URL is properly formatted
+          let audioUrl = post.audioUrl || post.audioFile?.storagePath || '/sound-design-elements-sfx-ps-022-302865.mp3';
+          
+          // If it's an API audio path, ensure it's properly formatted
+          if (post.audioFile && post.audioFile.id && !audioUrl.includes('/api/audio/')) {
+            audioUrl = `/api/audio/original/${post.audioFile.id}`;
           }
-        }));
+          
+          // If the URL doesn't start with http or /, add a leading /
+          if (!audioUrl.startsWith('http') && !audioUrl.startsWith('/')) {
+            audioUrl = `/${audioUrl}`;
+          }
+          
+          return {
+            id: post.id,
+            audioUrl: audioUrl,
+            waveformData: post.waveformData,
+            duration: post.audioFile?.duration || post.duration || 30,
+          title: post.title || post.caption || 'Voice Post',
+            caption: post.caption || post.description,
+            tags: post.tags || [],
+            user: {
+              id: post.user.id,
+              username: post.user.username,
+              displayName: post.user.displayName || post.user.username,
+              avatarUrl: post.user.avatar || post.user.avatarUrl || 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600',
+              isVerified: post.user.isVerified || false,
+              followerCount: post.user.followerCount || 0,
+              followingCount: post.user.followingCount || 0,
+              bio: post.user.bio || '',
+              postsCount: post.user.postsCount || 0
+            },
+            createdAt: post.createdAt,
+            stats: {
+              plays: post.stats?.plays || post.plays || 0,
+              likes: post.likes || post.stats?.likes || 0,
+              comments: post.comments || post.stats?.comments || 0,
+              shares: post.shares || post.stats?.shares || 0
+            },
+            userInteractions: {
+              isLiked: post.isLiked || post.userInteractions?.isLiked || false,
+              isSaved: post.isSaved || post.userInteractions?.isSaved || false,
+              isFollowing: post.user.isFollowing || post.userInteractions?.isFollowing || false
+            },
+            voiceEffect: post.voiceEffect || {
+              name: 'Voice Effect',
+              category: 'Standard',
+              description: 'Standard voice effect'
+            }
+          };
+        });
         
         // Merge real data with mock data
         // Use a Map to avoid duplicates by ID

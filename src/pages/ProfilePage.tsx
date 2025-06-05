@@ -86,6 +86,14 @@ export const ProfilePage = () => {
 
   if (!user) return null;
 
+  // Create default values for missing user properties
+  const displayName = user.displayName || user.username || 'User';
+  const avatar = user.avatar || user.profilePicture || '';
+  const bio = user.bio || 'No bio available';
+  const followers = user.followers || 0;
+  const joined = user.joined || user.createdAt || new Date().toISOString();
+  const isVerified = user.isVerified || false;
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
@@ -93,31 +101,31 @@ export const ProfilePage = () => {
         <Card className="p-8 mb-8">
           <div className="flex flex-col md:flex-row items-center gap-8">
             <Avatar
-              src={user.avatar}
-              alt={user.displayName}
+              src={avatar}
+              alt={displayName}
               size="xl"
-              isVerified={user.isVerified}
+              isVerified={isVerified}
             />
             <div className="flex-1 text-center md:text-left">
               <h1 className="text-3xl font-display font-bold text-dark-900 dark:text-white mb-2">
-                {user.displayName}
+                {displayName}
               </h1>
               <p className="text-dark-500 dark:text-dark-400 mb-4">
                 @{user.username}
               </p>
               <p className="text-dark-700 dark:text-dark-300 mb-6">
-                {user.bio}
+                {bio}
               </p>
               <div className="flex flex-wrap justify-center md:justify-start gap-6 text-sm">
                 <div className="flex items-center gap-2 text-dark-600 dark:text-dark-400">
                   <Users className="h-4 w-4" />
-                  <span>{formatNumber(user.followers)} followers</span>
+                  <span>{formatNumber(followers)} followers</span>
                 </div>
                 <div className="flex items-center gap-2 text-dark-600 dark:text-dark-400">
                   <Calendar className="h-4 w-4" />
-                  <span>Joined {new Date(user.joined).toLocaleDateString()}</span>
+                  <span>Joined {new Date(joined).toLocaleDateString()}</span>
                 </div>
-                {user.isVerified && (
+                {isVerified && (
                   <div className="flex items-center gap-2 text-primary-600 dark:text-primary-400">
                     <Award className="h-4 w-4" />
                     <span>Verified Creator</span>
