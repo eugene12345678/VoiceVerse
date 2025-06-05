@@ -74,8 +74,14 @@ export const authAPI = {
   },
   
   getCurrentUser: async () => {
-    const response = await api.get('/users/profile');
-    return response.data; // Backend returns { status, user }
+    try {
+      const response = await api.get('/users/profile');
+      return response.data; // Backend returns { status, user }
+    } catch (error: any) {
+      // Log the error and rethrow
+      console.error('Error fetching current user:', error);
+      throw error;
+    }
   },
   
   forgotPassword: async (email: string) => {

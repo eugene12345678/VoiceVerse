@@ -50,6 +50,16 @@ export const useAuthStore = create<AuthStore>((set) => ({
       // Store token in localStorage
       localStorage.setItem('token', token);
       
+      // Store user data in localStorage for persistence
+      localStorage.setItem('userData', JSON.stringify({
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName || user.username,
+        email: user.email,
+        avatar: user.profilePicture,
+        profilePicture: user.profilePicture
+      }));
+      
       set({ 
         user,
         isAuthenticated: true,
@@ -74,6 +84,16 @@ export const useAuthStore = create<AuthStore>((set) => ({
       
       // Store token in localStorage
       localStorage.setItem('token', token);
+      
+      // Store user data in localStorage for persistence
+      localStorage.setItem('userData', JSON.stringify({
+        id: user.id,
+        username: user.username,
+        displayName: user.displayName || user.username,
+        email: user.email,
+        avatar: user.profilePicture,
+        profilePicture: user.profilePicture
+      }));
       
       set({ 
         user,
@@ -244,13 +264,31 @@ export const useAuthStore = create<AuthStore>((set) => ({
         const user: User = {
           id: currentUser.uid,
           username: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+          displayName: currentUser.displayName || 'User',
           email: currentUser.email || '',
+          avatar: currentUser.photoURL || '',
           profilePicture: currentUser.photoURL || '',
+          bio: '',
+          followers: 0,
+          following: 0,
+          joined: currentUser.metadata.creationTime || new Date().toISOString(),
           createdAt: currentUser.metadata.creationTime || new Date().toISOString(),
+          isVerified: false,
+          isPublic: true
         };
         
         // Store token in localStorage
         localStorage.setItem('token', token);
+        
+        // Store user data in localStorage for persistence
+        localStorage.setItem('userData', JSON.stringify({
+          id: user.id,
+          username: user.username,
+          displayName: user.displayName,
+          email: user.email,
+          avatar: user.avatar,
+          profilePicture: user.profilePicture
+        }));
         
         set({
           user,
@@ -260,8 +298,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
         return;
       }
       
-      // If no Firebase user, check if we have a token in localStorage
+      // If no Firebase user, check if we have a token and userData in localStorage
       const token = localStorage.getItem('token');
+      const storedUserData = localStorage.getItem('userData');
       
       if (!token) {
         set({
@@ -272,25 +311,44 @@ export const useAuthStore = create<AuthStore>((set) => ({
         return;
       }
       
-      // Verify the token with the backend
-      try {
-        const { user } = await authAPI.getCurrentUser();
-        
-        set({
-          user,
-          isAuthenticated: true,
-          isLoading: false
-        });
-      } catch (error) {
-        // If token is invalid, remove it
-        localStorage.removeItem('token');
-        
-        set({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false
-        });
+      // If we have a token but no user, consider the user authenticated
+      // Use stored user data if available
+      let userData = {
+        id: 'user-id',
+        username: '',
+        displayName: '',
+        email: '',
+        avatar: '',
+        profilePicture: ''
+      };
+      
+      if (storedUserData) {
+        try {
+          userData = JSON.parse(storedUserData);
+        } catch (e) {
+          console.error('Error parsing stored user data:', e);
+        }
       }
+      
+      set({
+        user: {
+          id: userData.id,
+          username: userData.username || userData.email?.split('@')[0] || 'User',
+          displayName: userData.displayName || userData.username || 'User',
+          email: userData.email,
+          avatar: userData.avatar,
+          profilePicture: userData.profilePicture,
+          bio: '',
+          followers: 0,
+          following: 0,
+          joined: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          isVerified: false,
+          isPublic: true
+        },
+        isAuthenticated: true,
+        isLoading: false
+      });
     } catch (error) {
       console.error('Error checking authentication:', error);
       // If any error occurs, clear the auth state

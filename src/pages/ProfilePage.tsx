@@ -146,46 +146,18 @@ export const ProfilePage = () => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Create mock user data for development - only used as fallback if API fails
-  const createMockUserData = (baseUser: any = null) => {
-    return {
-      id: baseUser?.id || 'mock-user-id',
-      username: baseUser?.username || 'voicemaster',
-      displayName: baseUser?.displayName || 'Voice Master',
-      avatar: baseUser?.avatar || 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600',
-      bio: baseUser?.bio || 'Professional voice artist passionate about creating unique audio experiences.',
-      followers: baseUser?.followers || 1250,
-      following: baseUser?.following || 350,
-      joined: baseUser?.joined || baseUser?.createdAt || '2023-09-15T00:00:00Z',
-      isVerified: baseUser?.isVerified || false,
-      isPublic: baseUser?.isPublic !== false,
-      stats: {
-        totalPlays: 12345,
-        voicePosts: 67,
-        challengesWon: 8
-      },
-      badges: [
-        { id: '1', name: 'Early Adopter', icon: 'star', description: 'Joined during beta phase' },
-        { id: '2', name: 'Voice Master', icon: 'mic', description: 'Created 50+ voice transformations' },
-        { id: '3', name: 'Trending Creator', icon: 'trending-up', description: 'Had a post in trending' }
-      ],
-      achievements: [
-        { id: '1', name: 'First Transformation', description: 'Created your first voice transformation', date: '2023-09-20T00:00:00Z', icon: 'award' },
-        { id: '2', name: '1000 Plays', description: 'Reached 1000 plays on your content', date: '2023-10-15T00:00:00Z', icon: 'play' },
-        { id: '3', name: 'Challenge Winner', description: 'Won your first voice challenge', date: '2023-11-05T00:00:00Z', icon: 'trophy' }
-      ],
-      activity: [
-        { id: '1', type: 'post', description: 'Created a new voice post', date: '2024-02-28T12:00:00Z', relatedId: '1' },
-        { id: '2', type: 'like', description: 'Liked a voice post', date: '2024-02-27T15:30:00Z', relatedId: '2' },
-        { id: '3', type: 'follow', description: 'Followed a new user', date: '2024-02-26T09:45:00Z', relatedId: '3' }
-      ]
-    };
-  };
-
+  
   // Fetch profile data
   useEffect(() => {
     const fetchProfileData = async () => {
       setIsLoading(true);
+      
+      // Check if user is authenticated
+      if (!user && !userId) {
+        // If not viewing a specific user profile and not authenticated, redirect to login
+        navigate('/login');
+        return;
+      }
       
       try {
         // If we're viewing our own profile and have user data from auth store, use it
@@ -200,81 +172,57 @@ export const ProfilePage = () => {
           setIsFollowing(false);
         } else {
           // Otherwise fetch from API
-          const response = await userAPI.getUserProfile(userId);
-          if (response && response.data) {
-            setProfileData(response.data);
-            setEditableProfile({
-              displayName: response.data.displayName,
-              bio: response.data.bio || '',
-              isPublic: response.data.isPublic !== false // default to true if not specified
-            });
-            setIsOwnProfile(!userId || userId === user?.id);
-            setIsFollowing(response.data.isFollowing || false);
-          } else {
-            throw new Error('No data returned from API');
+          try {
+            const response = await userAPI.getUserProfile(userId);
+            if (response && response.data) {
+              setProfileData(response.data);
+              setEditableProfile({
+                displayName: response.data.displayName,
+                bio: response.data.bio || '',
+                isPublic: response.data.isPublic !== false // default to true if not specified
+              });
+              setIsOwnProfile(!userId || userId === user?.id);
+              setIsFollowing(response.data.isFollowing || false);
+            }
+          } catch (apiError) {
+            console.error('Error fetching profile from API:', apiError);
+            // If we can't fetch the profile, use the current user data
+            if (user) {
+              setProfileData(user);
+              setEditableProfile({
+                displayName: user.displayName || '',
+                bio: user.bio || '',
+                isPublic: user.isPublic !== false
+              });
+              setIsOwnProfile(true);
+              setIsFollowing(false);
+            } else {
+              // If no user data is available, redirect to login
+              navigate('/login');
+              return;
+            }
           }
         }
         
         // Fetch additional profile data
         await fetchProfileExtras();
       } catch (error) {
-        console.error('Error fetching profile data:', error);
-        
-        // Use mock data on error
-        const mockData = createMockUserData(user);
-        setProfileData(mockData);
-        setEditableProfile({
-          displayName: mockData.displayName,
-          bio: mockData.bio,
-          isPublic: mockData.isPublic
-        });
-        setIsOwnProfile(!userId || userId === user?.id);
-        
-        // Set mock data for badges, achievements, etc.
-        setBadges(mockData.badges || []);
-        setAchievements(mockData.achievements || []);
-        setActivity(mockData.activity || []);
-        
-        setTopRecordings(mockUserPosts.map(post => ({
-          ...post,
-          plays: Math.floor(Math.random() * 10000) + 1000
-        })));
-        
-        setFollowers([
-          {
-            id: 'user1',
-            username: 'voicefan',
-            displayName: 'Voice Fan',
-            avatar: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=600',
-            isVerified: false,
-            isFollowing: true
-          },
-          {
-            id: 'user2',
-            username: 'audioexplorer',
-            displayName: 'Audio Explorer',
-            avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=600',
-            isVerified: true,
-            isFollowing: false
-          }
-        ]);
-        
-        setFollowing([
-          {
-            id: 'user3',
-            username: 'voicemaster',
-            displayName: 'Voice Master',
-            avatar: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600',
-            isVerified: true,
-            isFollowing: true
-          }
-        ]);
-        
-        toast({
-          title: 'Using Demo Data',
-          description: 'Connected to demo mode since the API is not available',
-          variant: 'default'
-        });
+        console.error('Error in profile data setup:', error);
+        // If there's an error and we have user data, use it
+        if (user) {
+          setProfileData(user);
+          setEditableProfile({
+            displayName: user.displayName || '',
+            bio: user.bio || '',
+            isPublic: user.isPublic !== false
+          });
+          setIsOwnProfile(true);
+          setIsFollowing(false);
+        } else {
+          // If no user data is available, redirect to login
+          navigate('/login');
+          return;
+        }
       } finally {
         setIsLoading(false);
       }
@@ -282,44 +230,77 @@ export const ProfilePage = () => {
     
     // Helper function to fetch profile extras
     const fetchProfileExtras = async () => {
+      // Set empty arrays as defaults
+      setBadges([]);
+      setAchievements([]);
+      setActivity([]);
+      setTopRecordings([]);
+      setFollowers([]);
+      setFollowing([]);
+      
+      // Try to fetch data from API, but don't use mock data if it fails
       try {
         // Fetch badges
-        const badgesResponse = await userAPI.getUserBadges(userId);
-        if (badgesResponse && badgesResponse.data) {
-          setBadges(badgesResponse.data);
+        try {
+          const badgesResponse = await userAPI.getUserBadges(userId);
+          if (badgesResponse && badgesResponse.data) {
+            setBadges(badgesResponse.data);
+          }
+        } catch (error) {
+          console.error('Error fetching badges:', error);
         }
         
         // Fetch achievements
-        const achievementsResponse = await userAPI.getUserAchievements(userId);
-        if (achievementsResponse && achievementsResponse.data) {
-          setAchievements(achievementsResponse.data);
+        try {
+          const achievementsResponse = await userAPI.getUserAchievements(userId);
+          if (achievementsResponse && achievementsResponse.data) {
+            setAchievements(achievementsResponse.data);
+          }
+        } catch (error) {
+          console.error('Error fetching achievements:', error);
         }
         
         // Fetch activity
-        const activityResponse = await userAPI.getUserActivity(userId);
-        if (activityResponse && activityResponse.data) {
-          setActivity(activityResponse.data);
+        try {
+          const activityResponse = await userAPI.getUserActivity(userId);
+          if (activityResponse && activityResponse.data) {
+            setActivity(activityResponse.data);
+          }
+        } catch (error) {
+          console.error('Error fetching activity:', error);
         }
         
         // Fetch top recordings
-        const topRecordingsResponse = await userAPI.getUserTopRecordings(userId);
-        if (topRecordingsResponse && topRecordingsResponse.data) {
-          setTopRecordings(topRecordingsResponse.data);
+        try {
+          const topRecordingsResponse = await userAPI.getUserTopRecordings(userId);
+          if (topRecordingsResponse && topRecordingsResponse.data) {
+            setTopRecordings(topRecordingsResponse.data);
+          }
+        } catch (error) {
+          console.error('Error fetching top recordings:', error);
         }
         
-        // Fetch followers and following
-        const followersResponse = await userAPI.getUserFollowers(userId);
-        if (followersResponse && followersResponse.data) {
-          setFollowers(followersResponse.data);
+        // Fetch followers
+        try {
+          const followersResponse = await userAPI.getUserFollowers(userId);
+          if (followersResponse && followersResponse.data) {
+            setFollowers(followersResponse.data);
+          }
+        } catch (error) {
+          console.error('Error fetching followers:', error);
         }
         
-        const followingResponse = await userAPI.getUserFollowing(userId);
-        if (followingResponse && followingResponse.data) {
-          setFollowing(followingResponse.data);
+        // Fetch following
+        try {
+          const followingResponse = await userAPI.getUserFollowing(userId);
+          if (followingResponse && followingResponse.data) {
+            setFollowing(followingResponse.data);
+          }
+        } catch (error) {
+          console.error('Error fetching following:', error);
         }
       } catch (error) {
         console.error('Error fetching profile extras:', error);
-        throw error; // Propagate error to be handled by the main try/catch
       }
     };
 
@@ -331,14 +312,21 @@ export const ProfilePage = () => {
     const fetchUserContent = async () => {
       if (!profileData) return;
 
+      // Set empty arrays as defaults
+      setUserPosts([]);
+      setSavedPosts([]);
+      setUserNFTs([]);
+
       try {
         if (activeTab === 'posts') {
           // Fetch user's voice posts
-          const response = await userAPI.getUserVoicePosts(userId);
-          if (response && response.data) {
-            setUserPosts(response.data);
-          } else {
-            setUserPosts(mockUserPosts);
+          try {
+            const response = await userAPI.getUserVoicePosts(userId);
+            if (response && response.data) {
+              setUserPosts(response.data);
+            }
+          } catch (error) {
+            console.error('Error fetching user posts:', error);
           }
         } else if (activeTab === 'saved' && isOwnProfile) {
           // Fetch saved posts from feed API
@@ -346,12 +334,9 @@ export const ProfilePage = () => {
             const response = await feedAPI.getSavedPosts();
             if (response && response.data) {
               setSavedPosts(response.data);
-            } else {
-              setSavedPosts(mockUserPosts);
             }
-          } catch (savedError) {
-            console.error('Error fetching saved posts:', savedError);
-            setSavedPosts(mockUserPosts);
+          } catch (error) {
+            console.error('Error fetching saved posts:', error);
           }
         } else if (activeTab === 'nfts') {
           // Fetch NFTs from algorand API
@@ -359,58 +344,13 @@ export const ProfilePage = () => {
             const response = await algorandAPI.getUserNFTs(userId || 'me');
             if (response && response.data) {
               setUserNFTs(response.data);
-            } else {
-              setUserNFTs([
-                {
-                  id: 'nft1',
-                  title: 'Morgan Freeman Voice',
-                  description: 'My best Morgan Freeman impression',
-                  audioUrl: '/sound-design-elements-sfx-ps-022-302865.mp3',
-                  imageUrl: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600',
-                  price: 0.5,
-                  currency: 'ALGO',
-                  createdAt: '2024-01-15T08:30:00Z'
-                }
-              ]);
             }
-          } catch (nftError) {
-            console.error('Error fetching NFTs:', nftError);
-            setUserNFTs([
-              {
-                id: 'nft1',
-                title: 'Morgan Freeman Voice',
-                description: 'My best Morgan Freeman impression',
-                audioUrl: '/sound-design-elements-sfx-ps-022-302865.mp3',
-                imageUrl: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600',
-                price: 0.5,
-                currency: 'ALGO',
-                createdAt: '2024-01-15T08:30:00Z'
-              }
-            ]);
+          } catch (error) {
+            console.error('Error fetching NFTs:', error);
           }
         }
       } catch (error) {
         console.error(`Error fetching ${activeTab}:`, error);
-        
-        // Use mock data on error
-        if (activeTab === 'posts') {
-          setUserPosts(mockUserPosts);
-        } else if (activeTab === 'saved' && isOwnProfile) {
-          setSavedPosts(mockUserPosts);
-        } else if (activeTab === 'nfts') {
-          setUserNFTs([
-            {
-              id: 'nft1',
-              title: 'Morgan Freeman Voice',
-              description: 'My best Morgan Freeman impression',
-              audioUrl: '/sound-design-elements-sfx-ps-022-302865.mp3',
-              imageUrl: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=600',
-              price: 0.5,
-              currency: 'ALGO',
-              createdAt: '2024-01-15T08:30:00Z'
-            }
-          ]);
-        }
       }
     };
 
