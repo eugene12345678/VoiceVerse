@@ -17,7 +17,8 @@ const DEFAULT_VOICE_IDS = {
 
 // Known problematic voice IDs and their replacements
 const VOICE_ID_REPLACEMENTS = {
-  '9BWtsMINqrJLrRacOk9x': 'TxGEqnHWrfWFTfGW9XjX' // Replace with celebrity voice
+  '9BWtsMINqrJLrRacOk9x': 'TxGEqnHWrfWFTfGW9XjX', // Replace with celebrity voice
+  'XB0fDUnXU5powFXDhCwa': 'TxGEqnHWrfWFTfGW9XjX'  // Replace problematic voice ID with celebrity voice
 };
 
 // Helper function to validate and potentially replace voice ID
@@ -590,21 +591,21 @@ async function processTransformation(prisma, transformationId, audioFile, effect
       use_speaker_boost: settings?.use_speaker_boost || true
     };
 
-    // Create a form data object for the ElevenLabs API
+    // Create a form data object for the ElevenLabs Speech-to-Speech API
     const formData = new FormData();
     
     // Create a Blob from the audio data
     const audioBlob = new Blob([audioData], { type: audioFile.mimeType });
     formData.append('audio', audioBlob);
-    formData.append('model_id', 'eleven_monolingual_v1');
+    formData.append('model_id', 'eleven_english_sts_v2');
     formData.append('voice_settings', JSON.stringify(voiceSettings));
 
     // Start time for processing duration calculation
     const startTime = Date.now();
 
-    // Transform the audio using ElevenLabs API
+    // Transform the audio using ElevenLabs Speech-to-Speech API
     const response = await axios.post(
-      `${ELEVENLABS_API_URL}/voices/${effectiveVoiceId}/audio/stream`,
+      `${ELEVENLABS_API_URL}/speech-to-speech/${effectiveVoiceId}`,
       formData,
       {
         headers: {
@@ -735,21 +736,21 @@ async function processCelebrityVoiceTransformation(prisma, transformationId, aud
       use_speaker_boost: settings?.use_speaker_boost || true
     };
 
-    // Create a form data object for the ElevenLabs API
+    // Create a form data object for the ElevenLabs Speech-to-Speech API
     const formData = new FormData();
     
     // Create a Blob from the audio data
     const audioBlob = new Blob([audioData], { type: audioFile.mimeType });
     formData.append('audio', audioBlob);
-    formData.append('model_id', 'eleven_monolingual_v1');
+    formData.append('model_id', 'eleven_english_sts_v2');
     formData.append('voice_settings', JSON.stringify(voiceSettings));
 
     // Start time for processing duration calculation
     const startTime = Date.now();
 
-    // Transform the audio using ElevenLabs API
+    // Transform the audio using ElevenLabs Speech-to-Speech API
     const response = await axios.post(
-      `${ELEVENLABS_API_URL}/voices/${effectiveVoiceId}/audio/stream`,
+      `${ELEVENLABS_API_URL}/speech-to-speech/${effectiveVoiceId}`,
       formData,
       {
         headers: {

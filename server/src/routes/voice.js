@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const voiceController = require('../controllers/voiceController');
+const celebrityVoiceController = require('../controllers/celebrityVoiceController');
 const { authenticateToken } = require('../middleware/auth');
 const { check } = require('express-validator');
 
@@ -18,6 +19,11 @@ router.get('/models', authenticateToken, voiceController.getUserVoiceModels);
 // @desc    Get available ElevenLabs voices
 // @access  Private
 router.get('/elevenlabs/voices', authenticateToken, voiceController.getElevenLabsVoices);
+
+// @route   GET /api/voice/celebrity/voices
+// @desc    Get celebrity voices with actual ElevenLabs IDs
+// @access  Public
+router.get('/celebrity/voices', celebrityVoiceController.getCelebrityVoices);
 
 // @route   POST /api/voice/clone
 // @desc    Clone a voice using ElevenLabs
