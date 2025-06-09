@@ -14,6 +14,7 @@ const algorandRoutes = require('./routes/algorand');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const audioRoutes = require('./routes/audio');
+const savedVoiceRoutes = require('./routes/savedVoice');
 require('dotenv').config();
 
 // Initialize Express app
@@ -71,6 +72,7 @@ app.use('/api/algorand', algorandRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/audio', audioRoutes);
+app.use('/api/voice/saved', savedVoiceRoutes);
 
 // Special handling for Stripe webhook endpoint
 app.post('/api/subscription/webhook', express.raw({ type: 'application/json' }), (req, res) => {

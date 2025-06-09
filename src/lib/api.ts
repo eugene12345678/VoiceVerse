@@ -161,6 +161,68 @@ export const voiceAPI = {
   getEmotionTransformationStatus: async (transformationId: string) => {
     const response = await api.get(`/voice/emotion/transform/${transformationId}`);
     return response.data;
+  },
+  
+  // Save voice creation
+  saveVoiceCreation: async (voiceCreationData: {
+    name: string;
+    description?: string;
+    originalAudioId: string;
+    transformedAudioId?: string;
+    effectId?: string;
+    effectName?: string;
+    effectCategory?: string;
+    settings?: any;
+    isPublic?: boolean;
+    tags?: string[];
+  }) => {
+    const response = await api.post('/voice/saved', voiceCreationData);
+    return response.data;
+  },
+  
+  // Get saved voice creations
+  getSavedVoiceCreations: async (params?: {
+    page?: number;
+    limit?: number;
+    category?: string;
+    search?: string;
+  }) => {
+    const response = await api.get('/voice/saved', { params });
+    return response.data;
+  },
+  
+  // Get specific saved voice creation
+  getSavedVoiceCreation: async (id: string) => {
+    const response = await api.get(`/voice/saved/${id}`);
+    return response.data;
+  },
+  
+  // Update saved voice creation
+  updateSavedVoiceCreation: async (id: string, updateData: {
+    name?: string;
+    description?: string;
+    isPublic?: boolean;
+    tags?: string[];
+  }) => {
+    const response = await api.put(`/voice/saved/${id}`, updateData);
+    return response.data;
+  },
+  
+  // Delete saved voice creation
+  deleteSavedVoiceCreation: async (id: string) => {
+    const response = await api.delete(`/voice/saved/${id}`);
+    return response.data;
+  },
+  
+  // Get public saved voice creations
+  getPublicSavedVoiceCreations: async (params?: {
+    page?: number;
+    limit?: number;
+    category?: string;
+    search?: string;
+  }) => {
+    const response = await api.get('/voice/saved/public', { params });
+    return response.data;
   }
 };
 

@@ -25,7 +25,12 @@ import {
   Angry,
   Meh,
   X,
-  AlertTriangle
+  AlertTriangle,
+  ArrowRight,
+  Edit,
+  Trash2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
@@ -159,6 +164,15 @@ export const StudioPage = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedEmotion, setSelectedEmotion] = useState<string | null>(null);
   const [emotionTransformation, setEmotionTransformation] = useState<Transformation | null>(null);
+  const [savedVoiceCreations, setSavedVoiceCreations] = useState<any[]>([]);
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [saveFormData, setSaveFormData] = useState({
+    name: '',
+    description: '',
+    isPublic: false,
+    tags: [] as string[]
+  });
+  const [isSavingVoice, setIsSavingVoice] = useState(false);
   
   // New state for ElevenLabs voice cloning
   const [elevenLabsVoices, setElevenLabsVoices] = useState<ElevenLabsVoice[]>([]);
@@ -219,7 +233,20 @@ export const StudioPage = () => {
     
     fetchVoiceEffects();
     fetchEmotionVoices();
+    fetchSavedVoiceCreations();
   }, []);
+  
+  // Load saved voice creations
+  const fetchSavedVoiceCreations = async () => {
+    try {
+      const response = await voiceAPI.getSavedVoiceCreations({ limit: 20 });
+      if (response.status === 'success' && response.data) {
+        setSavedVoiceCreations(response.data.savedVoiceCreations || []);
+      }
+    } catch (error) {
+      console.error('Error fetching saved voice creations:', error);
+    }
+  };
   
   // Load ElevenLabs voices
   useEffect(() => {
@@ -665,19 +692,109 @@ export const StudioPage = () => {
   };
 
   const handleSave = async () => {
-    setIsSaving(true);
+    if (!audioFile || (!transformedAudio && !recordedAudio)) {
+      setErrorMessage('No audio available to save');
+      return;
+    }
+    
+    // Generate a default name based on the effect used
+    const defaultName = selectedEffect 
+      ? `${voiceEffects.find(e => e.effectId === selectedEffect)?.name || 'Voice'} Creation`
+      : selectedEmotion
+      ? `${emotionVoices.find(e => e.effectId === selectedEmotion)?.name || 'Emotion'} Voice`
+      : 'Voice Creation';
+    
+    setSaveFormData({
+      name: defaultName,
+      description: '',
+      isPublic: false,
+      tags: []
+    });
+    setShowSaveDialog(true);
+  };
+  
+  const handleSaveVoiceCreation = async () => {
+    if (!audioFile) {
+      setErrorMessage('No audio file available to save');
+      return;
+    }
+    
+    setIsSavingVoice(true);
     setErrorMessage(null);
     
     try {
-      // In a real app, you would save the transformed audio to the user's library
-      // For now, we'll just simulate a delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      setIsSaving(false);
+      const voiceCreationData = {
+        name: saveFormData.name,
+        description: saveFormData.description,
+        originalAudioId: audioFile.id,
+        transformedAudioId: transformation?.transformedAudioId || emotionTransformation?.transformedAudioId,
+        effectId: selectedEffect || selectedEmotion,
+        effectName: selectedEffect 
+          ? voiceEffects.find(e => e.effectId === selectedEffect)?.name
+          : selectedEmotion
+          ? emotionVoices.find(e => e.effectId === selectedEmotion)?.name
+          : undefined,
+        effectCategory: selectedEffect 
+          ? voiceEffects.find(e => e.effectId === selectedEffect)?.category
+          : selectedEmotion
+          ? 'emotion'
+          : undefined,
+        settings: settings,
+        isPublic: saveFormData.isPublic,
+        tags: saveFormData.tags
+      };
+      
+      const response = await voiceAPI.saveVoiceCreation(voiceCreationData);
+      
+      if (response.status === 'success') {
+        setShowSaveDialog(false);
+        setSaveFormData({ name: '', description: '', isPublic: false, tags: [] });
+        await fetchSavedVoiceCreations(); // Refresh the list
+        setErrorMessage(null);
+        // Show success message
+        console.log('Voice creation saved successfully');
+      } else {
+        setErrorMessage('Failed to save voice creation');
+      }
     } catch (error) {
-      console.error('Error saving audio:', error);
-      setIsSaving(false);
-      setErrorMessage('Error saving audio to library');
+      console.error('Error saving voice creation:', error);
+      setErrorMessage('Error saving voice creation');
+    } finally {
+      setIsSavingVoice(false);
     }
+  };
+  
+  const handleDeleteSavedVoice = async (id: string) => {
+    try {
+      const response = await voiceAPI.deleteSavedVoiceCreation(id);
+      if (response.status === 'success') {
+        await fetchSavedVoiceCreations(); // Refresh the list
+      }
+    } catch (error) {
+      console.error('Error deleting saved voice creation:', error);
+      setErrorMessage('Error deleting saved voice creation');
+    }
+  };
+  
+  const handleProceedToFeed = (savedVoice: any) => {
+    // Navigate to feed page with the saved voice data
+    const audioUrl = savedVoice.transformedAudio 
+      ? `/api/audio/transformed/${savedVoice.transformedAudio.originalFilename}`
+      : `/api/audio/${savedVoice.originalAudio.originalFilename}`;
+    
+    // Store the voice data in sessionStorage for the feed page
+    sessionStorage.setItem('voiceForFeed', JSON.stringify({
+      id: savedVoice.id,
+      name: savedVoice.name,
+      description: savedVoice.description,
+      audioUrl: audioUrl,
+      audioFileId: savedVoice.transformedAudioId || savedVoice.originalAudioId,
+      effectName: savedVoice.effectName,
+      effectCategory: savedVoice.effectCategory
+    }));
+    
+    // Navigate to feed page
+    window.location.href = '/feed?source=studio';
   };
   
   // Handle language change
@@ -1271,18 +1388,12 @@ export const StudioPage = () => {
 
                   <div className="flex flex-wrap gap-4">
                     <Button
-                      leftIcon={<Share2 className="h-5 w-5" />}
-                      onClick={() => {}}
-                    >
-                      Share
-                    </Button>
-                    <Button
-                      variant="outline"
+                      variant="primary"
                       leftIcon={<Save className="h-5 w-5" />}
                       onClick={handleSave}
-                      isLoading={isSaving}
+                      disabled={!audioFile || (!transformedAudio && !recordedAudio)}
                     >
-                      Save to Library
+                      Save Voice
                     </Button>
                     <Button
                       variant="outline"
@@ -1482,6 +1593,93 @@ export const StudioPage = () => {
               </AnimatePresence>
             </Card>
 
+            {/* Saved Voices Card */}
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold flex items-center gap-2">
+                  <Layers className="h-6 w-6 text-primary-600 dark:text-primary-400" />
+                  Saved Voices
+                </h3>
+                <span className="text-sm text-dark-500 dark:text-dark-400">
+                  {savedVoiceCreations.length} saved
+                </span>
+              </div>
+              
+              {savedVoiceCreations.length === 0 ? (
+                <div className="text-center py-8">
+                  <Music className="h-12 w-12 text-dark-300 dark:text-dark-600 mx-auto mb-3" />
+                  <p className="text-dark-500 dark:text-dark-400 mb-2">No saved voices yet</p>
+                  <p className="text-sm text-dark-400 dark:text-dark-500">
+                    Create and save your voice transformations to access them later
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {savedVoiceCreations.slice(0, 5).map((savedVoice) => (
+                    <div
+                      key={savedVoice.id}
+                      className="p-3 border border-gray-200 dark:border-dark-700 rounded-lg hover:border-primary-300 dark:hover:border-primary-600 transition-colors"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-dark-900 dark:text-white truncate">
+                          {savedVoice.name}
+                        </h4>
+                        <div className="flex items-center gap-1">
+                          {savedVoice.isPublic ? (
+                            <Eye className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <EyeOff className="h-4 w-4 text-gray-400" />
+                          )}
+                        </div>
+                      </div>
+                      
+                      {savedVoice.effectName && (
+                        <p className="text-sm text-primary-600 dark:text-primary-400 mb-2">
+                          {savedVoice.effectName}
+                        </p>
+                      )}
+                      
+                      {savedVoice.description && (
+                        <p className="text-xs text-dark-500 dark:text-dark-400 mb-3 line-clamp-2">
+                          {savedVoice.description}
+                        </p>
+                      )}
+                      
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          leftIcon={<ArrowRight className="h-4 w-4" />}
+                          onClick={() => handleProceedToFeed(savedVoice)}
+                          className="flex-1"
+                        >
+                          Proceed
+                        </Button>
+                        <IconButton
+                          variant="ghost"
+                          size="sm"
+                          icon={<Trash2 className="h-4 w-4" />}
+                          onClick={() => handleDeleteSavedVoice(savedVoice.id)}
+                          aria-label="Delete saved voice"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {savedVoiceCreations.length > 5 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      fullWidth
+                      onClick={() => {/* TODO: Show all saved voices modal */}}
+                    >
+                      View All ({savedVoiceCreations.length})
+                    </Button>
+                  )}
+                </div>
+              )}
+            </Card>
+
             {/* Pro Features Card - Updated with link */}
             <Card className="p-6 bg-gradient-to-br from-primary-500 to-accent-500 text-white">
               <div className="flex items-center gap-3 mb-4">
@@ -1510,6 +1708,99 @@ export const StudioPage = () => {
           </div>
         </div>
       </div>
+      
+      {/* Save Voice Dialog */}
+      <AnimatePresence>
+        {showSaveDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowSaveDialog(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-dark-800 rounded-lg p-6 w-full max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-dark-900 dark:text-white">
+                  Save Voice Creation
+                </h3>
+                <IconButton
+                  variant="ghost"
+                  icon={<X className="h-5 w-5" />}
+                  onClick={() => setShowSaveDialog(false)}
+                  aria-label="Close dialog"
+                />
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full p-3 border border-gray-300 dark:border-dark-700 rounded-lg bg-white dark:bg-dark-800 text-dark-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    value={saveFormData.name}
+                    onChange={(e) => setSaveFormData({ ...saveFormData, name: e.target.value })}
+                    placeholder="Enter a name for your voice creation"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    className="w-full p-3 border border-gray-300 dark:border-dark-700 rounded-lg bg-white dark:bg-dark-800 text-dark-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    rows={3}
+                    value={saveFormData.description}
+                    onChange={(e) => setSaveFormData({ ...saveFormData, description: e.target.value })}
+                    placeholder="Describe your voice creation (optional)"
+                  />
+                </div>
+                
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="isPublic"
+                    className="mr-2 rounded"
+                    checked={saveFormData.isPublic}
+                    onChange={(e) => setSaveFormData({ ...saveFormData, isPublic: e.target.checked })}
+                  />
+                  <label htmlFor="isPublic" className="text-sm text-dark-700 dark:text-dark-300">
+                    Make this voice creation public
+                  </label>
+                </div>
+                
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSaveDialog(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleSaveVoiceCreation}
+                    isLoading={isSavingVoice}
+                    disabled={!saveFormData.name.trim() || isSavingVoice}
+                    className="flex-1"
+                  >
+                    Save Voice
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

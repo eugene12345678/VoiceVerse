@@ -71,6 +71,9 @@ model User {
   contactMessages     ContactMessage[]
   aiAssistantChats    AIAssistantChat[]
   calendlyEvents      CalendlyEvent[]
+  
+  // Voice creation relations
+  savedVoiceCreations SavedVoiceCreation[]
 }
 
 // Existing AudioFile model
@@ -97,6 +100,10 @@ model AudioFile {
   
   // Feed-related relations
   feedPost            FeedPost?
+  
+  // Saved voice creation relations
+  originalVoiceCreations SavedVoiceCreation[] @relation("SavedVoiceCreation_originalAudioIdToAudioFile")
+  transformedVoiceCreations SavedVoiceCreation[] @relation("SavedVoiceCreation_transformedAudioIdToAudioFile")
 
   @@index([userId], map: "AudioFile_userId_fkey")
 }
@@ -913,4 +920,32 @@ model PromoCodeUsage {
   @@unique([userId, promoCodeId])
   @@index([userId])
   @@index([promoCodeId])
+}
+
+// Saved Voice Creation model
+model SavedVoiceCreation {
+  id                String    @id @default(uuid())
+  userId            String
+  name              String
+  description       String?   @db.Text
+  originalAudioId   String
+  transformedAudioId String?
+  effectId          String?
+  effectName        String?
+  effectCategory    String?
+  settings          String?   @db.LongText
+  isPublic          Boolean   @default(false)
+  tags              String?   @db.Text // JSON array of tags
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relations
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  originalAudio     AudioFile @relation("SavedVoiceCreation_originalAudioIdToAudioFile", fields: [originalAudioId], references: [id], onDelete: Cascade)
+  transformedAudio  AudioFile? @relation("SavedVoiceCreation_transformedAudioIdToAudioFile", fields: [transformedAudioId], references: [id])
+  
+  @@index([userId])
+  @@index([originalAudioId])
+  @@index([transformedAudioId])
+  @@index([effectCategory])
 }
