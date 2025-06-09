@@ -32,7 +32,7 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { AudioRecorder } from '../components/audio/AudioRecorder';
@@ -140,6 +140,7 @@ interface Language {
 
 export const StudioPage = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [recordedAudio, setRecordedAudio] = useState<string | null>(null);
   const [selectedEffect, setSelectedEffect] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -793,8 +794,8 @@ export const StudioPage = () => {
       effectCategory: savedVoice.effectCategory
     }));
     
-    // Navigate to feed page
-    window.location.href = '/feed?source=studio';
+    // Navigate to feed page using React Router
+    navigate('/feed?source=studio');
   };
   
   // Handle language change

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import {
   Heart,
   MessageCircle,
@@ -404,6 +405,7 @@ interface Comment {
 }
 
 export const FeedPage = () => {
+  const location = useLocation();
   const [posts, setPosts] = useState<FeedPost[]>(mockPosts);
   const [filter, setFilter] = useState('trending');
   const [showFilters, setShowFilters] = useState(false);
@@ -420,11 +422,50 @@ export const FeedPage = () => {
   const [postComments, setPostComments] = useState<{ [key: string]: Comment[] }>({});
   const [newComment, setNewComment] = useState<{ [key: string]: string }>({});
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [importedVoiceData, setImportedVoiceData] = useState<any>(null);
 
   // Fetch posts on component mount and when filter changes
   useEffect(() => {
     fetchPosts();
   }, [filter]);
+  
+  // Check if coming from studio with voice data
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const source = urlParams.get('source');
+    
+    if (source === 'studio') {
+      const voiceData = sessionStorage.getItem('voiceForFeed');
+      if (voiceData) {
+        try {
+          const parsedVoiceData = JSON.parse(voiceData);
+          
+          // Store the imported voice data
+          setImportedVoiceData(parsedVoiceData);
+          
+          // Auto-populate the create post form
+          setNewPostCaption(`Check out my ${parsedVoiceData.effectName || 'voice'} transformation! 🎭`);
+          setNewPostDescription(parsedVoiceData.description || `Created using ${parsedVoiceData.effectName || 'voice effects'} in VoiceVerse Studio.`);
+          setNewPostTags(`VoiceAI, ${parsedVoiceData.effectCategory || 'Transformation'}, Studio`);
+          setUploadedAudioId(parsedVoiceData.audioFileId);
+          
+          // Create a mock file object to show in the UI
+          const mockFile = new File([''], parsedVoiceData.name || 'voice-creation.mp3', {
+            type: 'audio/mpeg'
+          });
+          setSelectedAudioFile(mockFile);
+          
+          // Show the create modal
+          setShowCreateModal(true);
+          
+          // Clear the session storage
+          sessionStorage.removeItem('voiceForFeed');
+        } catch (error) {
+          console.error('Error parsing voice data from studio:', error);
+        }
+      }
+    }
+  }, [location]);
 
   // Fetch posts from API
   const fetchPosts = async () => {
@@ -642,6 +683,7 @@ export const FeedPage = () => {
         setNewPostTags('');
         setSelectedAudioFile(null);
         setUploadedAudioId(null);
+        setImportedVoiceData(null);
         setShowCreateModal(false);
       }
     } catch (err) {
@@ -848,14 +890,35 @@ export const FeedPage = () => {
             <Card className="w-full max-w-lg">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-display font-bold">Create New Post</h2>
+                  <h2 className="text-2xl font-display font-bold">
+                    {importedVoiceData ? 'Share Your Voice Creation' : 'Create New Post'}
+                  </h2>
                   <IconButton
                     variant="ghost"
                     icon={<X className="h-5 w-5" />}
-                    onClick={() => setShowCreateModal(false)}
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      // Reset form if closing
+                      if (importedVoiceData) {
+                        setNewPostCaption('');
+                        setNewPostDescription('');
+                        setNewPostTags('');
+                        setUploadedAudioId(null);
+                        setSelectedAudioFile(null);
+                        setImportedVoiceData(null);
+                      }
+                    }}
                     aria-label="Close"
                   />
                 </div>
+                
+                {importedVoiceData && (
+                  <div className="mb-4 p-3 bg-primary-50 dark:bg-primary-900/30 border border-primary-200 dark:border-primary-800 rounded-lg">
+                    <p className="text-primary-700 dark:text-primary-300 text-sm">
+                      🎉 Your voice creation from the studio is ready to share!
+                    </p>
+                  </div>
+                )}
                 
                 {/* Audio Upload */}
                 <div className="mb-6">
@@ -869,14 +932,37 @@ export const FeedPage = () => {
                       onChange={handleFileUpload}
                       className="hidden"
                       id="audio-upload"
+                      disabled={!!importedVoiceData}
                     />
                     <label
                       htmlFor="audio-upload"
-                      className="flex-1 cursor-pointer border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg p-4 text-center hover:border-primary-500 dark:hover:border-primary-400 transition-colors"
+                      className={`flex-1 ${importedVoiceData ? 'cursor-default' : 'cursor-pointer'} border-2 ${
+                        importedVoiceData 
+                          ? 'border-green-300 dark:border-green-600 bg-green-50 dark:bg-green-900/20' 
+                          : 'border-dashed border-gray-300 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-400'
+                      } rounded-lg p-4 text-center transition-colors`}
                     >
-                      {selectedAudioFile ? (
-                        <div className="text-primary-600 dark:text-primary-400">
-                          {selectedAudioFile.name}
+                      {selectedAudioFile || importedVoiceData ? (
+                        <div className="space-y-2">
+                          <div className={importedVoiceData ? 'text-green-600 dark:text-green-400' : 'text-primary-600 dark:text-primary-400'}>
+                            {importedVoiceData ? (
+                              <>
+                                🎭 {importedVoiceData.name}
+                                {importedVoiceData.effectName && (
+                                  <div className="text-sm text-green-500 dark:text-green-300">
+                                    Effect: {importedVoiceData.effectName}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              selectedAudioFile.name
+                            )}
+                          </div>
+                          {importedVoiceData && (
+                            <div className="text-xs text-green-600 dark:text-green-400">
+                              ✅ Imported from Studio
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="text-dark-500 dark:text-dark-400">
@@ -886,6 +972,13 @@ export const FeedPage = () => {
                     </label>
                     {isUploading && (
                       <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary-600"></div>
+                    )}
+                    {importedVoiceData && (
+                      <div className="text-green-600 dark:text-green-400">
+                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -939,7 +1032,7 @@ export const FeedPage = () => {
                   isLoading={isCreatingPost}
                   disabled={isCreatingPost || isUploading || !uploadedAudioId || !newPostCaption.trim()}
                 >
-                  Create Post
+                  {importedVoiceData ? 'Share Voice Creation' : 'Create Post'}
                 </Button>
               </div>
             </Card>
