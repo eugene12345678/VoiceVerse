@@ -30,8 +30,8 @@ router.post(
   [
     authenticateToken,
     check('audioFileId', 'Audio file ID is required').not().isEmpty(),
-    check('targetLanguage', 'Target language is required').not().isEmpty(),
-    check('voiceId', 'Voice ID is required').not().isEmpty()
+    check('targetLanguage', 'Target language is required').not().isEmpty()
+    // voiceId is now optional - will use language-specific default if not provided
   ],
   translationController.translateAudio
 );

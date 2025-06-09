@@ -143,6 +143,24 @@ export const voiceAPI = {
   getTransformationHistory: async () => {
     const response = await api.get('/voice/history');
     return response.data;
+  },
+  
+  // Get emotion voices
+  getEmotionVoices: async () => {
+    const response = await api.get('/voice/emotion/voices');
+    return response.data;
+  },
+  
+  // Transform audio with emotion effect
+  transformWithEmotion: async (audioFileId: string, emotionId: string, customSettings?: any) => {
+    const response = await api.post('/voice/emotion/transform', { audioFileId, emotionId, customSettings });
+    return response.data;
+  },
+  
+  // Get emotion transformation status
+  getEmotionTransformationStatus: async (transformationId: string) => {
+    const response = await api.get(`/voice/emotion/transform/${transformationId}`);
+    return response.data;
   }
 };
 

@@ -356,6 +356,7 @@ exports.transformAudio = async (req, res) => {
           effectCategory: 'celebrity',
           settings: JSON.stringify(settings || {}),
           status: 'processing',
+          createdAt: new Date(),
           updatedAt: new Date()
         }
       });
@@ -422,6 +423,7 @@ exports.transformAudio = async (req, res) => {
         effectCategory: effect.category,
         settings: JSON.stringify(settings || {}),
         status: 'processing',
+        createdAt: new Date(),
         updatedAt: new Date()
       }
     });

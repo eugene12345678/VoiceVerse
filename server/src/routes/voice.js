@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const voiceController = require('../controllers/voiceController');
 const celebrityVoiceController = require('../controllers/celebrityVoiceController');
+const emotionVoiceController = require('../controllers/emotionVoiceController');
 const { authenticateToken } = require('../middleware/auth');
 const { check } = require('express-validator');
 
@@ -24,6 +25,29 @@ router.get('/elevenlabs/voices', authenticateToken, voiceController.getElevenLab
 // @desc    Get celebrity voices with actual ElevenLabs IDs
 // @access  Public
 router.get('/celebrity/voices', celebrityVoiceController.getCelebrityVoices);
+
+// @route   GET /api/voice/emotion/voices
+// @desc    Get emotion voices with ElevenLabs IDs and settings
+// @access  Public
+router.get('/emotion/voices', emotionVoiceController.getEmotionVoices);
+
+// @route   POST /api/voice/emotion/transform
+// @desc    Transform audio with emotion effect
+// @access  Private
+router.post(
+  '/emotion/transform',
+  [
+    authenticateToken,
+    check('audioFileId', 'Audio file ID is required').not().isEmpty(),
+    check('emotionId', 'Emotion ID is required').not().isEmpty()
+  ],
+  emotionVoiceController.transformWithEmotion
+);
+
+// @route   GET /api/voice/emotion/transform/:id
+// @desc    Get emotion transformation status
+// @access  Private
+router.get('/emotion/transform/:id', authenticateToken, emotionVoiceController.getEmotionTransformationStatus);
 
 // @route   POST /api/voice/clone
 // @desc    Clone a voice using ElevenLabs

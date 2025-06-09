@@ -149,6 +149,7 @@ export const StudioPage = () => {
   
   // New state for API integration
   const [voiceEffects, setVoiceEffects] = useState<VoiceEffect[]>(defaultVoiceEffects);
+  const [emotionVoices, setEmotionVoices] = useState<VoiceEffect[]>([]);
   const [audioFile, setAudioFile] = useState<AudioFile | null>(null);
   const [transformation, setTransformation] = useState<Transformation | null>(null);
   const [transformedAudio, setTransformedAudio] = useState<string | null>(null);
@@ -156,6 +157,8 @@ export const StudioPage = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<string>('en');
   const [isTranslating, setIsTranslating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [selectedEmotion, setSelectedEmotion] = useState<string | null>(null);
+  const [emotionTransformation, setEmotionTransformation] = useState<Transformation | null>(null);
   
   // New state for ElevenLabs voice cloning
   const [elevenLabsVoices, setElevenLabsVoices] = useState<ElevenLabsVoice[]>([]);
@@ -200,7 +203,22 @@ export const StudioPage = () => {
       }
     };
     
+    const fetchEmotionVoices = async () => {
+      try {
+        const response = await voiceAPI.getEmotionVoices();
+        if (response.status === 'success' && response.data) {
+          setEmotionVoices(response.data);
+        }
+      } catch (error) {
+        console.error('Error fetching emotion voices:', error);
+        // Fallback to default emotion effects
+        const defaultEmotions = defaultVoiceEffects.filter(effect => effect.category === 'emotion');
+        setEmotionVoices(defaultEmotions);
+      }
+    };
+    
     fetchVoiceEffects();
+    fetchEmotionVoices();
   }, []);
   
   // Load ElevenLabs voices
@@ -475,6 +493,65 @@ export const StudioPage = () => {
     }
   };
   
+  // Handle emotion effect selection
+  const handleEmotionSelect = async (emotionId: string) => {
+    setSelectedEmotion(emotionId);
+    setIsProcessing(true);
+    setErrorMessage(null);
+    
+    // Check if we have an audio file to transform
+    if (!audioFile) {
+      setIsProcessing(false);
+      setErrorMessage('No audio file available for emotion transformation');
+      return;
+    }
+    
+    try {
+      // Start the emotion transformation process
+      const response = await voiceAPI.transformWithEmotion(
+        audioFile.id,
+        emotionId,
+        settings
+      );
+      
+      if (response.status === 'success' && response.data) {
+        setEmotionTransformation({
+          id: response.data.transformationId,
+          sourceAudioId: audioFile.id,
+          effectId: emotionId,
+          effectName: emotionVoices.find(voice => voice.effectId === emotionId)?.name || '',
+          status: 'processing'
+        });
+        
+        // Poll for emotion transformation status
+        pollEmotionTransformationStatus(response.data.transformationId);
+      } else {
+        setIsProcessing(false);
+        setErrorMessage('Failed to start emotion transformation: ' + (response.message || 'Unknown error'));
+        console.error('API returned unsuccessful status:', response);
+      }
+    } catch (error) {
+      console.error('Error transforming audio with emotion:', error);
+      setIsProcessing(false);
+      
+      // Extract the error message from the API response if available
+      let errorMsg = 'Error applying emotion effect';
+      if (error.response && error.response.data) {
+        errorMsg = error.response.data.message || errorMsg;
+      }
+      
+      setErrorMessage(errorMsg);
+      
+      // For development purposes, simulate a successful transformation
+      console.log('Simulating successful emotion transformation in development mode');
+      setTimeout(() => {
+        setTransformedAudio(recordedAudio);
+        setIsProcessing(false);
+        setErrorMessage('Development mode: Using original audio as transformed audio');
+      }, 2000);
+    }
+  };
+  
   // Handle voice cloning
   const handleVoiceClone = async () => {
     if (!audioFile) {
@@ -546,6 +623,40 @@ export const StudioPage = () => {
       console.error('Error polling transformation status:', error);
       setIsProcessing(false);
       setErrorMessage('Error checking transformation status');
+    }
+  };
+  
+  // Poll for emotion transformation status
+  const pollEmotionTransformationStatus = async (transformationId: string) => {
+    try {
+      const response = await voiceAPI.getEmotionTransformationStatus(transformationId);
+      
+      if (response.status === 'success' && response.data) {
+        const transformationData = response.data;
+        setEmotionTransformation(transformationData);
+        
+        if (transformationData.status === 'completed' && transformationData.transformedAudioId) {
+          // Emotion transformation is complete
+          setIsProcessing(false);
+          
+          // Use the audioUrl from the response if available, otherwise construct it
+          const audioUrl = transformationData.audioUrl || `/api/audio/transformed/${transformationData.transformedAudioId}`;
+          setTransformedAudio(audioUrl);
+        } else if (transformationData.status === 'failed') {
+          setIsProcessing(false);
+          setErrorMessage(transformationData.errorMessage || 'Emotion transformation failed');
+        } else if (transformationData.status === 'processing' || transformationData.status === 'pending') {
+          // Continue polling
+          setTimeout(() => pollEmotionTransformationStatus(transformationId), 2000);
+        }
+      } else {
+        setIsProcessing(false);
+        setErrorMessage('Failed to get emotion transformation status');
+      }
+    } catch (error) {
+      console.error('Error polling emotion transformation status:', error);
+      setIsProcessing(false);
+      setErrorMessage('Error checking emotion transformation status');
     }
   };
 
@@ -658,7 +769,9 @@ export const StudioPage = () => {
   };
 
   const filteredEffects = selectedCategory === 'all'
-    ? voiceEffects
+    ? [...voiceEffects, ...emotionVoices]
+    : selectedCategory === 'emotion'
+    ? emotionVoices.length > 0 ? emotionVoices : voiceEffects.filter(effect => effect.category === selectedCategory)
     : voiceEffects.filter(effect => effect.category === selectedCategory);
 
   return (
@@ -1039,22 +1152,26 @@ export const StudioPage = () => {
                           Emotion Voice Effects
                         </label>
                         <div className="grid grid-cols-2 gap-2">
-                          {voiceEffects
-                            .filter(effect => effect.category === 'emotion')
+                          {(emotionVoices.length > 0 ? emotionVoices : voiceEffects.filter(effect => effect.category === 'emotion'))
                             .slice(0, 4) // Show only the first 4 emotion effects
                             .map(effect => (
                               <Button
                                 key={effect.id}
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleEffectSelect(effect.effectId)}
+                                onClick={() => handleEmotionSelect(effect.effectId)}
                                 disabled={isProcessing || !audioFile}
-                                className={selectedEffect === effect.effectId ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30' : ''}
+                                className={selectedEmotion === effect.effectId ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30' : ''}
                               >
                                 {effect.name}
                               </Button>
                             ))}
                         </div>
+                        {isProcessing && selectedEmotion && (
+                          <div className="mt-2 text-sm text-primary-600 dark:text-primary-400">
+                            Applying {emotionVoices.find(v => v.effectId === selectedEmotion)?.name || selectedEmotion} effect...
+                          </div>
+                        )}
                       </div>
                       
                       {/* Language Accent Effects */}
@@ -1257,7 +1374,7 @@ export const StudioPage = () => {
                         <motion.button
                           key={effect.id}
                           className={`p-4 rounded-lg border-2 transition-colors ${
-                            selectedEffect === effect.effectId
+                            (effect.category === 'emotion' ? selectedEmotion === effect.effectId : selectedEffect === effect.effectId)
                               ? 'border-primary-600 bg-primary-50 dark:border-primary-400 dark:bg-primary-900/30'
                               : 'border-gray-200 hover:border-primary-300 dark:border-dark-700 dark:hover:border-primary-600'
                           } ${
@@ -1265,7 +1382,13 @@ export const StudioPage = () => {
                               ? 'opacity-60'
                               : ''
                           }`}
-                          onClick={() => handleEffectSelect(effect.effectId)}
+                          onClick={() => {
+                            if (effect.category === 'emotion') {
+                              handleEmotionSelect(effect.effectId);
+                            } else {
+                              handleEffectSelect(effect.effectId);
+                            }
+                          }}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           disabled={effect.isProOnly && !false /* Replace with user.isPro when available */ || isProcessing}

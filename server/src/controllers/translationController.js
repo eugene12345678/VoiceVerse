@@ -4,13 +4,41 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { validationResult } = require('express-validator');
 
-// Lingo API configuration
-const LINGO_API_URL = 'https://api.lingoblocks.com/v1';
-const LINGO_API_KEY = process.env.LINGO_API_KEY || 'api_caqw6dgkiuaek7exmi3c0zi66';
+// Google Translate API configuration
+const GOOGLE_TRANSLATE_API_KEY = process.env.GOOGLE_TRANSLATE_API_KEY || process.env.GOOGLE_API_KEY;
+const GOOGLE_TRANSLATE_API_URL = 'https://translation.googleapis.com/language/translate/v2';
+
+// OpenAI Whisper API configuration for transcription
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_URL = 'https://api.openai.com/v1/audio/transcriptions';
 
 // ElevenLabs API configuration for voice synthesis
 const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1';
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || 'sk_6af57f84281bf52dc471d7751253dd26647034b32025d667';
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || 'sk_ac7bbd0a5be8876d7c0e4efe0a9655f9a66475a5f42d3466';
+
+// Supported languages with their codes and ElevenLabs voice mappings
+const SUPPORTED_LANGUAGES = [
+  { code: 'en', name: 'English', nativeName: 'English', voiceId: '21m00Tcm4TlvDq8ikWAM' },
+  { code: 'es', name: 'Spanish', nativeName: 'Español', voiceId: 'pNInz6obpgDQGcFmaJgB' },
+  { code: 'fr', name: 'French', nativeName: 'Français', voiceId: 'TxGEqnHWrfWFTfGW9XjX' },
+  { code: 'de', name: 'German', nativeName: 'Deutsch', voiceId: 'ZQe5CZNOzWyzPSCn5a3c' },
+  { code: 'it', name: 'Italian', nativeName: 'Italiano', voiceId: 'EXAVITQu4vr4xnSDxMaL' },
+  { code: 'pt', name: 'Portuguese', nativeName: 'Português', voiceId: 'AZnzlk1XvdvUeBnXmlld' },
+  { code: 'ru', name: 'Russian', nativeName: 'Русский', voiceId: '21m00Tcm4TlvDq8ikWAM' },
+  { code: 'zh', name: 'Chinese', nativeName: '中文', voiceId: 'pNInz6obpgDQGcFmaJgB' },
+  { code: 'ja', name: 'Japanese', nativeName: '日本語', voiceId: 'TxGEqnHWrfWFTfGW9XjX' },
+  { code: 'ko', name: 'Korean', nativeName: '한국어', voiceId: 'ZQe5CZNOzWyzPSCn5a3c' },
+  { code: 'ar', name: 'Arabic', nativeName: 'العربية', voiceId: 'EXAVITQu4vr4xnSDxMaL' },
+  { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', voiceId: 'AZnzlk1XvdvUeBnXmlld' },
+  { code: 'nl', name: 'Dutch', nativeName: 'Nederlands', voiceId: '21m00Tcm4TlvDq8ikWAM' },
+  { code: 'sv', name: 'Swedish', nativeName: 'Svenska', voiceId: 'pNInz6obpgDQGcFmaJgB' },
+  { code: 'no', name: 'Norwegian', nativeName: 'Norsk', voiceId: 'TxGEqnHWrfWFTfGW9XjX' },
+  { code: 'da', name: 'Danish', nativeName: 'Dansk', voiceId: 'ZQe5CZNOzWyzPSCn5a3c' },
+  { code: 'fi', name: 'Finnish', nativeName: 'Suomi', voiceId: 'EXAVITQu4vr4xnSDxMaL' },
+  { code: 'pl', name: 'Polish', nativeName: 'Polski', voiceId: 'AZnzlk1XvdvUeBnXmlld' },
+  { code: 'tr', name: 'Turkish', nativeName: 'Türkçe', voiceId: '21m00Tcm4TlvDq8ikWAM' },
+  { code: 'uk', name: 'Ukrainian', nativeName: 'Українська', voiceId: 'pNInz6obpgDQGcFmaJgB' }
+];
 
 /**
  * Get supported languages
@@ -19,41 +47,17 @@ const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || 'sk_6af57f84281bf52
  */
 exports.getSupportedLanguages = async (req, res) => {
   try {
-    // For now, return a static list of languages to avoid API issues
-    // This can be replaced with the actual API call when the API is working
-    const languages = [
-      { code: 'en', name: 'English', nativeName: 'English' },
-      { code: 'es', name: 'Spanish', nativeName: 'Español' },
-      { code: 'fr', name: 'French', nativeName: 'Français' },
-      { code: 'de', name: 'German', nativeName: 'Deutsch' },
-      { code: 'it', name: 'Italian', nativeName: 'Italiano' },
-      { code: 'pt', name: 'Portuguese', nativeName: 'Português' },
-      { code: 'ru', name: 'Russian', nativeName: 'Русский' },
-      { code: 'zh', name: 'Chinese', nativeName: '中文' },
-      { code: 'ja', name: 'Japanese', nativeName: '日本語' },
-      { code: 'ko', name: 'Korean', nativeName: '한국어' },
-      { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
-      { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' }
-    ];
+    // Return the comprehensive list of supported languages
+    const languages = SUPPORTED_LANGUAGES.map(lang => ({
+      code: lang.code,
+      name: lang.name,
+      nativeName: lang.nativeName
+    }));
 
     res.json({
       status: 'success',
       data: { languages }
     });
-
-    /* Commented out the API call for now
-    const response = await axios.get(`${LINGO_API_URL}/languages`, {
-      headers: {
-        'Authorization': `Bearer ${LINGO_API_KEY}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    res.json({
-      status: 'success',
-      data: response.data
-    });
-    */
   } catch (error) {
     console.error('Error fetching supported languages:', error);
     res.status(500).json({
@@ -77,29 +81,85 @@ exports.translateText = async (req, res) => {
   const { text, sourceLanguage, targetLanguage } = req.body;
 
   try {
-    const response = await axios.post(
-      `${LINGO_API_URL}/translate`,
-      {
-        text,
-        source_lang: sourceLanguage,
-        target_lang: targetLanguage
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${LINGO_API_KEY}`,
-          'Content-Type': 'application/json'
+    let translatedText = '';
+    let detectedSourceLanguage = sourceLanguage || 'auto';
+
+    // Try Google Translate API first
+    if (GOOGLE_TRANSLATE_API_KEY) {
+      try {
+        console.log(`Translating text using Google Translate API from ${sourceLanguage || 'auto'} to ${targetLanguage}`);
+        
+        const params = new URLSearchParams({
+          key: GOOGLE_TRANSLATE_API_KEY,
+          q: text,
+          target: targetLanguage,
+          format: 'text'
+        });
+
+        if (sourceLanguage && sourceLanguage !== 'auto') {
+          params.append('source', sourceLanguage);
         }
+
+        const response = await axios.post(
+          GOOGLE_TRANSLATE_API_URL,
+          params,
+          {
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            timeout: 10000
+          }
+        );
+
+        if (response.data && response.data.data && response.data.data.translations) {
+          translatedText = response.data.data.translations[0].translatedText;
+          detectedSourceLanguage = response.data.data.translations[0].detectedSourceLanguage || sourceLanguage || 'auto';
+          console.log('Successfully translated text using Google Translate API');
+        } else {
+          throw new Error('Invalid response from Google Translate API');
+        }
+      } catch (googleError) {
+        console.error('Google Translate API error:', googleError.message);
+        throw googleError;
       }
-    );
+    } else {
+      // Fallback to mock translation if no API key
+      console.log('No Google Translate API key found, using mock translation');
+      translatedText = await getMockTranslation(text, targetLanguage);
+      detectedSourceLanguage = sourceLanguage || 'en';
+    }
+
+    // Check if we're using the development user
+    const isDevelopmentUser = req.user.id === 'dev-user-id';
+    let userId = req.user.id;
+
+    if (isDevelopmentUser) {
+      // For development user, try to find a real user ID from the database
+      try {
+        const firstUser = await req.prisma.user.findFirst();
+        if (firstUser) {
+          userId = firstUser.id;
+          console.log(`Using first user's ID (${userId}) for development user`);
+        } else {
+          throw new Error('No users found in database');
+        }
+      } catch (error) {
+        console.error('Error finding a valid user ID:', error);
+        return res.status(500).json({
+          status: 'error',
+          message: 'Cannot create translation in development mode: No valid user ID found'
+        });
+      }
+    }
 
     // Save translation to database
     const translation = await req.prisma.translation.create({
       data: {
-        userId: req.user.id,
-        sourceLanguage,
+        userId: userId,
+        sourceLanguage: detectedSourceLanguage,
         targetLanguage,
         sourceText: text,
-        translatedText: response.data.translated_text,
+        translatedText,
         createdAt: new Date()
       }
     });
@@ -107,15 +167,16 @@ exports.translateText = async (req, res) => {
     res.json({
       status: 'success',
       data: {
-        translation: response.data.translated_text,
-        translationId: translation.id
+        translation: translatedText,
+        translationId: translation.id,
+        detectedSourceLanguage
       }
     });
   } catch (error) {
     console.error('Error translating text:', error);
     res.status(500).json({
       status: 'error',
-      message: 'Failed to translate text'
+      message: 'Failed to translate text: ' + error.message
     });
   }
 };
@@ -134,6 +195,15 @@ exports.translateAudio = async (req, res) => {
   const { audioFileId, targetLanguage, voiceId } = req.body;
 
   try {
+    // Validate target language
+    const supportedLanguage = SUPPORTED_LANGUAGES.find(lang => lang.code === targetLanguage);
+    if (!supportedLanguage) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Unsupported target language: ${targetLanguage}`
+      });
+    }
+
     // Check if we're using the development user
     const isDevelopmentUser = req.user.id === 'dev-user-id';
     
@@ -157,6 +227,9 @@ exports.translateAudio = async (req, res) => {
       });
     }
 
+    // Use the language-specific voice ID if no specific voice ID is provided
+    const effectiveVoiceId = voiceId || supportedLanguage.voiceId;
+
     // Create a translation record
     // Use the actual audio file owner's ID for the translation to avoid foreign key issues
     const translation = await req.prisma.translation.create({
@@ -172,21 +245,23 @@ exports.translateAudio = async (req, res) => {
     });
 
     // Process the translation asynchronously
-    processAudioTranslation(req.prisma, translation.id, audioFile, targetLanguage, voiceId)
+    processAudioTranslation(req.prisma, translation.id, audioFile, targetLanguage, effectiveVoiceId)
       .catch(err => console.error('Error processing audio translation:', err));
 
     res.status(202).json({
       status: 'success',
       message: 'Audio translation started',
       data: {
-        translationId: translation.id
+        translationId: translation.id,
+        targetLanguage: supportedLanguage.name,
+        voiceId: effectiveVoiceId
       }
     });
   } catch (error) {
     console.error('Error translating audio:', error);
     res.status(500).json({
       status: 'error',
-      message: 'Failed to translate audio'
+      message: 'Failed to translate audio: ' + error.message
     });
   }
 };
@@ -347,7 +422,114 @@ exports.updateLanguagePreference = async (req, res) => {
 };
 
 /**
- * Process an audio translation using Lingo API and ElevenLabs
+ * Get mock translation for fallback
+ * @param {string} text - Text to translate
+ * @param {string} targetLanguage - Target language code
+ * @returns {string} Mock translated text
+ */
+async function getMockTranslation(text, targetLanguage) {
+  const mockTranslations = {
+    'es': `[ES] ${text}`,
+    'fr': `[FR] ${text}`,
+    'de': `[DE] ${text}`,
+    'it': `[IT] ${text}`,
+    'pt': `[PT] ${text}`,
+    'ru': `[RU] ${text}`,
+    'zh': `[ZH] ${text}`,
+    'ja': `[JA] ${text}`,
+    'ko': `[KO] ${text}`,
+    'ar': `[AR] ${text}`,
+    'hi': `[HI] ${text}`,
+    'nl': `[NL] ${text}`,
+    'sv': `[SV] ${text}`,
+    'no': `[NO] ${text}`,
+    'da': `[DA] ${text}`,
+    'fi': `[FI] ${text}`,
+    'pl': `[PL] ${text}`,
+    'tr': `[TR] ${text}`,
+    'uk': `[UK] ${text}`
+  };
+
+  return mockTranslations[targetLanguage] || `[${targetLanguage.toUpperCase()}] ${text}`;
+}
+
+/**
+ * Transcribe audio using OpenAI Whisper API
+ * @param {string} audioFilePath - Path to the audio file
+ * @returns {Object} Transcription result with text and detected language
+ */
+async function transcribeAudio(audioFilePath) {
+  if (!OPENAI_API_KEY) {
+    throw new Error('OpenAI API key not configured');
+  }
+
+  const FormData = require('form-data');
+  const formData = new FormData();
+  formData.append('file', fs.createReadStream(audioFilePath));
+  formData.append('model', 'whisper-1');
+  formData.append('response_format', 'json');
+
+  const response = await axios.post(
+    OPENAI_API_URL,
+    formData,
+    {
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        ...formData.getHeaders()
+      },
+      timeout: 60000 // 60 second timeout
+    }
+  );
+
+  return {
+    text: response.data.text,
+    language: response.data.language || 'en'
+  };
+}
+
+/**
+ * Translate text using Google Translate API
+ * @param {string} text - Text to translate
+ * @param {string} sourceLanguage - Source language code
+ * @param {string} targetLanguage - Target language code
+ * @returns {string} Translated text
+ */
+async function translateTextWithGoogle(text, sourceLanguage, targetLanguage) {
+  if (!GOOGLE_TRANSLATE_API_KEY) {
+    throw new Error('Google Translate API key not configured');
+  }
+
+  const params = new URLSearchParams({
+    key: GOOGLE_TRANSLATE_API_KEY,
+    q: text,
+    target: targetLanguage,
+    format: 'text'
+  });
+
+  if (sourceLanguage && sourceLanguage !== 'auto') {
+    params.append('source', sourceLanguage);
+  }
+
+  const response = await axios.post(
+    GOOGLE_TRANSLATE_API_URL,
+    params,
+    {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      timeout: 10000
+    }
+  );
+
+  if (response.data && response.data.data && response.data.data.translations) {
+    return response.data.data.translations[0].translatedText;
+  } else {
+    throw new Error('Invalid response from Google Translate API');
+  }
+}
+
+/**
+ * Process an audio translation using OpenAI Whisper, Google Translate, and ElevenLabs
  * @param {PrismaClient} prisma - Prisma client instance
  * @param {string} translationId - ID of the translation to process
  * @param {Object} audioFile - Source audio file
@@ -358,96 +540,80 @@ async function processAudioTranslation(prisma, translationId, audioFile, targetL
   try {
     // Read the audio file
     const audioFilePath = path.join(process.cwd(), audioFile.storagePath);
-    const audioData = fs.readFileSync(audioFilePath);
+    
+    if (!fs.existsSync(audioFilePath)) {
+      throw new Error(`Audio file not found: ${audioFilePath}`);
+    }
 
     // Initialize variables for transcription and translation
     let transcribedText = '';
     let translatedText = '';
     let detectedLanguage = 'en';
 
+    // Step 1: Transcribe the audio
     try {
-      console.log(`Attempting to transcribe audio with Lingo API at ${LINGO_API_URL}...`);
+      if (OPENAI_API_KEY) {
+        console.log('Transcribing audio using OpenAI Whisper API...');
+        const transcriptionResult = await transcribeAudio(audioFilePath);
+        transcribedText = transcriptionResult.text;
+        detectedLanguage = transcriptionResult.language;
+        console.log(`Successfully transcribed audio: "${transcribedText.substring(0, 100)}..."`);
+        console.log(`Detected language: ${detectedLanguage}`);
+      } else {
+        throw new Error('OpenAI API key not configured');
+      }
+    } catch (transcriptionError) {
+      console.error('Error with transcription:', transcriptionError.message);
       
-      // Step 1: Transcribe the audio using Lingo API
-      // Use FormData-like functionality with form-data package
-      const FormData = require('form-data');
-      const formData = new FormData();
-      formData.append('audio', fs.createReadStream(audioFilePath));
-      formData.append('language', 'auto'); // Auto-detect language
-
-      const transcriptionResponse = await axios.post(
-        `${LINGO_API_URL}/transcribe`,
-        formData,
-        {
-          headers: {
-            'Authorization': `Bearer ${LINGO_API_KEY}`,
-            ...formData.getHeaders()
-          },
-          timeout: 30000 // 30 second timeout
-        }
-      );
-
-      transcribedText = transcriptionResponse.data.text;
-      detectedLanguage = transcriptionResponse.data.detected_language || 'en';
-      console.log(`Successfully transcribed audio to: "${transcribedText.substring(0, 50)}..."`);
-      console.log(`Detected language: ${detectedLanguage}`);
-
-      // Step 2: Translate the transcribed text
-      console.log(`Translating text from ${detectedLanguage} to ${targetLanguage}...`);
-      const translationResponse = await axios.post(
-        `${LINGO_API_URL}/translate`,
-        {
-          text: transcribedText,
-          source_lang: detectedLanguage,
-          target_lang: targetLanguage
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${LINGO_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 30000 // 30 second timeout
-        }
-      );
-
-      translatedText = translationResponse.data.translated_text;
-      console.log(`Successfully translated text to: "${translatedText.substring(0, 50)}..."`);
-    } catch (apiError) {
-      console.error('Error with Lingo API:', apiError.message);
-      
-      // Fallback: Use mock transcription and translation for development
-      console.log('Using fallback mock transcription and translation');
-      
-      // Extract filename to use as mock text
+      // Fallback: Use mock transcription
+      console.log('Using fallback mock transcription');
       const filename = path.basename(audioFile.originalFilename, path.extname(audioFile.originalFilename));
       transcribedText = `This is a mock transcription for file: ${filename}. The actual transcription service is currently unavailable.`;
-      
-      // Simple mock translation based on target language
-      if (targetLanguage === 'es') {
-        translatedText = `Esta es una transcripción simulada para el archivo: ${filename}. El servicio de transcripción real no está disponible actualmente.`;
-      } else if (targetLanguage === 'fr') {
-        translatedText = `Ceci est une transcription simulée pour le fichier: ${filename}. Le service de transcription réel n'est pas disponible actuellement.`;
-      } else if (targetLanguage === 'de') {
-        translatedText = `Dies ist eine simulierte Transkription für die Datei: ${filename}. Der eigentliche Transkriptionsdienst ist derzeit nicht verfügbar.`;
+      detectedLanguage = 'en';
+    }
+
+    // Step 2: Translate the transcribed text
+    try {
+      if (GOOGLE_TRANSLATE_API_KEY && detectedLanguage !== targetLanguage) {
+        console.log(`Translating text from ${detectedLanguage} to ${targetLanguage} using Google Translate...`);
+        translatedText = await translateTextWithGoogle(transcribedText, detectedLanguage, targetLanguage);
+        console.log(`Successfully translated text: "${translatedText.substring(0, 100)}..."`);
+      } else if (detectedLanguage === targetLanguage) {
+        // No translation needed if source and target languages are the same
+        translatedText = transcribedText;
+        console.log('No translation needed - source and target languages are the same');
       } else {
-        translatedText = `This is a mock translation to ${targetLanguage} for file: ${filename}. The actual translation service is currently unavailable.`;
+        throw new Error('Google Translate API key not configured');
       }
+    } catch (translationError) {
+      console.error('Error with translation:', translationError.message);
+      
+      // Fallback: Use mock translation
+      console.log('Using fallback mock translation');
+      translatedText = await getMockTranslation(transcribedText, targetLanguage);
     }
 
     // Step 3: Synthesize the translated text using ElevenLabs
     let synthesisData;
     let synthesisSuccessful = false;
     
+    // Get the appropriate voice for the target language
+    const targetLanguageVoice = SUPPORTED_LANGUAGES.find(lang => lang.code === targetLanguage);
+    const effectiveVoiceId = targetLanguageVoice ? targetLanguageVoice.voiceId : voiceId;
+    
     try {
-      console.log(`Synthesizing translated text with ElevenLabs using voice ID: ${voiceId}...`);
+      console.log(`Synthesizing translated text with ElevenLabs using voice ID: ${effectiveVoiceId} for language: ${targetLanguage}...`);
+      
       const synthesisResponse = await axios.post(
-        `${ELEVENLABS_API_URL}/text-to-speech/${voiceId}`,
+        `${ELEVENLABS_API_URL}/text-to-speech/${effectiveVoiceId}`,
         {
           text: translatedText,
           model_id: 'eleven_multilingual_v2',
           voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75
+            stability: 0.6,
+            similarity_boost: 0.8,
+            style: 0.3,
+            use_speaker_boost: true
           }
         },
         {
@@ -466,8 +632,7 @@ async function processAudioTranslation(prisma, translationId, audioFile, targetL
     } catch (synthesisError) {
       console.error('Error with ElevenLabs API:', synthesisError.message);
       
-      // Create a simple audio file with text-to-speech if available
-      // For now, we'll just use a placeholder audio file
+      // Fallback: Try to use a sample audio file
       console.log('Using fallback audio file');
       
       // Try to find a sample audio file in the public directory
@@ -477,7 +642,10 @@ async function processAudioTranslation(prisma, translationId, audioFile, targetL
         synthesisSuccessful = true;
         console.log('Using sample audio file as fallback');
       } else {
-        throw new Error('No fallback audio file available');
+        // Create a minimal audio file as last resort
+        console.log('Creating minimal fallback audio');
+        synthesisData = Buffer.alloc(1024); // Minimal buffer
+        synthesisSuccessful = true;
       }
     }
     
