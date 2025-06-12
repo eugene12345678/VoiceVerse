@@ -22,6 +22,16 @@ router.post(
   feedController.createFeedPost
 );
 
+// @route   GET /api/feed/saved
+// @desc    Get saved posts for the current user
+// @access  Private
+router.get('/saved', authenticateToken, feedController.getSavedPosts);
+
+// @route   POST /api/feed/comments/:id/like
+// @desc    Like a comment
+// @access  Private
+router.post('/comments/:id/like', authenticateToken, feedController.likeComment);
+
 // @route   GET /api/feed/:id
 // @desc    Get a specific feed post
 // @access  Public
@@ -58,15 +68,5 @@ router.post(
   ],
   feedController.addFeedPostComment
 );
-
-// @route   POST /api/feed/comments/:id/like
-// @desc    Like a comment
-// @access  Private
-router.post('/comments/:id/like', authenticateToken, feedController.likeComment);
-
-// @route   GET /api/feed/saved
-// @desc    Get saved posts for the current user
-// @access  Private
-router.get('/saved', authenticateToken, feedController.getSavedPosts);
 
 module.exports = router;

@@ -15,6 +15,7 @@ const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const contactRoutes = require('./routes/contactRoutes');
 const audioRoutes = require('./routes/audio');
 const savedVoiceRoutes = require('./routes/savedVoice');
+const userRoutes = require('./routes/user');
 require('dotenv').config();
 
 // Initialize Express app
@@ -32,6 +33,7 @@ app.use('/api/audio/original', express.static(path.join(process.cwd(), 'uploads'
 app.use('/api/audio/translated', express.static(path.join(process.cwd(), 'uploads', 'audio', 'translated')));
 app.use('/api/images', express.static(path.join(process.cwd(), 'uploads', 'images')));
 app.use('/api/images/nft', express.static(path.join(process.cwd(), 'uploads', 'images', 'nft')));
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Create directories if they don't exist
 const ensureDirectoriesExist = () => {
@@ -41,7 +43,8 @@ const ensureDirectoriesExist = () => {
     path.join(process.cwd(), 'uploads', 'audio', 'original'),
     path.join(process.cwd(), 'uploads', 'audio', 'translated'),
     path.join(process.cwd(), 'uploads', 'images'),
-    path.join(process.cwd(), 'uploads', 'images', 'nft')
+    path.join(process.cwd(), 'uploads', 'images', 'nft'),
+    path.join(process.cwd(), 'uploads', 'images', 'profiles')
   ];
   
   directories.forEach(dir => {
@@ -73,6 +76,7 @@ app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/audio', audioRoutes);
 app.use('/api/voice/saved', savedVoiceRoutes);
+app.use('/api/users', userRoutes);
 
 // Special handling for Stripe webhook endpoint
 app.post('/api/subscription/webhook', express.raw({ type: 'application/json' }), (req, res) => {

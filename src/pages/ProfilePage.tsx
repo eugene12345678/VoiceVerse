@@ -145,8 +145,26 @@ export const ProfilePage = () => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [showProfilePictureMenu, setShowProfilePictureMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
+  // Close profile picture menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setShowProfilePictureMenu(false);
+      }
+    };
+
+    if (showProfilePictureMenu) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showProfilePictureMenu]);
   
   // Fetch profile data
   useEffect(() => {
@@ -494,6 +512,42 @@ export const ProfilePage = () => {
     }
   };
 
+  const handleRemoveProfilePicture = async () => {
+    setIsUploading(true);
+    
+    try {
+      const response = await userAPI.removeProfilePicture();
+      
+      // Update local state
+      setProfileData(prev => prev ? {
+        ...prev,
+        avatar: response.data.avatar
+      } : null);
+      
+      // Update auth store if it's own profile
+      if (isOwnProfile) {
+        updateProfile({
+          avatar: response.data.avatar
+        });
+      }
+      
+      toast({
+        title: 'Success',
+        description: 'Profile picture removed successfully',
+        variant: 'default'
+      });
+    } catch (error) {
+      console.error('Error removing profile picture:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to remove profile picture',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleToggleFollow = async () => {
     if (!userId || !user) return;
     
@@ -604,16 +658,46 @@ export const ProfilePage = () => {
                 isVerified={isVerified}
               />
               {isOwnProfile && (
-                <div 
-                  className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {isUploading ? (
-                    <Loader className="h-6 w-6 text-white animate-spin" />
-                  ) : (
-                    <Camera className="h-6 w-6 text-white" />
+                <>
+                  <div 
+                    className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    onClick={() => setShowProfilePictureMenu(!showProfilePictureMenu)}
+                  >
+                    {isUploading ? (
+                      <Loader className="h-6 w-6 text-white animate-spin" />
+                    ) : (
+                      <Camera className="h-6 w-6 text-white" />
+                    )}
+                  </div>
+                  
+                  {/* Profile Picture Menu */}
+                  {showProfilePictureMenu && (
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-white dark:bg-dark-800 rounded-lg shadow-lg border border-gray-200 dark:border-dark-700 py-2 z-10 min-w-[160px]">
+                      <button
+                        className="w-full px-4 py-2 text-left text-sm text-dark-700 dark:text-dark-300 hover:bg-gray-100 dark:hover:bg-dark-700 flex items-center gap-2"
+                        onClick={() => {
+                          fileInputRef.current?.click();
+                          setShowProfilePictureMenu(false);
+                        }}
+                      >
+                        <Upload className="h-4 w-4" />
+                        {avatar ? 'Change Photo' : 'Upload Photo'}
+                      </button>
+                      {avatar && (
+                        <button
+                          className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-dark-700 flex items-center gap-2"
+                          onClick={() => {
+                            handleRemoveProfilePicture();
+                            setShowProfilePictureMenu(false);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                          Remove Photo
+                        </button>
+                      )}
+                    </div>
                   )}
-                </div>
+                </>
               )}
               <input 
                 type="file" 
