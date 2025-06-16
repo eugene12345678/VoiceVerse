@@ -7,151 +7,117 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model - preserving existing structure
 model User {
-  id                  String                @id @default(uuid())
-  username            String                @unique
-  email               String                @unique
-  password            String
-  displayName         String?
-  avatar              String?
-  bio                 String?               @db.Text
-  voiceSignature      String?
-  followers           Int                   @default(0)
-  following           Int                   @default(0)
-  isVerified          Boolean               @default(false)
-  isPublic            Boolean               @default(true)
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime
-  isPro               Boolean               @default(false)
-  preferredLanguage   String                @default("en")
-  resetPasswordToken  String?               @unique
-  resetPasswordExpires DateTime?
-  
-  // Stripe-related fields
-  stripeCustomerId    String?               @unique
-  
-  // Existing relations
-  audioFiles          AudioFile[]
-  voiceTransformations VoiceTransformation[]
-  
-  // New relations
-  posts               VoicePost[]
-  comments            Comment[]             @relation("UserComments")
-  createdChallenges   Challenge[]           @relation("ChallengeCreator")
+  id                      String                   @id @default(uuid())
+  username                String                   @unique
+  email                   String                   @unique
+  password                String
+  displayName             String?
+  avatar                  String?
+  bio                     String?                  @db.Text
+  voiceSignature          String?
+  followers               Int                      @default(0)
+  following               Int                      @default(0)
+  isVerified              Boolean                  @default(false)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime
+  isPro                   Boolean                  @default(false)
+  preferredLanguage       String                   @default("en")
+  resetPasswordExpires    DateTime?
+  resetPasswordToken      String?                  @unique
+  stripeCustomerId        String?                  @unique
+  aiAssistantChats        AIAssistantChat[]
+  algorandWallet          AlgorandWallet?
+  audioFiles              AudioFile[]
+  billingInfo             BillingInfo?
+  calendlyEvents          CalendlyEvent[]
+  createdChallenges       Challenge[]              @relation("ChallengeCreator")
   challengeParticipations ChallengeParticipation[]
-  createdNFTs         NFT[]                 @relation("NFTCreator")
-  ownedNFTs           NFT[]                 @relation("NFTOwner")
-  sentNotifications   Notification[]        @relation("NotificationActor")
-  receivedNotifications Notification[]      @relation("NotificationReceiver")
-  settings            UserSettings?
-  userFollowers       Follow[]              @relation("Following")
-  userFollowing       Follow[]              @relation("Follower")
-  likes               Like[]                @relation("UserLikes")
-  nftLikes            NFTLike[]
-  voiceModels         VoiceModel[]
-  translations        Translation[]
-  
-  // Feed-related relations
-  feedPosts           FeedPost[]
-  savedPosts          SavedPost[]
-  shares              Share[]
-  commentLikes        CommentLike[]
-  
-  // Algorand-related relations
-  algorandWallet      AlgorandWallet?
-  nftMarketplaceListings NFTMarketplaceListing[] @relation("NFTSeller")
-  
-  // Subscription-related relations
-  subscriptions       Subscription[]
-  billingInfo         BillingInfo?
-  paymentMethods      PaymentMethod[]
-  promoCodeUsages     PromoCodeUsage[]
-  
-  // Contact-related relations
-  contactMessages     ContactMessage[]
-  aiAssistantChats    AIAssistantChat[]
-  calendlyEvents      CalendlyEvent[]
-  
-  // Voice creation relations
-  savedVoiceCreations SavedVoiceCreation[]
+  comments                Comment[]                @relation("UserComments")
+  commentLikes            CommentLike[]
+  contactMessages         ContactMessage[]
+  feedPosts               FeedPost[]
+  userFollowing           Follow[]                 @relation("Follower")
+  userFollowers           Follow[]                 @relation("Following")
+  likes                   Like[]                   @relation("UserLikes")
+  createdNFTs             NFT[]                    @relation("NFTCreator")
+  ownedNFTs               NFT[]                    @relation("NFTOwner")
+  nftLikes                NFTLike[]
+  nftMarketplaceListings  NFTMarketplaceListing[]  @relation("NFTSeller")
+  sentNotifications       Notification[]           @relation("NotificationActor")
+  receivedNotifications   Notification[]           @relation("NotificationReceiver")
+  paymentMethods          PaymentMethod[]
+  promoCodeUsages         PromoCodeUsage[]
+  savedPosts              SavedPost[]
+  savedVoiceCreations     SavedVoiceCreation[]
+  shares                  Share[]
+  subscriptions           Subscription[]
+  translations            Translation[]
+  settings                UserSettings?
+  voiceModels             VoiceModel[]
+  posts                   VoicePost[]
+  voiceTransformations    VoiceTransformation[]
 }
 
-// Existing AudioFile model
 model AudioFile {
-  id                                                                    String                @id
-  userId                                                                String
-  originalFilename                                                      String
-  storagePath                                                           String
-  fileSize                                                              Int
-  duration                                                              Float
-  mimeType                                                              String
-  isPublic                                                              Boolean               @default(false)
-  createdAt                                                             DateTime              @default(now())
-  updatedAt                                                             DateTime
-  audioData                                                             Bytes?                @db.LongBlob
-  
-  // Relations
-  user                                                                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sourceTransformations                                                 VoiceTransformation[] @relation("VoiceTransformation_sourceAudioIdToAudioFile")
-  resultTransformations                                                 VoiceTransformation[] @relation("VoiceTransformation_transformedAudioIdToAudioFile")
-  
-  // New relation to VoicePost
-  voicePost           VoicePost?
-  
-  // Feed-related relations
-  feedPost            FeedPost?
-  
-  // Saved voice creation relations
-  originalVoiceCreations SavedVoiceCreation[] @relation("SavedVoiceCreation_originalAudioIdToAudioFile")
-  transformedVoiceCreations SavedVoiceCreation[] @relation("SavedVoiceCreation_transformedAudioIdToAudioFile")
+  id                        String                @id
+  userId                    String
+  originalFilename          String
+  storagePath               String
+  fileSize                  Int
+  duration                  Float
+  mimeType                  String
+  isPublic                  Boolean               @default(false)
+  createdAt                 DateTime              @default(now())
+  updatedAt                 DateTime
+  audioData                 Bytes?
+  user                      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feedPost                  FeedPost?
+  originalVoiceCreations    SavedVoiceCreation[]  @relation("SavedVoiceCreation_originalAudioIdToAudioFile")
+  transformedVoiceCreations SavedVoiceCreation[]  @relation("SavedVoiceCreation_transformedAudioIdToAudioFile")
+  voicePost                 VoicePost?
+  sourceTransformations     VoiceTransformation[] @relation("VoiceTransformation_sourceAudioIdToAudioFile")
+  resultTransformations     VoiceTransformation[] @relation("VoiceTransformation_transformedAudioIdToAudioFile")
 
   @@index([userId], map: "AudioFile_userId_fkey")
 }
 
-// Existing VoiceEffect model
 model VoiceEffect {
-  id                String   @id @default(uuid())
-  effectId          String   @unique
+  id                String                @id @default(uuid())
+  effectId          String                @unique
   name              String
   category          String
-  description       String?  @db.Text
-  popularity        Int      @default(0)
-  isProOnly         Boolean  @default(false)
+  description       String?               @db.Text
+  popularity        Int                   @default(0)
+  isProOnly         Boolean               @default(false)
   elevenLabsVoiceId String?
-  settings          String?  @db.LongText
-  createdAt         DateTime @default(now())
+  settings          String?               @db.LongText
+  createdAt         DateTime              @default(now())
   updatedAt         DateTime
-  
-  // Relations
-  transformations   VoiceTransformation[]
   voiceModels       VoiceModel[]
+  transformations   VoiceTransformation[]
 }
 
-// New model for ElevenLabs voice models
 model VoiceModel {
-  id                String   @id @default(uuid())
+  id                String       @id @default(uuid())
   userId            String
   name              String
-  description       String?  @db.Text
-  elevenLabsVoiceId String   @unique
-  isPublic          Boolean  @default(false)
-  isCloned          Boolean  @default(false)
+  description       String?      @db.Text
+  elevenLabsVoiceId String       @unique
+  isPublic          Boolean      @default(false)
+  isCloned          Boolean      @default(false)
   originalAudioId   String?
-  settings          String?  @db.LongText
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  // Relations
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  effect            VoiceEffect? @relation(fields: [effectId], references: [effectId])
+  settings          String?      @db.LongText
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
   effectId          String?
-  
+  effect            VoiceEffect? @relation(fields: [effectId], references: [effectId])
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([effectId])
 }
 
-// New model for language translations
 model Translation {
   id                String   @id @default(uuid())
   userId            String
@@ -162,34 +128,29 @@ model Translation {
   audioFileId       String?
   translatedAudioId String?
   createdAt         DateTime @default(now())
-  
-  // Relations
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   @@index([userId])
 }
 
-// Existing VoiceTransformation model
 model VoiceTransformation {
-  id                String     @id @default(uuid())
-  userId            String
-  sourceAudioId     String
+  id                 String      @id @default(uuid())
+  userId             String
+  sourceAudioId      String
   transformedAudioId String?
-  effectId          String
-  effectName        String
-  effectCategory    String
-  settings          String?    @db.LongText
-  processingTime    Float?
-  status            String     @default("pending")
-  errorMessage      String?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime
-  
-  // Relations
-  sourceAudio       AudioFile  @relation("VoiceTransformation_sourceAudioIdToAudioFile", fields: [sourceAudioId], references: [id], onDelete: Cascade)
-  transformedAudio  AudioFile? @relation("VoiceTransformation_transformedAudioIdToAudioFile", fields: [transformedAudioId], references: [id])
-  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  effect            VoiceEffect @relation(fields: [effectId], references: [effectId])
+  effectId           String
+  effectName         String
+  effectCategory     String
+  settings           String?     @db.LongText
+  processingTime     Float?
+  status             String      @default("pending")
+  errorMessage       String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime
+  effect             VoiceEffect @relation(fields: [effectId], references: [effectId])
+  sourceAudio        AudioFile   @relation("VoiceTransformation_sourceAudioIdToAudioFile", fields: [sourceAudioId], references: [id], onDelete: Cascade)
+  transformedAudio   AudioFile?  @relation("VoiceTransformation_transformedAudioIdToAudioFile", fields: [transformedAudioId], references: [id])
+  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([sourceAudioId], map: "VoiceTransformation_sourceAudioId_fkey")
   @@index([transformedAudioId], map: "VoiceTransformation_transformedAudioId_fkey")
@@ -197,117 +158,100 @@ model VoiceTransformation {
   @@index([effectId])
 }
 
-// Follow relationship
 model Follow {
-  id          String    @id @default(uuid())
+  id          String   @id @default(uuid())
   followerId  String
   followingId String
-  createdAt   DateTime  @default(now())
-  
-  follower    User      @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
-  following   User      @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
-  
+  createdAt   DateTime @default(now())
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
   @@unique([followerId, followingId])
+  @@index([followingId], map: "Follow_followingId_fkey")
 }
 
-// Voice post model
 model VoicePost {
-  id          String    @id @default(uuid())
-  userId      String
-  audioFileId String    @unique
-  caption     String?   @db.Text
-  likes       Int       @default(0)
-  comments    Int       @default(0)
-  shares      Int       @default(0)
-  waveform    Json?     // Stored as JSON array
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  // Relations
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  audioFile   AudioFile @relation(fields: [audioFileId], references: [id], onDelete: Cascade)
+  id           String    @id @default(uuid())
+  userId       String
+  audioFileId  String    @unique
+  caption      String?   @db.Text
+  likes        Int       @default(0)
+  comments     Int       @default(0)
+  shares       Int       @default(0)
+  waveform     String?   @db.LongText
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
   postComments Comment[] @relation("VoicePostComments")
-  postLikes   Like[]    @relation("VoicePostLikes")
-  postTags    PostTag[]
-  
+  postLikes    Like[]    @relation("VoicePostLikes")
+  postTags     PostTag[]
+  audioFile    AudioFile @relation(fields: [audioFileId], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
-// Feed post model - Fixed to use separate table for tags
 model FeedPost {
-  id          String    @id @default(uuid())
+  id          String        @id @default(uuid())
   userId      String
-  audioFileId String    @unique
-  caption     String    @db.Text
-  description String?   @db.Text
-  isSponsored Boolean   @default(false)
-  engagement  Int       @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  // Relations
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  audioFile   AudioFile @relation(fields: [audioFileId], references: [id], onDelete: Cascade)
-  comments    Comment[] @relation("FeedPostComments")
-  likes       Like[]    @relation("FeedPostLikes")
-  shares      Share[]
-  savedBy     SavedPost[]
+  audioFileId String        @unique
+  caption     String        @db.Text
+  description String?       @db.Text
+  isSponsored Boolean       @default(false)
+  engagement  Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  comments    Comment[]     @relation("FeedPostComments")
+  audioFile   AudioFile     @relation(fields: [audioFileId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   tags        FeedPostTag[]
-  
+  likes       Like[]        @relation("FeedPostLikes")
+  savedBy     SavedPost[]
+  shares      Share[]
+
   @@index([userId])
 }
 
-// Separate table for FeedPost tags
 model FeedPostTag {
-  id          String    @id @default(uuid())
-  postId      String
-  tag         String
-  
-  // Relations
-  post        FeedPost  @relation(fields: [postId], references: [id], onDelete: Cascade)
-  
+  id     String   @id @default(uuid())
+  postId String
+  tag    String
+  post   FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
   @@index([postId])
 }
 
-// Comment model - handles comments for all post types
 model Comment {
-  id          String    @id @default(uuid())
-  postId      String?   // For FeedPost comments
-  voicePostId String?   // For VoicePost comments
-  userId      String
-  content     String    @db.Text
-  audioReplyId String?  // Optional audio reply attachment
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  // Relations
-  feedPost    FeedPost? @relation("FeedPostComments", fields: [postId], references: [id], onDelete: Cascade)
-  voicePost   VoicePost? @relation("VoicePostComments", fields: [voicePostId], references: [id], onDelete: Cascade)
-  user        User      @relation("UserComments", fields: [userId], references: [id], onDelete: Cascade)
-  likes       Like[]    @relation("CommentLikes")
+  id           String        @id @default(uuid())
+  postId       String?
+  userId       String
+  content      String        @db.Text
+  audioReplyId String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  voicePostId  String?
+  feedPost     FeedPost?     @relation("FeedPostComments", fields: [postId], references: [id], onDelete: Cascade)
+  user         User          @relation("UserComments", fields: [userId], references: [id], onDelete: Cascade)
+  voicePost    VoicePost?    @relation("VoicePostComments", fields: [voicePostId], references: [id], onDelete: Cascade)
   commentLikes CommentLike[]
-  
+  likes        Like[]        @relation("CommentLikes")
+
   @@index([postId])
   @@index([voicePostId])
   @@index([userId])
 }
 
-// Unified Like model - handles likes for posts and comments
 model Like {
-  id          String    @id @default(uuid())
+  id          String     @id @default(uuid())
   userId      String
-  feedPostId  String?   // For FeedPost likes
-  voicePostId String?   // For VoicePost likes
-  commentId   String?   // For comment likes
-  createdAt   DateTime  @default(now())
-  
-  // Relations
-  user        User       @relation("UserLikes", fields: [userId], references: [id], onDelete: Cascade)
-  feedPost    FeedPost?  @relation("FeedPostLikes", fields: [feedPostId], references: [id], onDelete: Cascade)
-  voicePost   VoicePost? @relation("VoicePostLikes", fields: [voicePostId], references: [id], onDelete: Cascade)
+  commentId   String?
+  createdAt   DateTime   @default(now())
+  feedPostId  String?
+  voicePostId String?
   comment     Comment?   @relation("CommentLikes", fields: [commentId], references: [id], onDelete: Cascade)
-  
-  // Constraints
+  feedPost    FeedPost?  @relation("FeedPostLikes", fields: [feedPostId], references: [id], onDelete: Cascade)
+  user        User       @relation("UserLikes", fields: [userId], references: [id], onDelete: Cascade)
+  voicePost   VoicePost? @relation("VoicePostLikes", fields: [voicePostId], references: [id], onDelete: Cascade)
+
   @@unique([userId, feedPostId], name: "unique_user_feedpost_like")
   @@unique([userId, voicePostId], name: "unique_user_voicepost_like")
   @@unique([userId, commentId], name: "unique_user_comment_like")
@@ -317,244 +261,459 @@ model Like {
   @@index([commentId])
 }
 
-// Comment Like model
 model CommentLike {
-  id          String    @id @default(uuid())
-  commentId   String
-  userId      String
-  createdAt   DateTime  @default(now())
-  
-  // Relations
-  comment     Comment   @relation(fields: [commentId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id        String   @id @default(uuid())
+  commentId String
+  userId    String
+  createdAt DateTime @default(now())
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([commentId, userId])
   @@index([userId])
 }
 
-// Saved Post model
 model SavedPost {
-  id          String    @id @default(uuid())
-  postId      String
-  userId      String
-  createdAt   DateTime  @default(now())
-  
-  // Relations
-  post        FeedPost  @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+  post      FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@unique([postId, userId])
   @@index([userId])
 }
 
-// Share model
 model Share {
-  id          String    @id @default(uuid())
-  postId      String
-  userId      String
-  platform    String    @default("other")
-  createdAt   DateTime  @default(now())
-  
-  // Relations
-  post        FeedPost  @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+  id        String   @id @default(uuid())
+  postId    String
+  userId    String
+  platform  String   @default("other")
+  createdAt DateTime @default(now())
+  post      FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([postId])
   @@index([userId])
 }
 
-// Tag model
 model Tag {
-  id          String    @id @default(uuid())
-  name        String    @unique
-  
-  // Relations
-  posts       PostTag[]
-  challenges  ChallengeTag[]
+  id         String         @id @default(uuid())
+  name       String         @unique
+  challenges ChallengeTag[]
+  posts      PostTag[]
 }
 
-// Post-Tag relationship
 model PostTag {
-  postId      String
-  tagId       String
-  
-  // Relations
-  post        VoicePost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  tag         Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
-  
+  postId String
+  tagId  String
+  post   VoicePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
   @@id([postId, tagId])
   @@index([tagId])
 }
 
-// Challenge model
 model Challenge {
-  id          String    @id @default(uuid())
-  title       String
-  description String    @db.Text
-  creatorId   String
+  id            String                   @id @default(uuid())
+  title         String
+  description   String                   @db.Text
+  creatorId     String
   audioPromptId String?
-  reward      String?
-  startDate   DateTime
-  endDate     DateTime
-  difficulty  ChallengeDifficulty
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  // Relations
-  creator     User      @relation("ChallengeCreator", fields: [creatorId], references: [id])
-  participants ChallengeParticipation[]
+  reward        String?
+  startDate     DateTime
+  endDate       DateTime
+  difficulty    ChallengeDifficulty
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  creator       User                     @relation("ChallengeCreator", fields: [creatorId], references: [id])
+  participants  ChallengeParticipation[]
   challengeTags ChallengeTag[]
-  
+
   @@index([creatorId])
+}
+
+model ChallengeParticipation {
+  id                String    @id @default(uuid())
+  challengeId       String
+  userId            String
+  submissionAudioId String?
+  submissionDate    DateTime?
+  createdAt         DateTime  @default(now())
+  name              String?
+  email             String?
+  motivation        String?   @db.Text
+  experience        String?   @db.Text
+  socialMediaHandle String?
+  agreeToTerms      Boolean   @default(false)
+  challenge         Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([challengeId, userId])
+  @@index([userId])
+}
+
+model ChallengeTag {
+  challengeId String
+  tagId       String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  tag         Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([challengeId, tagId])
+  @@index([tagId])
+}
+
+model NFT {
+  id                   String                  @id @default(uuid())
+  title                String
+  description          String                  @db.Text
+  creatorId            String
+  ownerId              String
+  audioFileId          String                  @unique
+  imageUrl             String
+  price                Float
+  currency             String
+  royalty              Float
+  likes                Int                     @default(0)
+  createdAt            DateTime                @default(now())
+  isForSale            Boolean                 @default(true)
+  assetId              Int?
+  blockchainStatus     String?
+  metadata             String?                 @db.Text
+  duration             String?
+  algorandTransactions AlgorandTransaction[]
+  creator              User                    @relation("NFTCreator", fields: [creatorId], references: [id])
+  owner                User                    @relation("NFTOwner", fields: [ownerId], references: [id])
+  nftLikes             NFTLike[]
+  marketplaceListings  NFTMarketplaceListing[]
+  nftTags              NFTTag[]
+  transactions         NFTTransaction[]
+
+  @@index([creatorId])
+  @@index([ownerId])
+  @@index([assetId])
+}
+
+model NFTTag {
+  id    String @id @default(uuid())
+  nftId String
+  tag   String
+  nft   NFT    @relation(fields: [nftId], references: [id], onDelete: Cascade)
+
+  @@unique([nftId, tag])
+  @@index([nftId])
+  @@index([tag])
+}
+
+model NFTLike {
+  id        String   @id @default(uuid())
+  nftId     String
+  userId    String
+  createdAt DateTime @default(now())
+  nft       NFT      @relation(fields: [nftId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([nftId, userId])
+  @@index([userId])
+}
+
+model NFTTransaction {
+  id              String   @id @default(uuid())
+  nftId           String
+  sellerId        String
+  buyerId         String
+  price           Float
+  currency        String
+  transactionHash String?
+  createdAt       DateTime @default(now())
+  nft             NFT      @relation(fields: [nftId], references: [id])
+
+  @@index([nftId])
+  @@index([sellerId])
+  @@index([buyerId])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  actorId   String
+  contentId String?
+  content   String?          @db.Text
+  createdAt DateTime         @default(now())
+  isRead    Boolean          @default(false)
+  actor     User             @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+  user      User             @relation("NotificationReceiver", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([actorId])
+}
+
+model UserSettings {
+  id                      String   @id @default(uuid())
+  userId                  String   @unique
+  theme                   Theme    @default(SYSTEM)
+  language                String   @default("en")
+  notificationPreferences String   @db.LongText
+  privacySettings         String   @db.LongText
+  accessibilitySettings   String   @db.LongText
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Analytics {
+  id        String   @id @default(uuid())
+  userId    String
+  views     Int      @default(0)
+  likes     Int      @default(0)
+  comments  Int      @default(0)
+  shares    Int      @default(0)
+  followers Int      @default(0)
+  date      DateTime @default(now())
+
+  @@unique([userId, date])
+  @@index([userId])
+}
+
+model AlgorandWallet {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  address   String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([address])
+}
+
+model AlgorandTransaction {
+  id              String                    @id @default(uuid())
+  nftId           String
+  type            AlgorandTransactionType
+  fromAddress     String
+  toAddress       String
+  amount          Float
+  status          AlgorandTransactionStatus
+  transactionHash String?
+  errorMessage    String?                   @db.Text
+  createdAt       DateTime                  @default(now())
+  completedAt     DateTime?
+  nft             NFT                       @relation(fields: [nftId], references: [id])
+
+  @@index([nftId])
+  @@index([fromAddress])
+  @@index([toAddress])
+  @@index([status])
+}
+
+model NFTMarketplaceListing {
+  id          String           @id @default(uuid())
+  nftId       String
+  sellerId    String
+  price       Float
+  currency    String
+  status      NFTListingStatus
+  createdAt   DateTime         @default(now())
+  completedAt DateTime?
+  nft         NFT              @relation(fields: [nftId], references: [id])
+  seller      User             @relation("NFTSeller", fields: [sellerId], references: [id])
+
+  @@index([nftId])
+  @@index([sellerId])
+  @@index([status])
+}
+
+model ContactMessage {
+  id          String           @id @default(uuid())
+  name        String
+  email       String
+  subject     String
+  message     String           @db.Text
+  priority    ContactPriority  @default(MEDIUM)
+  type        ContactType      @default(GENERAL)
+  status      ContactStatus    @default(NEW)
+  timestamp   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  attachments String?          @db.LongText
+  responseId  String?
+  userId      String?
+  user        User?            @relation(fields: [userId], references: [id])
+  response    ContactResponse? @relation("MessageResponse")
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+}
+
+model ContactResponse {
+  id             String         @id @default(uuid())
+  messageId      String         @unique
+  responderName  String?
+  responderEmail String?
+  content        String         @db.Text
+  timestamp      DateTime       @default(now())
+  message        ContactMessage @relation("MessageResponse", fields: [messageId], references: [id], onDelete: Cascade)
+}
+
+model AIAssistantChat {
+  id        String   @id @default(uuid())
+  sessionId String   @unique
+  userId    String?
+  messages  String   @db.LongText
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model CalendlyEvent {
+  id               String   @id @default(uuid())
+  eventType        String
+  eventName        String
+  inviteeEmail     String
+  inviteeName      String
+  startTime        DateTime
+  endTime          DateTime
+  status           String
+  calendlyEventUri String   @unique
+  createdAt        DateTime @default(now())
+  userId           String?
+  notes            String?  @db.Text
+  user             User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([eventType])
+  @@index([status])
+}
+
+model Subscription {
+  id                   String             @id @default(uuid())
+  userId               String
+  stripeSubscriptionId String             @unique
+  status               SubscriptionStatus @default(ACTIVE)
+  planType             PlanType
+  billingPeriod        BillingPeriod
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean            @default(false)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  invoices             Invoice[]
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Invoice {
+  id              String        @id @default(uuid())
+  subscriptionId  String
+  stripeInvoiceId String        @unique
+  amount          Float
+  currency        String        @default("USD")
+  status          InvoiceStatus
+  invoiceUrl      String?
+  pdfUrl          String?
+  createdAt       DateTime      @default(now())
+  subscription    Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+}
+
+model BillingInfo {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  name       String
+  email      String?
+  phone      String?
+  address    String?
+  city       String?
+  state      String?
+  postalCode String?
+  country    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PaymentMethod {
+  id                    String            @id @default(uuid())
+  userId                String
+  stripePaymentMethodId String            @unique
+  type                  PaymentMethodType
+  last4                 String?
+  expiryMonth           Int?
+  expiryYear            Int?
+  brand                 String?
+  isDefault             Boolean           @default(false)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PromoCode {
+  id              String           @id @default(uuid())
+  code            String           @unique
+  description     String?
+  discountPercent Float?
+  discountAmount  Float?
+  currency        String           @default("USD")
+  maxRedemptions  Int?
+  timesRedeemed   Int              @default(0)
+  validFrom       DateTime?
+  validUntil      DateTime?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  usages          PromoCodeUsage[]
+}
+
+model PromoCodeUsage {
+  id          String    @id @default(uuid())
+  userId      String
+  promoCodeId String
+  appliedAt   DateTime  @default(now())
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, promoCodeId])
+  @@index([userId])
+  @@index([promoCodeId])
+}
+
+model SavedVoiceCreation {
+  id                 String     @id @default(uuid())
+  userId             String
+  name               String
+  description        String?    @db.Text
+  originalAudioId    String
+  transformedAudioId String?
+  effectId           String?
+  effectName         String?
+  effectCategory     String?
+  settings           String?    @db.LongText
+  isPublic           Boolean    @default(false)
+  tags               String?    @db.Text
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  originalAudio      AudioFile  @relation("SavedVoiceCreation_originalAudioIdToAudioFile", fields: [originalAudioId], references: [id], onDelete: Cascade)
+  transformedAudio   AudioFile? @relation("SavedVoiceCreation_transformedAudioIdToAudioFile", fields: [transformedAudioId], references: [id])
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([originalAudioId])
+  @@index([transformedAudioId])
+  @@index([effectCategory])
 }
 
 enum ChallengeDifficulty {
   EASY
   MEDIUM
   HARD
-}
-
-// Challenge participation model
-model ChallengeParticipation {
-  id              String    @id @default(uuid())
-  challengeId     String
-  userId          String
-  submissionAudioId String?
-  submissionDate  DateTime?
-  createdAt       DateTime  @default(now())
-  
-  // Participant information fields
-  name            String?
-  email           String?
-  motivation      String?   @db.Text
-  experience      String?   @db.Text
-  socialMediaHandle String?
-  agreeToTerms    Boolean   @default(false)
-  
-  // Relations
-  challenge       Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@unique([challengeId, userId])
-  @@index([userId])
-}
-
-// Challenge-Tag relationship
-model ChallengeTag {
-  challengeId String
-  tagId       String
-  
-  // Relations
-  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
-  tag         Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
-  
-  @@id([challengeId, tagId])
-  @@index([tagId])
-}
-
-// NFT model - Updated with Algorand fields
-model NFT {
-  id                String    @id @default(uuid())
-  title             String
-  description       String    @db.Text
-  creatorId         String
-  ownerId           String
-  audioFileId       String    @unique
-  imageUrl          String
-  price             Float
-  currency          String
-  royalty           Float
-  likes             Int       @default(0)
-  createdAt         DateTime  @default(now())
-  isForSale         Boolean   @default(true)
-  
-  // New Algorand-specific fields
-  assetId           Int?      // Algorand Asset ID
-  metadata          String?   @db.Text // JSON metadata for the NFT
-  blockchainStatus  String?   // PENDING, MINTED, TRANSFERRED, etc.
-  duration          String?   // Duration of the audio file
-  
-  // Relations
-  creator           User      @relation("NFTCreator", fields: [creatorId], references: [id])
-  owner             User      @relation("NFTOwner", fields: [ownerId], references: [id])
-  nftLikes          NFTLike[]
-  transactions      NFTTransaction[]
-  nftTags           NFTTag[]
-  
-  // New Algorand-specific relations
-  algorandTransactions AlgorandTransaction[]
-  marketplaceListings  NFTMarketplaceListing[]
-  
-  @@index([creatorId])
-  @@index([ownerId])
-  @@index([assetId])
-}
-
-// NFT Tag model
-model NFTTag {
-  id          String    @id @default(uuid())
-  nftId       String
-  tag         String
-  
-  // Relations
-  nft         NFT       @relation(fields: [nftId], references: [id], onDelete: Cascade)
-  
-  @@unique([nftId, tag])
-  @@index([nftId])
-  @@index([tag])
-}
-
-// NFT Like model
-model NFTLike {
-  id          String    @id @default(uuid())
-  nftId       String
-  userId      String
-  createdAt   DateTime  @default(now())
-  
-  // Relations
-  nft         NFT       @relation(fields: [nftId], references: [id], onDelete: Cascade)
-  user        User      @relation(fields: [userId], references: [id])
-  
-  @@unique([nftId, userId])
-  @@index([userId])
-}
-
-// NFT Transaction model
-model NFTTransaction {
-  id          String    @id @default(uuid())
-  nftId       String
-  sellerId    String
-  buyerId     String
-  price       Float
-  currency    String
-  transactionHash String?
-  createdAt   DateTime  @default(now())
-  
-  // Relations
-  nft         NFT       @relation(fields: [nftId], references: [id])
-  
-  @@index([nftId])
-  @@index([sellerId])
-  @@index([buyerId])
-}
-
-// Notification model
-model Notification {
-  id          String    @id @default(uuid())
-  userId      String
-  type        NotificationType
-  actorId     String
-  contentId   String?
-  content     String?   @db.Text
-  createdAt   DateTime  @default(now())
-  isRead      Boolean   @default(false)
-  
-  // Relations
-  user        User      @relation("NotificationReceiver", fields: [userId], references: [id], onDelete: Cascade)
-  actor       User      @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
-  
-  @@index([userId])
-  @@index([actorId])
 }
 
 enum NotificationType {
@@ -566,80 +725,10 @@ enum NotificationType {
   NFT
 }
 
-// User Settings model
-model UserSettings {
-  id          String    @id @default(uuid())
-  userId      String    @unique
-  theme       Theme     @default(SYSTEM)
-  language    String    @default("en")
-  notificationPreferences Json
-  privacySettings Json
-  accessibilitySettings Json
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  // Relations
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
 enum Theme {
   LIGHT
   DARK
   SYSTEM
-}
-
-// Analytics model
-model Analytics {
-  id          String    @id @default(uuid())
-  userId      String
-  views       Int       @default(0)
-  likes       Int       @default(0)
-  comments    Int       @default(0)
-  shares      Int       @default(0)
-  followers   Int       @default(0)
-  date        DateTime  @default(now())
-  
-  @@unique([userId, date])
-  @@index([userId])
-}
-
-// New Algorand-specific models
-
-// Algorand Wallet model
-model AlgorandWallet {
-  id          String    @id @default(uuid())
-  userId      String    @unique
-  address     String    @unique
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  // Relations
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([address])
-}
-
-// Algorand Transaction model
-model AlgorandTransaction {
-  id              String    @id @default(uuid())
-  nftId           String
-  type            AlgorandTransactionType
-  fromAddress     String
-  toAddress       String
-  amount          Float
-  status          AlgorandTransactionStatus
-  transactionHash String?
-  errorMessage    String?   @db.Text
-  createdAt       DateTime  @default(now())
-  completedAt     DateTime?
-  
-  // Relations
-  nft             NFT       @relation(fields: [nftId], references: [id])
-  
-  @@index([nftId])
-  @@index([fromAddress])
-  @@index([toAddress])
-  @@index([status])
 }
 
 enum AlgorandTransactionType {
@@ -655,70 +744,10 @@ enum AlgorandTransactionStatus {
   FAILED
 }
 
-// NFT Marketplace Listing model
-model NFTMarketplaceListing {
-  id          String    @id @default(uuid())
-  nftId       String
-  sellerId    String
-  price       Float
-  currency    String
-  status      NFTListingStatus
-  createdAt   DateTime  @default(now())
-  completedAt DateTime?
-  
-  // Relations
-  nft         NFT       @relation(fields: [nftId], references: [id])
-  seller      User      @relation("NFTSeller", fields: [sellerId], references: [id])
-  
-  @@index([nftId])
-  @@index([sellerId])
-  @@index([status])
-}
-
 enum NFTListingStatus {
   ACTIVE
   SOLD
   CANCELLED
-}
-
-// Contact-related models
-
-model ContactMessage {
-  id          String    @id @default(uuid())
-  name        String
-  email       String
-  subject     String
-  message     String    @db.Text
-  priority    ContactPriority @default(MEDIUM)
-  type        ContactType @default(GENERAL)
-  status      ContactStatus @default(NEW)
-  timestamp   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  // Optional fields
-  attachments Json?     // Array of file paths or URLs
-  responseId  String?   // ID of the response message if any
-  userId      String?   // If the message is from a logged-in user
-  
-  // Relations
-  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  response    ContactResponse? @relation("MessageResponse")
-  
-  @@index([userId])
-  @@index([status])
-  @@index([type])
-}
-
-model ContactResponse {
-  id          String    @id @default(uuid())
-  messageId   String    @unique
-  responderName String?
-  responderEmail String?
-  content     String    @db.Text
-  timestamp   DateTime  @default(now())
-  
-  // Relations
-  message     ContactMessage @relation("MessageResponse", fields: [messageId], references: [id], onDelete: Cascade)
 }
 
 enum ContactPriority {
@@ -743,66 +772,6 @@ enum ContactStatus {
   CLOSED
 }
 
-model AIAssistantChat {
-  id          String    @id @default(uuid())
-  sessionId   String    @unique
-  userId      String?
-  messages    Json      // Array of message objects with role, content, timestamp
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  // Relations
-  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
-  @@index([userId])
-}
-
-model CalendlyEvent {
-  id          String    @id @default(uuid())
-  eventType   String    // video_call, demo, etc.
-  eventName   String
-  inviteeEmail String
-  inviteeName String
-  startTime   DateTime
-  endTime     DateTime
-  status      String    // scheduled, canceled, etc.
-  calendlyEventUri String @unique
-  createdAt   DateTime  @default(now())
-  
-  // Optional fields
-  userId      String?
-  notes       String?   @db.Text
-  
-  // Relations
-  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  
-  @@index([userId])
-  @@index([eventType])
-  @@index([status])
-}
-
-// Subscription-related models
-
-model Subscription {
-  id                String              @id @default(uuid())
-  userId            String
-  stripeSubscriptionId String           @unique
-  status            SubscriptionStatus  @default(ACTIVE)
-  planType          PlanType
-  billingPeriod     BillingPeriod
-  currentPeriodStart DateTime
-  currentPeriodEnd  DateTime
-  cancelAtPeriodEnd Boolean             @default(false)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  
-  // Relations
-  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  invoices          Invoice[]
-  
-  @@index([userId])
-}
-
 enum SubscriptionStatus {
   ACTIVE
   PAST_DUE
@@ -822,23 +791,6 @@ enum BillingPeriod {
   YEARLY
 }
 
-model Invoice {
-  id                String              @id @default(uuid())
-  subscriptionId    String
-  stripeInvoiceId   String              @unique
-  amount            Float
-  currency          String              @default("USD")
-  status            InvoiceStatus
-  invoiceUrl        String?
-  pdfUrl            String?
-  createdAt         DateTime            @default(now())
-  
-  // Relations
-  subscription      Subscription        @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  
-  @@index([subscriptionId])
-}
-
 enum InvoiceStatus {
   PAID
   OPEN
@@ -846,107 +798,8 @@ enum InvoiceStatus {
   UNCOLLECTIBLE
 }
 
-model BillingInfo {
-  id                String              @id @default(uuid())
-  userId            String              @unique
-  name              String
-  email             String?
-  phone             String?
-  address           String?
-  city              String?
-  state             String?
-  postalCode        String?
-  country           String?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  
-  // Relations
-  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model PaymentMethod {
-  id                String              @id @default(uuid())
-  userId            String
-  stripePaymentMethodId String          @unique
-  type              PaymentMethodType
-  last4             String?
-  expiryMonth       Int?
-  expiryYear        Int?
-  brand             String?
-  isDefault         Boolean             @default(false)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  
-  // Relations
-  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@index([userId])
-}
-
 enum PaymentMethodType {
   CARD
   BANK_ACCOUNT
   PAYPAL
-}
-
-model PromoCode {
-  id                String              @id @default(uuid())
-  code              String              @unique
-  description       String?
-  discountPercent   Float?
-  discountAmount    Float?
-  currency          String              @default("USD")
-  maxRedemptions    Int?
-  timesRedeemed     Int                 @default(0)
-  validFrom         DateTime?
-  validUntil        DateTime?
-  isActive          Boolean             @default(true)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  
-  // Relations
-  usages            PromoCodeUsage[]
-}
-
-model PromoCodeUsage {
-  id                String              @id @default(uuid())
-  userId            String
-  promoCodeId       String
-  appliedAt         DateTime            @default(now())
-  
-  // Relations
-  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  promoCode         PromoCode           @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
-  
-  @@unique([userId, promoCodeId])
-  @@index([userId])
-  @@index([promoCodeId])
-}
-
-// Saved Voice Creation model
-model SavedVoiceCreation {
-  id                String    @id @default(uuid())
-  userId            String
-  name              String
-  description       String?   @db.Text
-  originalAudioId   String
-  transformedAudioId String?
-  effectId          String?
-  effectName        String?
-  effectCategory    String?
-  settings          String?   @db.LongText
-  isPublic          Boolean   @default(false)
-  tags              String?   @db.Text // JSON array of tags
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  
-  // Relations
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  originalAudio     AudioFile @relation("SavedVoiceCreation_originalAudioIdToAudioFile", fields: [originalAudioId], references: [id], onDelete: Cascade)
-  transformedAudio  AudioFile? @relation("SavedVoiceCreation_transformedAudioIdToAudioFile", fields: [transformedAudioId], references: [id])
-  
-  @@index([userId])
-  @@index([originalAudioId])
-  @@index([transformedAudioId])
-  @@index([effectCategory])
 }

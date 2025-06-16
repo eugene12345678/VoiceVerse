@@ -33,6 +33,7 @@ app.use('/api/audio/original', express.static(path.join(process.cwd(), 'uploads'
 app.use('/api/audio/translated', express.static(path.join(process.cwd(), 'uploads', 'audio', 'translated')));
 app.use('/api/images', express.static(path.join(process.cwd(), 'uploads', 'images')));
 app.use('/api/images/nft', express.static(path.join(process.cwd(), 'uploads', 'images', 'nft')));
+app.use('/api/images/profiles', express.static(path.join(process.cwd(), 'uploads', 'images', 'profiles')));
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Create directories if they don't exist

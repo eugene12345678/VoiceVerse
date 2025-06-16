@@ -44,6 +44,18 @@ import { Card } from '../components/ui/Card';
 import { Avatar } from '../components/ui/Avatar';
 import { WaveformVisualizer } from '../components/audio/WaveformVisualizer';
 import { formatNumber, formatTimeAgo, cn } from '../lib/utils';
+
+// Utility function to construct full avatar URL
+const getAvatarUrl = (avatarPath: string | null | undefined): string => {
+  if (!avatarPath) return '';
+  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+    return avatarPath; // Already a full URL
+  }
+  if (avatarPath.startsWith('/uploads/')) {
+    return `http://localhost:5000${avatarPath}`;
+  }
+  return avatarPath;
+};
 import { useAuthStore } from '../store/authStore';
 import { userAPI } from '../lib/api/user';
 import { feedAPI, algorandAPI } from '../lib/api';
@@ -179,47 +191,35 @@ export const ProfilePage = () => {
       }
       
       try {
-        // If we're viewing our own profile and have user data from auth store, use it
-        if ((!userId || userId === user?.id) && user) {
-          setProfileData(user);
-          setEditableProfile({
-            displayName: user.displayName || '',
-            bio: user.bio || '',
-            isPublic: user.isPublic !== false // default to true if not specified
-          });
-          setIsOwnProfile(true);
-          setIsFollowing(false);
-        } else {
-          // Otherwise fetch from API
-          try {
-            const response = await userAPI.getUserProfile(userId);
-            if (response && response.data) {
-              setProfileData(response.data);
-              setEditableProfile({
-                displayName: response.data.displayName,
-                bio: response.data.bio || '',
-                isPublic: response.data.isPublic !== false // default to true if not specified
-              });
-              setIsOwnProfile(!userId || userId === user?.id);
-              setIsFollowing(response.data.isFollowing || false);
-            }
-          } catch (apiError) {
-            console.error('Error fetching profile from API:', apiError);
-            // If we can't fetch the profile, use the current user data
-            if (user) {
-              setProfileData(user);
-              setEditableProfile({
-                displayName: user.displayName || '',
-                bio: user.bio || '',
-                isPublic: user.isPublic !== false
-              });
-              setIsOwnProfile(true);
-              setIsFollowing(false);
-            } else {
-              // If no user data is available, redirect to login
-              navigate('/login');
-              return;
-            }
+        // Always fetch from API to get the latest data, even for own profile
+        try {
+          const response = await userAPI.getUserProfile(userId);
+          if (response && response.data) {
+            setProfileData(response.data);
+            setEditableProfile({
+              displayName: response.data.displayName,
+              bio: response.data.bio || '',
+              isPublic: response.data.isPublic !== false // default to true if not specified
+            });
+            setIsOwnProfile(!userId || userId === user?.id);
+            setIsFollowing(response.data.isFollowing || false);
+          }
+        } catch (apiError) {
+          console.error('Error fetching profile from API:', apiError);
+          // If we can't fetch the profile, use the current user data as fallback
+          if (user) {
+            setProfileData(user);
+            setEditableProfile({
+              displayName: user.displayName || '',
+              bio: user.bio || '',
+              isPublic: user.isPublic !== false
+            });
+            setIsOwnProfile(true);
+            setIsFollowing(false);
+          } else {
+            // If no user data is available, redirect to login
+            navigate('/login');
+            return;
           }
         }
         
@@ -482,7 +482,8 @@ export const ProfilePage = () => {
     try {
       const response = await userAPI.updateProfilePicture(file);
       
-      // Update local state
+      // Update local state with full URL
+      const newAvatarUrl = getAvatarUrl(response.data.avatar);
       setProfileData(prev => prev ? {
         ...prev,
         avatar: response.data.avatar
@@ -518,7 +519,7 @@ export const ProfilePage = () => {
     try {
       const response = await userAPI.removeProfilePicture();
       
-      // Update local state
+      // Update local state (avatar will be null)
       setProfileData(prev => prev ? {
         ...prev,
         avatar: response.data.avatar
@@ -637,7 +638,7 @@ export const ProfilePage = () => {
 
   // Create default values for missing user properties
   const displayName = profile.displayName || profile.username || 'User';
-  const avatar = profile.avatar || profile.profilePicture || '';
+  const avatar = getAvatarUrl(profile.avatar || profile.profilePicture);
   const bio = profile.bio || 'No bio available';
   const followerCount = profile.followers || 0;
   const joined = profile.joined || profile.createdAt || new Date().toISOString();
@@ -1316,7 +1317,7 @@ export const ProfilePage = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <Avatar
-                            src={follower.avatar}
+                            src={getAvatarUrl(follower.avatar)}
                             alt={follower.displayName}
                             size="md"
                             isVerified={follower.isVerified}
@@ -1375,7 +1376,7 @@ export const ProfilePage = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <Avatar
-                            src={followedUser.avatar}
+                            src={getAvatarUrl(followedUser.avatar)}
                             alt={followedUser.displayName}
                             size="md"
                             isVerified={followedUser.isVerified}

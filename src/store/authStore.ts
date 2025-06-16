@@ -233,13 +233,27 @@ export const useAuthStore = create<AuthStore>((set) => ({
     set({ isLoading: true, error: null });
     
     try {
-      // This would typically update the Firebase user profile
-      // For now, we'll just update the local state
-      
-      set(state => ({
-        user: state.user ? { ...state.user, ...userData } : null,
-        isLoading: false
-      }));
+      // Update the local state
+      set(state => {
+        const updatedUser = state.user ? { ...state.user, ...userData } : null;
+        
+        // Persist updated user data to localStorage
+        if (updatedUser) {
+          localStorage.setItem('userData', JSON.stringify({
+            id: updatedUser.id,
+            username: updatedUser.username,
+            displayName: updatedUser.displayName,
+            email: updatedUser.email,
+            avatar: updatedUser.avatar,
+            profilePicture: updatedUser.profilePicture || updatedUser.avatar
+          }));
+        }
+        
+        return {
+          user: updatedUser,
+          isLoading: false
+        };
+      });
     } catch (error: any) {
       const errorMessage = error.message || 'Profile update failed';
       set({ 
