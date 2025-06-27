@@ -2,7 +2,7 @@
 
 **Transform Your Voice Into Magic**
 
-VoiceVerse is a cutting-edge full-stack voice transformation platform that leverages AI technology to transform, clone, and share voice content. Built with modern web technologies, it offers a comprehensive suite of features for voice manipulation, social sharing, and monetization through NFTs.
+VoiceVerse is a cutting-edge full-stack voice transformation platform that leverages AI technology to transform, clone, and share voice content. Built with modern web technologies, it offers a comprehensive suite of features for voice manipulation, social sharing, and monetization through NFTs.It's like TikTok, but instead of videos, it's focused on voices allowing users to express themselves, engage with others, and build communities through audio.
 
 ## 🌟 About the Project
 
