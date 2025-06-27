@@ -17,17 +17,25 @@ import {
 } from "firebase/auth";
 import { authAPI } from './api';
 
-// Firebase configuration
-// Using the original Firebase configuration to avoid API key errors
+// Firebase configuration - loaded from environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyDnPv8154IsGR5OVToS6wzACLnkgqE5gJU",
-  authDomain: "seo-demo-b2da8.firebaseapp.com",
-  projectId: "seo-demo-b2da8",
-  storageBucket: "seo-demo-b2da8.appspot.com",
-  messagingSenderId: "860768473241",
-  appId: "1:860768473241:web:01a1670be78eea1d066808",
-  measurementId: "G-15LF51FJTP"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
+
+// Validate that all required Firebase config values are present
+const requiredConfigKeys = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+const missingKeys = requiredConfigKeys.filter(key => !firebaseConfig[key as keyof typeof firebaseConfig]);
+
+if (missingKeys.length > 0) {
+  console.error('Missing Firebase configuration keys:', missingKeys);
+  throw new Error(`Missing Firebase configuration: ${missingKeys.join(', ')}. Please check your .env file.`);
+}
 
 // Enable Firebase Auth persistence to keep users logged in
 // This helps prevent frequent login requirements
