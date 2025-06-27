@@ -93,7 +93,7 @@ function App() {
             <Route path="team" element={<TeamPage />} />
             <Route path="privacy" element={<PrivacyPage />} />
             <Route path="terms" element={<TermsPage />} />
-            <Route path="help" element={<HelpCenterPage />} />
+            <Route path="help-center" element={<HelpCenterPage />} />
             <Route path="community" element={<CommunityPage />} />
             <Route path="documentation" element={<DocumentationPage />} />
             <Route path="api" element={<ApiReferencePage />} />

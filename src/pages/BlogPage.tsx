@@ -3,12 +3,11 @@ import { motion } from 'framer-motion';
 import {
   Calendar,
   Clock,
-  
   Share2,
   MessageCircle,
   ChevronRight,
   Search,
- 
+  Sparkles,
   X
 } from 'lucide-react';
 import { Card } from '../components/ui/Card';
@@ -26,7 +25,7 @@ const blogPosts = [
     tags: ['AI', 'Voice Tech', 'Future'],
     author: {
       name: 'Eugene Mathenge',
-      avatar: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=600',
+      avatar: '/Eugene.jpeg',
       role: 'Founder & Lead Developer'
     },
     date: '2024-03-01T10:00:00Z',
@@ -61,7 +60,7 @@ const blogPosts = [
     tags: ['Development', 'Platform', 'Innovation'],
     author: {
       name: 'Eugene Mathenge',
-      avatar: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=600',
+      avatar: '/Eugene.jpeg',
       role: 'Founder & Lead Developer'
     },
     date: '2024-02-28T14:30:00Z',
@@ -99,7 +98,7 @@ const featuredPost = {
   tags: ['AI', 'Innovation', 'Content Creation'],
   author: {
     name: 'Eugene Mathenge',
-    avatar: 'https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=600',
+    avatar: '/Eugene.jpeg',
     role: 'Founder & Lead Developer'
   },
   date: '2024-03-02T09:00:00Z',
