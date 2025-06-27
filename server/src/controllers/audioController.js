@@ -87,18 +87,18 @@ exports.getAudioFile = async (req, res) => {
     const { id } = req.params;
     console.log(`Requesting audio file with ID: ${id}`);
     
-    // First try to get the original audio file
-    let audioFile = await req.prisma.audioFile.findUnique({
+    // Check if this ID is a translated audio ID first (highest priority)
+    let translatedAudio = await req.prisma.translatedAudio.findUnique({
       where: { id }
     });
     
-    if (audioFile) {
-      console.log(`Found original audio file: ${audioFile.id}`);
-      // If found in original audio files, serve it directly
-      return serveAudioFile(req, res, audioFile);
+    if (translatedAudio) {
+      console.log(`Found translated audio file: ${translatedAudio.id}`);
+      // If found in translated audio files, serve it
+      return exports.getTranslatedAudio(req, res);
     }
     
-    // If not found in original, check if this ID is a transformation ID
+    // Check if this ID is a transformation ID
     let transformation = await req.prisma.voiceTransformation.findUnique({
       where: { id },
       include: {
@@ -112,14 +112,27 @@ exports.getAudioFile = async (req, res) => {
       return serveAudioFile(req, res, transformation.transformedAudio);
     }
     
-    // If not found in transformations, try translated audio
-    let translatedAudio = await req.prisma.translatedAudio.findUnique({
+    // Finally, try to get the original audio file
+    let audioFile = await req.prisma.audioFile.findUnique({
       where: { id }
     });
     
-    if (translatedAudio) {
-      // If found in translated audio files, serve it
-      return exports.getTranslatedAudio(req, res);
+    if (audioFile) {
+      console.log(`Found original audio file: ${audioFile.id}`);
+      // Check if this audio file has been used for translation
+      const hasTranslation = await req.prisma.translatedAudio.findFirst({
+        where: { originalAudioId: id }
+      });
+      
+      if (hasTranslation) {
+        console.log(`Audio file ${id} has translations, serving translated version: ${hasTranslation.id}`);
+        // Redirect to the translated audio
+        req.params.id = hasTranslation.id;
+        return exports.getTranslatedAudio(req, res);
+      }
+      
+      // If no translation exists, serve the original file
+      return serveAudioFile(req, res, audioFile);
     }
     
     console.log(`Audio file not found in any table, serving fallback for ID: ${id}`);
@@ -181,6 +194,7 @@ exports.getOriginalAudio = async (req, res) => {
 exports.getTranslatedAudio = async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`Requesting translated audio file with ID: ${id}`);
     
     // Check if the file exists in the database
     let translatedAudio = await req.prisma.translatedAudio.findUnique({
@@ -190,14 +204,8 @@ exports.getTranslatedAudio = async (req, res) => {
     // If the file doesn't exist in the database but exists on the filesystem, try to create an entry
     const possibleTranslatedPath = path.join(process.cwd(), 'uploads', 'audio', 'translated', `translated_${id}.mp3`);
     if (!translatedAudio && fs.existsSync(possibleTranslatedPath)) {
-      try {
-        // Create a database entry for the translated file
-        // This would require a proper translatedAudio model implementation
-        console.log(`Found translated audio file on filesystem: ${possibleTranslatedPath}`);
-        // For now, we'll just proceed with the file without a database entry
-      } catch (createError) {
-        console.error(`Error handling translated audio file ${id}:`, createError);
-      }
+      console.log(`Found translated audio file on filesystem: ${possibleTranslatedPath}`);
+      // For now, we'll just proceed with the file without a database entry
     }
     
     if (!translatedAudio && !fs.existsSync(possibleTranslatedPath)) {
@@ -208,9 +216,11 @@ exports.getTranslatedAudio = async (req, res) => {
     
     // Check if we have audio data in the database
     if (translatedAudio && translatedAudio.audioData) {
+      console.log(`Serving translated audio from database for ID: ${id}`);
       // Set appropriate headers
       res.set('Content-Type', translatedAudio.mimeType || 'audio/mpeg');
       res.set('Content-Length', translatedAudio.fileSize || translatedAudio.audioData.length);
+      res.set('Accept-Ranges', 'bytes');
       
       // Send the audio data directly from the database
       return res.send(translatedAudio.audioData);
@@ -226,8 +236,9 @@ exports.getTranslatedAudio = async (req, res) => {
       return serveFallbackAudio(req, res, id);
     }
     
+    console.log(`Serving translated audio from filesystem: ${filePath}`);
     // Send the file from the filesystem
-    res.sendFile(filePath);
+    res.sendFile(path.resolve(filePath));
   } catch (error) {
     console.error('Error fetching translated audio file:', error);
     // Instead of returning 500, serve a fallback audio file
@@ -251,6 +262,7 @@ const serveAudioFile = (req, res, audioFile) => {
       // Set appropriate headers
       res.set('Content-Type', audioFile.mimeType || 'audio/mpeg');
       res.set('Content-Length', audioFile.fileSize || audioFile.audioData.length);
+      res.set('Accept-Ranges', 'bytes');
       
       // Send the audio data directly from the database
       return res.send(audioFile.audioData);
@@ -259,16 +271,23 @@ const serveAudioFile = (req, res, audioFile) => {
     // If no audio data in database, try the file path
     let filePath;
     if (audioFile.storagePath) {
-      // Use the storage path from the database
-      filePath = path.join(process.cwd(), audioFile.storagePath);
+      // Use the storage path from the database - but make sure it's absolute
+      if (path.isAbsolute(audioFile.storagePath)) {
+        filePath = audioFile.storagePath;
+      } else {
+        filePath = path.join(process.cwd(), audioFile.storagePath);
+      }
     } else {
       // Fallback to constructing the path based on file type
       const fileName = audioFile.originalFilename || `${audioFile.id}.mp3`;
       
-      // Check if this might be a transformed file
+      // Determine the correct directory based on filename patterns
       if (fileName.includes('transformed_') || fileName.includes('celebrity_')) {
         filePath = path.join(process.cwd(), 'uploads', 'audio', 'transformed', fileName);
+      } else if (fileName.includes('translated_')) {
+        filePath = path.join(process.cwd(), 'uploads', 'audio', 'translated', fileName);
       } else {
+        // Default to original directory
         filePath = path.join(process.cwd(), 'uploads', 'audio', 'original', fileName);
       }
     }
@@ -278,13 +297,36 @@ const serveAudioFile = (req, res, audioFile) => {
     // Check if the file exists on the filesystem
     if (!fs.existsSync(filePath)) {
       console.warn(`Audio file not found on filesystem: ${filePath}`);
-      // Instead of returning 404, serve a fallback audio file
-      return serveFallbackAudio(req, res, audioFile.id);
+      
+      // Try alternative paths if the primary path doesn't exist
+      const fileName = audioFile.originalFilename || `${audioFile.id}.mp3`;
+      const alternativePaths = [
+        path.join(process.cwd(), 'uploads', 'audio', 'original', fileName),
+        path.join(process.cwd(), 'uploads', 'audio', 'transformed', fileName),
+        path.join(process.cwd(), 'uploads', 'audio', 'translated', fileName),
+        path.join(process.cwd(), 'uploads', 'audio', 'original', `${audioFile.id}.mp3`)
+      ];
+      
+      let foundPath = null;
+      for (const altPath of alternativePaths) {
+        if (fs.existsSync(altPath)) {
+          foundPath = altPath;
+          console.log(`Found alternative path: ${foundPath}`);
+          break;
+        }
+      }
+      
+      if (foundPath) {
+        filePath = foundPath;
+      } else {
+        // Instead of returning 404, serve a fallback audio file
+        return serveFallbackAudio(req, res, audioFile.id);
+      }
     }
     
     // Send the file from the filesystem
     console.log(`Successfully serving file from filesystem: ${filePath}`);
-    res.sendFile(filePath);
+    res.sendFile(path.resolve(filePath));
   } catch (error) {
     console.error('Error serving audio file:', error);
     return serveFallbackAudio(req, res, audioFile.id);

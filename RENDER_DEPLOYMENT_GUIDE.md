@@ -328,8 +328,8 @@ Update CORS for production:
 ```javascript
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL, 'https://voiceverse.netlify.app']
-    : ['http://localhost:3000', 'http://localhost:5173'],
+    ? [process.env.FRONTEND_URL, 'https://voice-verse-two.vercel.app']
+    : ['http://localhost:3000', 'https://voice-verse-two.vercel.app'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']

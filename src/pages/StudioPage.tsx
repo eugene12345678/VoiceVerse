@@ -30,7 +30,8 @@ import {
   Edit,
   Trash2,
   Eye,
-  EyeOff
+  EyeOff,
+  Info
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
@@ -38,6 +39,7 @@ import { Card } from '../components/ui/Card';
 import { AudioRecorder } from '../components/audio/AudioRecorder';
 import { WaveformVisualizer } from '../components/audio/WaveformVisualizer';
 import { IconButton } from '../components/ui/IconButton';
+import { useSubscriptionStore } from '../store/subscriptionStore';
 
 // Voice effect types
 interface VoiceEffect {
@@ -141,6 +143,7 @@ interface Language {
 export const StudioPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isPro, fetchSubscription } = useSubscriptionStore();
   const [recordedAudio, setRecordedAudio] = useState<string | null>(null);
   const [selectedEffect, setSelectedEffect] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -198,12 +201,25 @@ export const StudioPage = () => {
   const [translationError, setTranslationError] = useState<string | null>(null);
   const [recordingStartTime, setRecordingStartTime] = useState<number | null>(null);
   const [audioDuration, setAudioDuration] = useState<number>(0);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  
+  // Enhanced state for settings functionality
+  const [showPreferencesModal, setShowPreferencesModal] = useState(false);
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const [audioSource, setAudioSource] = useState<AudioBufferSourceNode | null>(null);
+  const [gainNode, setGainNode] = useState<GainNode | null>(null);
+  const [reverbNode, setReverbNode] = useState<ConvolverNode | null>(null);
+  const [delayNode, setDelayNode] = useState<DelayNode | null>(null);
+  const [isApplyingSettings, setIsApplyingSettings] = useState(false);
+  const [previewAudio, setPreviewAudio] = useState<string | null>(null);
+  const [settingsChanged, setSettingsChanged] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   // Check if we're coming from the recorder
   const isFromRecorder = new URLSearchParams(location.search).get('source') === 'recorder';
   
   // Load audio from IndexedDB when coming from recorder
-  // Load voice effects from API
+  // Load voice effects from API and subscription data
   useEffect(() => {
     const fetchVoiceEffects = async () => {
       try {
@@ -235,7 +251,8 @@ export const StudioPage = () => {
     fetchVoiceEffects();
     fetchEmotionVoices();
     fetchSavedVoiceCreations();
-  }, []);
+    fetchSubscription(); // Fetch subscription data to check Pro status
+  }, [fetchSubscription]);
   
   // Load saved voice creations
   const fetchSavedVoiceCreations = async () => {
@@ -521,65 +538,7 @@ export const StudioPage = () => {
     }
   };
   
-  // Handle emotion effect selection
-  const handleEmotionSelect = async (emotionId: string) => {
-    setSelectedEmotion(emotionId);
-    setIsProcessing(true);
-    setErrorMessage(null);
     
-    // Check if we have an audio file to transform
-    if (!audioFile) {
-      setIsProcessing(false);
-      setErrorMessage('No audio file available for emotion transformation');
-      return;
-    }
-    
-    try {
-      // Start the emotion transformation process
-      const response = await voiceAPI.transformWithEmotion(
-        audioFile.id,
-        emotionId,
-        settings
-      );
-      
-      if (response.status === 'success' && response.data) {
-        setEmotionTransformation({
-          id: response.data.transformationId,
-          sourceAudioId: audioFile.id,
-          effectId: emotionId,
-          effectName: emotionVoices.find(voice => voice.effectId === emotionId)?.name || '',
-          status: 'processing'
-        });
-        
-        // Poll for emotion transformation status
-        pollEmotionTransformationStatus(response.data.transformationId);
-      } else {
-        setIsProcessing(false);
-        setErrorMessage('Failed to start emotion transformation: ' + (response.message || 'Unknown error'));
-        console.error('API returned unsuccessful status:', response);
-      }
-    } catch (error) {
-      console.error('Error transforming audio with emotion:', error);
-      setIsProcessing(false);
-      
-      // Extract the error message from the API response if available
-      let errorMsg = 'Error applying emotion effect';
-      if (error.response && error.response.data) {
-        errorMsg = error.response.data.message || errorMsg;
-      }
-      
-      setErrorMessage(errorMsg);
-      
-      // For development purposes, simulate a successful transformation
-      console.log('Simulating successful emotion transformation in development mode');
-      setTimeout(() => {
-        setTransformedAudio(recordedAudio);
-        setIsProcessing(false);
-        setErrorMessage('Development mode: Using original audio as transformed audio');
-      }, 2000);
-    }
-  };
-  
   // Handle voice cloning
   const handleVoiceClone = async () => {
     if (!audioFile) {
@@ -654,6 +613,66 @@ export const StudioPage = () => {
     }
   };
   
+  
+  // Handle emotion effect selection
+  const handleEmotionSelect = async (emotionId: string) => {
+    setSelectedEmotion(emotionId);
+    setIsProcessing(true);
+    setErrorMessage(null);
+    
+    // Check if we have an audio file to transform
+    if (!audioFile) {
+      setIsProcessing(false);
+      setErrorMessage('No audio file available for emotion transformation');
+      return;
+    }
+    
+    try {
+      // Start the emotion transformation process
+      const response = await voiceAPI.transformWithEmotion(
+        audioFile.id,
+        emotionId,
+        settings
+      );
+      
+      if (response.status === 'success' && response.data) {
+        setEmotionTransformation({
+          id: response.data.transformationId,
+          sourceAudioId: audioFile.id,
+          effectId: emotionId,
+          effectName: emotionVoices.find(voice => voice.effectId === emotionId)?.name || '',
+          status: 'processing'
+        });
+        
+        // Poll for emotion transformation status
+        pollEmotionTransformationStatus(response.data.transformationId);
+      } else {
+        setIsProcessing(false);
+        setErrorMessage('Failed to start emotion transformation: ' + (response.message || 'Unknown error'));
+        console.error('API returned unsuccessful status:', response);
+      }
+    } catch (error) {
+      console.error('Error transforming audio with emotion:', error);
+      setIsProcessing(false);
+      
+      // Extract the error message from the API response if available
+      let errorMsg = 'Error applying emotion effect';
+      if (error.response && error.response.data) {
+        errorMsg = error.response.data.message || errorMsg;
+      }
+      
+      setErrorMessage(errorMsg);
+      
+      // For development purposes, simulate a successful transformation
+      console.log('Simulating successful emotion transformation in development mode');
+      setTimeout(() => {
+        setTransformedAudio(recordedAudio);
+        setIsProcessing(false);
+        setErrorMessage('Development mode: Using original audio as transformed audio');
+      }, 2000);
+    }
+  };
+  
   // Poll for emotion transformation status
   const pollEmotionTransformationStatus = async (transformationId: string) => {
     try {
@@ -688,8 +707,221 @@ export const StudioPage = () => {
     }
   };
 
-  const handleSettingChange = (settingId: string, value: number) => {
-    setSettings(prev => ({ ...prev, [settingId]: value }));
+  // Initialize Web Audio API context
+  const initializeAudioContext = async () => {
+    if (!audioContext) {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      setAudioContext(ctx);
+      
+      // Create audio nodes
+      const gain = ctx.createGain();
+      const delay = ctx.createDelay(1.0);
+      const reverb = ctx.createConvolver();
+      
+      setGainNode(gain);
+      setDelayNode(delay);
+      setReverbNode(reverb);
+      
+      // Create impulse response for reverb
+      const impulseResponse = createImpulseResponse(ctx, 2, 2, false);
+      reverb.buffer = impulseResponse;
+      
+      return { ctx, gain, delay, reverb };
+    }
+    return { ctx: audioContext, gain: gainNode, delay: delayNode, reverb: reverbNode };
+  };
+  
+  // Create impulse response for reverb effect
+  const createImpulseResponse = (context: AudioContext, duration: number, decay: number, reverse: boolean) => {
+    const sampleRate = context.sampleRate;
+    const length = sampleRate * duration;
+    const impulse = context.createBuffer(2, length, sampleRate);
+    
+    for (let channel = 0; channel < 2; channel++) {
+      const channelData = impulse.getChannelData(channel);
+      for (let i = 0; i < length; i++) {
+        const n = reverse ? length - i : i;
+        channelData[i] = (Math.random() * 2 - 1) * Math.pow(1 - n / length, decay);
+      }
+    }
+    
+    return impulse;
+  };
+  
+  // Apply audio settings with real-time processing
+  const applyAudioSettings = async (audioUrl: string, settingsToApply: Record<string, number>) => {
+    try {
+      setIsApplyingSettings(true);
+      
+      const { ctx, gain, delay, reverb } = await initializeAudioContext();
+      if (!ctx || !gain || !delay || !reverb) return null;
+      
+      // Fetch and decode audio data
+      const response = await fetch(audioUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      
+      // Create offline context for processing
+      const offlineCtx = new OfflineAudioContext(
+        audioBuffer.numberOfChannels,
+        audioBuffer.length,
+        audioBuffer.sampleRate
+      );
+      
+      // Create nodes in offline context
+      const source = offlineCtx.createBufferSource();
+      const offlineGain = offlineCtx.createGain();
+      const offlineDelay = offlineCtx.createDelay(1.0);
+      const offlineReverb = offlineCtx.createConvolver();
+      const merger = offlineCtx.createChannelMerger(2);
+      
+      // Set up reverb
+      const impulse = createImpulseResponse(offlineCtx, 2, 2, false);
+      offlineReverb.buffer = impulse;
+      
+      // Apply settings
+      source.buffer = audioBuffer;
+      
+      // Apply pitch (simulated with playback rate)
+      const pitchFactor = Math.pow(2, settingsToApply.pitch / 12);
+      source.playbackRate.value = pitchFactor;
+      
+      // Apply gain/volume
+      offlineGain.gain.value = Math.pow(10, settingsToApply.formant / 20);
+      
+      // Apply delay
+      offlineDelay.delayTime.value = settingsToApply.delay / 1000;
+      
+      // Connect nodes
+      source.connect(offlineGain);
+      
+      // Dry signal
+      offlineGain.connect(merger, 0, 0);
+      offlineGain.connect(merger, 0, 1);
+      
+      // Wet signal with reverb
+      if (settingsToApply.reverb > 0) {
+        const reverbGain = offlineCtx.createGain();
+        reverbGain.gain.value = settingsToApply.reverb / 100;
+        offlineGain.connect(offlineReverb);
+        offlineReverb.connect(reverbGain);
+        reverbGain.connect(merger, 0, 0);
+        reverbGain.connect(merger, 0, 1);
+      }
+      
+      // Delay effect
+      if (settingsToApply.delay > 0) {
+        const delayGain = offlineCtx.createGain();
+        delayGain.gain.value = 0.3;
+        offlineGain.connect(offlineDelay);
+        offlineDelay.connect(delayGain);
+        delayGain.connect(merger, 0, 0);
+        delayGain.connect(merger, 0, 1);
+      }
+      
+      merger.connect(offlineCtx.destination);
+      
+      // Render audio
+      source.start(0);
+      const renderedBuffer = await offlineCtx.startRendering();
+      
+      // Convert to blob URL
+      const audioData = bufferToWave(renderedBuffer);
+      const blob = new Blob([audioData], { type: 'audio/wav' });
+      const processedUrl = URL.createObjectURL(blob);
+      
+      setIsApplyingSettings(false);
+      return processedUrl;
+      
+    } catch (error) {
+      console.error('Error applying audio settings:', error);
+      setIsApplyingSettings(false);
+      return null;
+    }
+  };
+  
+  // Convert AudioBuffer to WAV format
+  const bufferToWave = (buffer: AudioBuffer) => {
+    const length = buffer.length;
+    const numberOfChannels = buffer.numberOfChannels;
+    const sampleRate = buffer.sampleRate;
+    const arrayBuffer = new ArrayBuffer(44 + length * numberOfChannels * 2);
+    const view = new DataView(arrayBuffer);
+    
+    // WAV header
+    const writeString = (offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+    
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + length * numberOfChannels * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numberOfChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numberOfChannels * 2, true);
+    view.setUint16(32, numberOfChannels * 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, length * numberOfChannels * 2, true);
+    
+    // Convert float samples to 16-bit PCM
+    let offset = 44;
+    for (let i = 0; i < length; i++) {
+      for (let channel = 0; channel < numberOfChannels; channel++) {
+        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(channel)[i]));
+        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+        offset += 2;
+      }
+    }
+    
+    return arrayBuffer;
+  };
+  
+  // Enhanced settings change handler with real-time preview
+  const handleSettingChange = async (settingId: string, value: number) => {
+    const newSettings = { ...settings, [settingId]: value };
+    setSettings(newSettings);
+    setSettingsChanged(true);
+    
+    // Apply settings in real-time if audio is available
+    if (recordedAudio && activeTab === 'settings') {
+      const processedAudio = await applyAudioSettings(recordedAudio, newSettings);
+      if (processedAudio) {
+        setPreviewAudio(processedAudio);
+      }
+    }
+  };
+  
+  // Apply settings to current audio
+  const applySettingsToAudio = async () => {
+    if (!recordedAudio) {
+      setErrorMessage('No audio available to apply settings');
+      return;
+    }
+    
+    setIsApplyingSettings(true);
+    setErrorMessage(null);
+    
+    try {
+      const processedAudio = await applyAudioSettings(recordedAudio, settings);
+      if (processedAudio) {
+        setTransformedAudio(processedAudio);
+        setSettingsChanged(false);
+        setErrorMessage(null);
+      } else {
+        setErrorMessage('Failed to apply audio settings');
+      }
+    } catch (error) {
+      console.error('Error applying settings:', error);
+      setErrorMessage('Error applying audio settings');
+    } finally {
+      setIsApplyingSettings(false);
+    }
   };
 
   const handleSave = async () => {
@@ -817,6 +1049,12 @@ export const StudioPage = () => {
   
   // New function to translate audio
   const translateAudio = async () => {
+    // Check Pro status first
+    if (!isPro) {
+      setTranslationError('Language translation is a Pro feature. Please upgrade to access this functionality.');
+      return;
+    }
+    
     if (!audioFile) {
       setTranslationError('No audio file available for translation');
       return;
@@ -863,11 +1101,9 @@ export const StudioPage = () => {
           // Translation is complete
           setTranslationInProgress(false);
           
-          // Create a URL for the translated audio
-          // Use the correct path for translated audio files
-          // The translatedAudioId is the ID of the audio file record, which is also used in the filename
-          setTranslatedAudio(`/api/audio/translated/translated_${translationData.translatedAudioId}.mp3`);
-          console.log(`Setting translated audio URL: /api/audio/translated/translated_${translationData.translatedAudioId}.mp3`);
+          // Create a URL for the translated audi       // Use the main audio endpoint which will handle translated audio properly
+          setTranslatedAudio(`/api/audio/${translationData.translatedAudioId}`);
+          console.log(`Setting translated audio URL: /api/audio/${translationData.translatedAudioId}`);
         } else if (translationData.status === 'failed') {
           setTranslationInProgress(false);
           setTranslationError(translationData.errorMessage || 'Translation failed');
@@ -887,9 +1123,9 @@ export const StudioPage = () => {
   };
 
   const filteredEffects = selectedCategory === 'all'
-    ? [...voiceEffects, ...emotionVoices]
+    ? [...voiceEffects.filter(effect => effect.category !== 'language'), ...emotionVoices]
     : selectedCategory === 'emotion'
-    ? emotionVoices.length > 0 ? emotionVoices : voiceEffects.filter(effect => effect.category === selectedCategory)
+    ? emotionVoices.length > 0 ? emotionVoices : voiceEffects.filter(effect => effect.category === 'emotion')
     : voiceEffects.filter(effect => effect.category === selectedCategory);
 
   return (
@@ -909,16 +1145,16 @@ export const StudioPage = () => {
             <Button
               variant="outline"
               leftIcon={<Settings className="h-5 w-5" />}
+              onClick={() => setShowPreferencesModal(true)}
             >
               Preferences
             </Button>
             <Button
-              variant="primary"
-              leftIcon={<Crown className="h-5 w-5" />}
-              as={Link}
-              to="/subscription"
+            variant="primary"
+            leftIcon={<Crown className="h-5 w-5" />}
+            onClick={() => navigate('/subscription')}
             >
-              Upgrade to Pro
+            Upgrade to Pro
             </Button>
           </div>
         </div>
@@ -1264,79 +1500,67 @@ export const StudioPage = () => {
                         </Button>
                       )}
                       
-                      {/* Emotion Voice Effects */}
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">
-                          Emotion Voice Effects
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {(emotionVoices.length > 0 ? emotionVoices : voiceEffects.filter(effect => effect.category === 'emotion'))
-                            .slice(0, 4) // Show only the first 4 emotion effects
-                            .map(effect => (
-                              <Button
-                                key={effect.id}
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEmotionSelect(effect.effectId)}
-                                disabled={isProcessing || !audioFile}
-                                className={selectedEmotion === effect.effectId ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30' : ''}
-                              >
-                                {effect.name}
-                              </Button>
-                            ))}
-                        </div>
-                        {isProcessing && selectedEmotion && (
-                          <div className="mt-2 text-sm text-primary-600 dark:text-primary-400">
-                            Applying {emotionVoices.find(v => v.effectId === selectedEmotion)?.name || selectedEmotion} effect...
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Language Accent Effects */}
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">
-                          Language Accent Effects
-                        </label>
-                        <div className="grid grid-cols-2 gap-2">
-                          {voiceEffects
-                            .filter(effect => effect.category === 'language')
-                            .slice(0, 4) // Show only the first 4 language effects
-                            .map(effect => (
-                              <Button
-                                key={effect.id}
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEffectSelect(effect.effectId)}
-                                disabled={isProcessing || !audioFile}
-                                className={selectedEffect === effect.effectId ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30' : ''}
-                              >
-                                {effect.name}
-                              </Button>
-                            ))}
-                        </div>
-                        <div className="mt-2 text-center">
-                          <Button
-                            variant="link"
-                            size="sm"
-                            onClick={() => setActiveTab('effects')}
-                            className="text-primary-600 dark:text-primary-400"
-                          >
-                            View All Effects
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
+                                          </div>
                   </div>
                   
                   {/* Translation Controls */}
                   {languages.length > 0 && audioFile && (
-                    <div className="p-4 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-100 dark:border-primary-800">
-                      <h3 className="text-lg font-medium mb-3 flex items-center gap-2">
-                        <Globe className="h-5 w-5 text-primary-600 dark:text-primary-400" />
-                        Translate Audio
-                      </h3>
+                    <div className={`p-4 rounded-lg border relative ${
+                      isPro 
+                        ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-100 dark:border-primary-800' 
+                        : 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-700'
+                    }`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-lg font-medium flex items-center gap-2">
+                          <Globe className={`h-5 w-5 ${isPro ? 'text-primary-600 dark:text-primary-400' : 'text-gray-400'}`} />
+                          Translate Audio
+                          {!isPro && (
+                            <div className="relative group">
+                              <Lock className="h-4 w-4 text-amber-500 ml-1" />
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                                Upgrade to Pro to unlock language translation
+                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                              </div>
+                            </div>
+                          )}
+                        </h3>
+                        {!isPro && (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            leftIcon={<Crown className="h-4 w-4" />}
+                            onClick={() => navigate('/subscription')}
+                            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                          >
+                            Upgrade to Pro
+                          </Button>
+                        )}
+                      </div>
                       
-                      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                      {!isPro && (
+                        <div className="absolute inset-0 bg-gray-100/50 dark:bg-gray-800/50 rounded-lg flex items-center justify-center backdrop-blur-sm">
+                          <div className="text-center p-4">
+                            <Lock className="h-8 w-8 text-amber-500 mx-auto mb-2" />
+                            <p className="text-gray-600 dark:text-gray-400 font-medium mb-2">
+                              Pro Feature Locked
+                            </p>
+                            <p className="text-sm text-gray-500 dark:text-gray-500 mb-3">
+                              Upgrade to Pro to unlock language translation
+                            </p>
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              leftIcon={<Crown className="h-4 w-4" />}
+                              onClick={() => navigate('/subscription')}
+                              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                            >
+                              Upgrade Now
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className={`flex flex-col md:flex-row gap-4 items-start md:items-center ${!isPro ? 'opacity-30' : ''}`}>
                         <div className="w-full md:w-1/2">
                           <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-1">
                             Target Language
@@ -1345,7 +1569,7 @@ export const StudioPage = () => {
                             className="w-full p-2 rounded-lg border border-gray-300 dark:border-dark-700 bg-white dark:bg-dark-800 text-dark-900 dark:text-white"
                             value={selectedLanguage}
                             onChange={(e) => handleLanguageChange(e.target.value)}
-                            disabled={translationInProgress}
+                            disabled={!isPro || translationInProgress}
                           >
                             {languages.map((language) => (
                               <option key={language.code} value={language.code}>
@@ -1360,20 +1584,20 @@ export const StudioPage = () => {
                           leftIcon={<Globe className="h-5 w-5" />}
                           onClick={translateAudio}
                           isLoading={translationInProgress}
-                          disabled={translationInProgress}
+                          disabled={!isPro || translationInProgress}
                           className="mt-2 md:mt-6"
                         >
                           {translationInProgress ? 'Translating...' : 'Translate'}
                         </Button>
                       </div>
                       
-                      {translationError && (
+                      {translationError && isPro && (
                         <div className="mt-3 p-2 bg-error-50 dark:bg-error-900/30 border border-error-200 dark:border-error-800 rounded-lg text-error-700 dark:text-error-400 text-sm">
                           <p>{translationError}</p>
                         </div>
                       )}
                       
-                      {translatedAudio && (
+                      {translatedAudio && isPro && (
                         <div className="mt-3 p-2 bg-success-50 dark:bg-success-900/30 border border-success-200 dark:border-success-800 rounded-lg text-success-700 dark:text-success-400 text-sm">
                           <p>Translation successful! Playing translated audio.</p>
                         </div>
@@ -1442,7 +1666,7 @@ export const StudioPage = () => {
                   >
                     {/* Categories */}
                     <div className="flex gap-2 mb-4 overflow-x-auto pb-2">
-                      {['all', 'celebrity', 'emotion', 'language', 'custom'].map((category) => (
+                      {['all', 'celebrity', 'emotion', 'custom'].map((category) => (
                         <Button
                           key={category}
                           variant={selectedCategory === category ? 'primary' : 'outline'}
@@ -1490,11 +1714,16 @@ export const StudioPage = () => {
                               ? 'border-primary-600 bg-primary-50 dark:border-primary-400 dark:bg-primary-900/30'
                               : 'border-gray-200 hover:border-primary-300 dark:border-dark-700 dark:hover:border-primary-600'
                           } ${
-                            effect.isProOnly && !false /* Replace with user.isPro when available */
+                            effect.isProOnly && !isPro
                               ? 'opacity-60'
                               : ''
                           }`}
                           onClick={() => {
+                            if (effect.isProOnly && !isPro) {
+                              // Show upgrade modal for Pro-only effects
+                              setShowUpgradeModal(true);
+                              return;
+                            }
                             if (effect.category === 'emotion') {
                               handleEmotionSelect(effect.effectId);
                             } else {
@@ -1503,7 +1732,7 @@ export const StudioPage = () => {
                           }}
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
-                          disabled={effect.isProOnly && !false /* Replace with user.isPro when available */ || isProcessing}
+                          disabled={effect.isProOnly && !isPro || isProcessing}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -1534,9 +1763,12 @@ export const StudioPage = () => {
                                 <span className="text-sm font-medium">{effect.popularity}%</span>
                               </div>
                               {effect.isProOnly && (
-                                <span className="text-xs text-primary-600 dark:text-primary-400 font-medium mt-1">
-                                  PRO
-                                </span>
+                                <div className="flex items-center gap-1 mt-1">
+                                  {!isPro && <Lock className="h-3 w-3 text-amber-500" />}
+                                  <span className={`text-xs font-medium ${isPro ? 'text-primary-600 dark:text-primary-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                                    PRO
+                                  </span>
+                                </div>
                               )}
                             </div>
                           </div>
@@ -1552,43 +1784,147 @@ export const StudioPage = () => {
                     exit={{ opacity: 0, x: -20 }}
                     className="space-y-6"
                   >
+                    {/* Settings Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium text-dark-900 dark:text-white">
+                        Audio Settings
+                      </h3>
+                      {recordedAudio && (
+                        <div className="flex items-center gap-2">
+                          {settingsChanged && (
+                            <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded-full">
+                              Changes pending
+                            </span>
+                          )}
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            leftIcon={<Volume2 className="h-4 w-4" />}
+                            onClick={applySettingsToAudio}
+                            isLoading={isApplyingSettings}
+                            disabled={!settingsChanged || isApplyingSettings}
+                          >
+                            {isApplyingSettings ? 'Applying...' : 'Apply'}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Audio Settings Controls */}
                     {audioSettings.map((setting) => (
-                      <div key={setting.id}>
-                        <div className="flex items-center justify-between mb-2">
-                          <label className="text-sm font-medium text-dark-900 dark:text-white">
+                      <div key={setting.id} className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium text-dark-900 dark:text-white flex items-center gap-2">
+                            {setting.id === 'pitch' && <Music className="h-4 w-4 text-primary-600 dark:text-primary-400" />}
+                            {setting.id === 'formant' && <Sliders className="h-4 w-4 text-primary-600 dark:text-primary-400" />}
+                            {setting.id === 'reverb' && <Volume2 className="h-4 w-4 text-primary-600 dark:text-primary-400" />}
+                            {setting.id === 'delay' && <Clock className="h-4 w-4 text-primary-600 dark:text-primary-400" />}
                             {setting.name}
                           </label>
-                          <span className="text-sm text-dark-500 dark:text-dark-400">
-                            {settings[setting.id]}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-mono text-dark-500 dark:text-dark-400 bg-gray-100 dark:bg-dark-700 px-2 py-1 rounded">
+                              {settings[setting.id]}{setting.id === 'pitch' || setting.id === 'formant' ? 'st' : setting.id === 'reverb' || setting.id === 'delay' ? '%' : ''}
+                            </span>
+                          </div>
                         </div>
-                        <input
-                          type="range"
-                          min={setting.min}
-                          max={setting.max}
-                          step={setting.step}
-                          value={settings[setting.id]}
-                          onChange={(e) => handleSettingChange(setting.id, Number(e.target.value))}
-                          className="w-full h-2 bg-gray-200 dark:bg-dark-700 rounded-lg appearance-none cursor-pointer"
-                        />
+                        
+                        <div className="relative">
+                          <input
+                            type="range"
+                            min={setting.min}
+                            max={setting.max}
+                            step={setting.step}
+                            value={settings[setting.id]}
+                            onChange={(e) => handleSettingChange(setting.id, Number(e.target.value))}
+                            className="w-full h-2 bg-gray-200 dark:bg-dark-700 rounded-lg appearance-none cursor-pointer slider"
+                            style={{
+                              background: `linear-gradient(to right, #3B82F6 0%, #3B82F6 ${((settings[setting.id] - setting.min) / (setting.max - setting.min)) * 100}%, #E5E7EB ${((settings[setting.id] - setting.min) / (setting.max - setting.min)) * 100}%, #E5E7EB 100%)`
+                            }}
+                          />
+                          
+                          {/* Range markers */}
+                          <div className="flex justify-between text-xs text-gray-400 mt-1">
+                            <span>{setting.min}{setting.id === 'pitch' || setting.id === 'formant' ? 'st' : '%'}</span>
+                            <span className="text-primary-600 dark:text-primary-400">0</span>
+                            <span>{setting.max}{setting.id === 'pitch' || setting.id === 'formant' ? 'st' : '%'}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Setting description */}
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {setting.id === 'pitch' && 'Adjust the pitch/frequency of your voice'}
+                          {setting.id === 'formant' && 'Modify the vocal tract characteristics'}
+                          {setting.id === 'reverb' && 'Add spatial depth and ambience'}
+                          {setting.id === 'delay' && 'Create echo and delay effects'}
+                        </p>
                       </div>
                     ))}
 
-                    <Button
-                      variant="outline"
-                      leftIcon={<RefreshCw className="h-5 w-5" />}
-                      fullWidth
-                      onClick={() => {
-                        setSettings(
-                          audioSettings.reduce((acc, setting) => ({
+                    {/* Preview Section */}
+                    {recordedAudio && previewAudio && (
+                      <div className="p-4 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-100 dark:border-primary-800">
+                        <h4 className="text-sm font-medium text-dark-900 dark:text-white mb-2 flex items-center gap-2">
+                          <Volume2 className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                          Settings Preview
+                        </h4>
+                        <audio
+                          ref={audioRef}
+                          src={previewAudio}
+                          controls
+                          className="w-full"
+                          style={{ height: '40px' }}
+                        />
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                          Preview how your settings will sound. Click "Apply" to use these settings.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3">
+                      <Button
+                        variant="outline"
+                        leftIcon={<RefreshCw className="h-5 w-5" />}
+                        onClick={() => {
+                          const defaultSettings = audioSettings.reduce((acc, setting) => ({
                             ...acc,
                             [setting.id]: setting.default
-                          }), {})
-                        );
-                      }}
-                    >
-                      Reset to Default
-                    </Button>
+                          }), {});
+                          setSettings(defaultSettings);
+                          setSettingsChanged(true);
+                          setPreviewAudio(null);
+                        }}
+                        className="flex-1"
+                      >
+                        Reset
+                      </Button>
+                      
+                      {recordedAudio && (
+                        <Button
+                          variant="primary"
+                          leftIcon={<Wand2 className="h-5 w-5" />}
+                          onClick={applySettingsToAudio}
+                          isLoading={isApplyingSettings}
+                          disabled={!settingsChanged || isApplyingSettings}
+                          className="flex-1"
+                        >
+                          {isApplyingSettings ? 'Processing...' : 'Apply Settings'}
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Settings Info */}
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-start gap-2">
+                        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-blue-700 dark:text-blue-300">
+                          <p className="font-medium mb-1">Real-time Audio Processing</p>
+                          <p className="text-xs">
+                            Adjust settings and hear changes instantly. Click "Apply" to save your preferred settings to the audio.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1681,7 +2017,7 @@ export const StudioPage = () => {
               )}
             </Card>
 
-            {/* Pro Features Card - Updated with link */}
+            {/* Pro Features Card */}
             <Card className="p-6 bg-gradient-to-br from-primary-500 to-accent-500 text-white">
               <div className="flex items-center gap-3 mb-4">
                 <Award className="h-6 w-6" />
@@ -1699,8 +2035,7 @@ export const StudioPage = () => {
                 variant="secondary"
                 fullWidth
                 className="bg-white text-primary-600 hover:bg-primary-50"
-                as={Link}
-                to="/subscription"
+                onClick={() => navigate('/subscription')}
                 leftIcon={<Lock className="h-5 w-5" />}
               >
                 Unlock Pro Features
@@ -1709,6 +2044,81 @@ export const StudioPage = () => {
           </div>
         </div>
       </div>
+      
+      {/* Upgrade Modal */}
+      <AnimatePresence>
+        {showUpgradeModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowUpgradeModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-dark-800 rounded-lg p-6 w-full max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30 mb-4">
+                  <Crown className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                </div>
+                
+                <h3 className="text-lg font-semibold text-dark-900 dark:text-white mb-2">
+                  Upgrade to Pro
+                </h3>
+                
+                <p className="text-dark-600 dark:text-dark-400 mb-6">
+                  Unlock language translation and premium voice effects with VoiceVerse Pro.
+                </p>
+                
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-center gap-3 text-sm text-dark-700 dark:text-dark-300">
+                    <div className="h-2 w-2 bg-primary-500 rounded-full"></div>
+                    <span>Language translation to 50+ languages</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-dark-700 dark:text-dark-300">
+                    <div className="h-2 w-2 bg-primary-500 rounded-full"></div>
+                    <span>Premium celebrity voice effects</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-dark-700 dark:text-dark-300">
+                    <div className="h-2 w-2 bg-primary-500 rounded-full"></div>
+                    <span>Unlimited voice transformations</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-dark-700 dark:text-dark-300">
+                    <div className="h-2 w-2 bg-primary-500 rounded-full"></div>
+                    <span>Priority processing & support</span>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowUpgradeModal(false)}
+                    className="flex-1"
+                  >
+                    Maybe Later
+                  </Button>
+                  <Button
+                    variant="primary"
+                    leftIcon={<Crown className="h-4 w-4" />}
+                    onClick={() => {
+                      setShowUpgradeModal(false);
+                      navigate('/subscription');
+                    }}
+                    className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+                  >
+                    Upgrade Now
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* Save Voice Dialog */}
       <AnimatePresence>
@@ -1797,6 +2207,223 @@ export const StudioPage = () => {
                     Save Voice
                   </Button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Preferences Modal */}
+      <AnimatePresence>
+        {showPreferencesModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowPreferencesModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white dark:bg-dark-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-dark-900 dark:text-white flex items-center gap-2">
+                  <Settings className="h-6 w-6 text-primary-600 dark:text-primary-400" />
+                  Studio Preferences
+                </h3>
+                <IconButton
+                  variant="ghost"
+                  icon={<X className="h-5 w-5" />}
+                  onClick={() => setShowPreferencesModal(false)}
+                  aria-label="Close preferences"
+                />
+              </div>
+              
+              <div className="space-y-6">
+                {/* Audio Quality Settings */}
+                <div>
+                  <h4 className="text-lg font-medium text-dark-900 dark:text-white mb-3 flex items-center gap-2">
+                    <Volume2 className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                    Audio Quality
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">
+                        Recording Quality
+                      </label>
+                      <select className="w-full p-3 border border-gray-300 dark:border-dark-700 rounded-lg bg-white dark:bg-dark-800 text-dark-900 dark:text-white">
+                        <option value="high">High Quality (48kHz, 24-bit)</option>
+                        <option value="medium">Medium Quality (44.1kHz, 16-bit)</option>
+                        <option value="low">Low Quality (22kHz, 16-bit)</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">
+                        Processing Quality
+                      </label>
+                      <select className="w-full p-3 border border-gray-300 dark:border-dark-700 rounded-lg bg-white dark:bg-dark-800 text-dark-900 dark:text-white">
+                        <option value="ultra">Ultra Quality (Slower processing)</option>
+                        <option value="high">High Quality (Balanced)</option>
+                        <option value="fast">Fast Processing (Lower quality)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Interface Settings */}
+                <div>
+                  <h4 className="text-lg font-medium text-dark-900 dark:text-white mb-3 flex items-center gap-2">
+                    <Sliders className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                    Interface
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm font-medium text-dark-700 dark:text-dark-300">
+                          Real-time Preview
+                        </label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Preview settings changes instantly
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500"
+                        defaultChecked
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm font-medium text-dark-700 dark:text-dark-300">
+                          Auto-save Settings
+                        </label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Remember your preferred settings
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500"
+                        defaultChecked
+                      />
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm font-medium text-dark-700 dark:text-dark-300">
+                          Show Tutorials
+                        </label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Display helpful tips and guides
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500"
+                        defaultChecked={showTutorial}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance Settings */}
+                <div>
+                  <h4 className="text-lg font-medium text-dark-900 dark:text-white mb-3 flex items-center gap-2">
+                    <RefreshCw className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                    Performance
+                  </h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">
+                        Processing Threads
+                      </label>
+                      <select className="w-full p-3 border border-gray-300 dark:border-dark-700 rounded-lg bg-white dark:bg-dark-800 text-dark-900 dark:text-white">
+                        <option value="auto">Auto (Recommended)</option>
+                        <option value="1">Single Thread</option>
+                        <option value="2">2 Threads</option>
+                        <option value="4">4 Threads</option>
+                      </select>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm font-medium text-dark-700 dark:text-dark-300">
+                          Hardware Acceleration
+                        </label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Use GPU for faster processing
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500"
+                        defaultChecked
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Storage Settings */}
+                <div>
+                  <h4 className="text-lg font-medium text-dark-900 dark:text-white mb-3 flex items-center gap-2">
+                    <Save className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+                    Storage
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <label className="text-sm font-medium text-dark-700 dark:text-dark-300">
+                          Auto-save Recordings
+                        </label>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Automatically save recordings locally
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500"
+                        defaultChecked
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">
+                        Storage Location
+                      </label>
+                      <select className="w-full p-3 border border-gray-300 dark:border-dark-700 rounded-lg bg-white dark:bg-dark-800 text-dark-900 dark:text-white">
+                        <option value="browser">Browser Storage</option>
+                        <option value="cloud">Cloud Storage</option>
+                        <option value="local">Local Downloads</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200 dark:border-dark-700">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPreferencesModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    // Save preferences logic here
+                    setShowPreferencesModal(false);
+                  }}
+                  className="flex-1"
+                >
+                  Save Preferences
+                </Button>
               </div>
             </motion.div>
           </motion.div>

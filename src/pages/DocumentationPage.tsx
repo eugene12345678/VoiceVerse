@@ -28,10 +28,20 @@ import 'highlight.js/styles/github-dark.css';
 // Configure marked with syntax highlighting
 marked.setOptions({
   highlight: function(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      return hljs.highlight(code, { language: lang }).value;
+    // Ensure code is a string
+    if (typeof code !== 'string') {
+      return String(code || '');
     }
-    return hljs.highlightAuto(code).value;
+    
+    try {
+      if (lang && hljs.getLanguage(lang)) {
+        return hljs.highlight(code, { language: lang }).value;
+      }
+      return hljs.highlightAuto(code).value;
+    } catch (error) {
+      console.warn('Syntax highlighting failed:', error);
+      return code;
+    }
   },
 });
 
@@ -205,30 +215,40 @@ try {
 export const DocumentationPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSection, setSelectedSection] = useState('getting-started');
-  const [copiedCode, setCopiedCode] = useState<string | null>(null);
-
-  const handleCopyCode = async (code: string) => {
-    await navigator.clipboard.writeText(code);
-    setCopiedCode(code);
-    setTimeout(() => setCopiedCode(null), 2000);
-  };
 
   // Override marked renderer for code blocks to add copy button
   const renderer = new marked.Renderer();
   renderer.code = (code, language) => {
-    const highlightedCode = language
-      ? hljs.highlight(code, { language }).value
-      : hljs.highlightAuto(code).value;
+    // Ensure code is a string
+    const codeString = typeof code === 'string' ? code : String(code || '');
+    
+    let highlightedCode;
+    try {
+      if (language && hljs.getLanguage(language)) {
+        highlightedCode = hljs.highlight(codeString, { language }).value;
+      } else {
+        highlightedCode = hljs.highlightAuto(codeString).value;
+      }
+    } catch (error) {
+      console.warn('Code highlighting failed:', error);
+      highlightedCode = codeString;
+    }
+
+    const codeId = `code-${Math.random().toString(36).substr(2, 9)}`;
 
     return `
-      <div class="relative">
+      <div class="relative group">
         <button
-          class="absolute right-2 top-2 p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-          onclick="handleCopyCode('${code.replace(/'/g, "\\'")}')"
+          class="absolute right-2 top-2 p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors opacity-0 group-hover:opacity-100"
+          data-code-id="${codeId}"
+          data-code="${encodeURIComponent(codeString)}"
+          onclick="navigator.clipboard.writeText(decodeURIComponent(this.dataset.code))"
         >
-          ${copiedCode === code ? '<Check className="h-4 w-4" />' : '<Copy className="h-4 w-4" />'}
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+          </svg>
         </button>
-        <pre><code class="hljs ${language}">${highlightedCode}</code></pre>
+        <pre><code class="hljs ${language || ''}">${highlightedCode}</code></pre>
       </div>
     `;
   };

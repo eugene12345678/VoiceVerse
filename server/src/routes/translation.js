@@ -9,6 +9,11 @@ const { check } = require('express-validator');
 // @access  Public
 router.get('/languages', translationController.getSupportedLanguages);
 
+// @route   POST /api/translation/test
+// @desc    Test translation functionality
+// @access  Public
+router.post('/test', translationController.testTranslation);
+
 // @route   POST /api/translation/text
 // @desc    Translate text
 // @access  Private
@@ -20,6 +25,19 @@ router.post(
     check('targetLanguage', 'Target language is required').not().isEmpty()
   ],
   translationController.translateText
+);
+
+// @route   POST /api/translation/text-direct
+// @desc    Translate text directly with voice synthesis (no audio transcription)
+// @access  Private
+router.post(
+  '/text-direct',
+  [
+    authenticateToken,
+    check('text', 'Text is required').not().isEmpty(),
+    check('targetLanguage', 'Target language is required').not().isEmpty()
+  ],
+  translationController.translateTextDirect
 );
 
 // @route   POST /api/translation/audio

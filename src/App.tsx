@@ -69,7 +69,12 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Router>
+      <Router
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <Routes>
           
           <Route path="/login" element={<LoginPage />} />
@@ -90,7 +95,7 @@ function App() {
             <Route path="terms" element={<TermsPage />} />
             <Route path="help" element={<HelpCenterPage />} />
             <Route path="community" element={<CommunityPage />} />
-            <Route path="docs" element={<DocumentationPage />} />
+            <Route path="documentation" element={<DocumentationPage />} />
             <Route path="api" element={<ApiReferencePage />} />
             <Route path="cookies" element={<CookiesPage />} />
             <Route path="voices" element={<VoicesPage />} />
@@ -136,7 +141,7 @@ function App() {
                 <CheckoutPage />
               </ProtectedRoute>
             } />
-            <Route path="*" element={<Navigate to="/\" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
       </Router>

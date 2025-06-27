@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -53,8 +53,10 @@ model User {
   shares                  Share[]
   subscriptions           Subscription[]
   translations            Translation[]
+  translatedAudios        TranslatedAudio[]
   settings                UserSettings?
   voiceModels             VoiceModel[]
+  voiceClones             VoiceClone[]
   posts                   VoicePost[]
   voiceTransformations    VoiceTransformation[]
 }
@@ -78,8 +80,10 @@ model AudioFile {
   voicePost                 VoicePost?
   sourceTransformations     VoiceTransformation[] @relation("VoiceTransformation_sourceAudioIdToAudioFile")
   resultTransformations     VoiceTransformation[] @relation("VoiceTransformation_transformedAudioIdToAudioFile")
+  translatedAudios          TranslatedAudio[]
+  voiceClones               VoiceClone[]
 
-  @@index([userId], map: "AudioFile_userId_fkey")
+  @@index([userId])
 }
 
 model VoiceEffect {
@@ -91,7 +95,7 @@ model VoiceEffect {
   popularity        Int                   @default(0)
   isProOnly         Boolean               @default(false)
   elevenLabsVoiceId String?
-  settings          String?               @db.LongText
+  settings          String?               @db.Text
   createdAt         DateTime              @default(now())
   updatedAt         DateTime
   voiceModels       VoiceModel[]
@@ -107,7 +111,7 @@ model VoiceModel {
   isPublic          Boolean      @default(false)
   isCloned          Boolean      @default(false)
   originalAudioId   String?
-  settings          String?      @db.LongText
+  settings          String?      @db.Text
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   effectId          String?
@@ -116,6 +120,24 @@ model VoiceModel {
 
   @@index([userId])
   @@index([effectId])
+}
+
+model VoiceClone {
+  id                String    @id @default(uuid())
+  userId            String
+  sourceAudioId     String
+  elevenLabsVoiceId String    @unique
+  voiceName         String
+  voiceDescription  String?   @db.Text
+  status            String    @default("ready")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceAudio       AudioFile @relation(fields: [sourceAudioId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([sourceAudioId])
+  @@index([elevenLabsVoiceId])
 }
 
 model Translation {
@@ -133,6 +155,25 @@ model Translation {
   @@index([userId])
 }
 
+model TranslatedAudio {
+  id              String    @id
+  userId          String
+  originalAudioId String
+  targetLanguage  String
+  translatedText  String    @db.Text
+  audioData       Bytes?
+  filePath        String?
+  fileSize        Int
+  mimeType        String    @default("audio/mpeg")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  originalAudio   AudioFile @relation(fields: [originalAudioId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([originalAudioId])
+}
+
 model VoiceTransformation {
   id                 String      @id @default(uuid())
   userId             String
@@ -141,7 +182,7 @@ model VoiceTransformation {
   effectId           String
   effectName         String
   effectCategory     String
-  settings           String?     @db.LongText
+  settings           String?     @db.Text
   processingTime     Float?
   status             String      @default("pending")
   errorMessage       String?
@@ -152,9 +193,9 @@ model VoiceTransformation {
   transformedAudio   AudioFile?  @relation("VoiceTransformation_transformedAudioIdToAudioFile", fields: [transformedAudioId], references: [id])
   user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([sourceAudioId], map: "VoiceTransformation_sourceAudioId_fkey")
-  @@index([transformedAudioId], map: "VoiceTransformation_transformedAudioId_fkey")
-  @@index([userId], map: "VoiceTransformation_userId_fkey")
+  @@index([sourceAudioId])
+  @@index([transformedAudioId])
+  @@index([userId])
   @@index([effectId])
 }
 
@@ -167,7 +208,7 @@ model Follow {
   following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
 
   @@unique([followerId, followingId])
-  @@index([followingId], map: "Follow_followingId_fkey")
+  @@index([followingId])
 }
 
 model VoicePost {
@@ -178,7 +219,7 @@ model VoicePost {
   likes        Int       @default(0)
   comments     Int       @default(0)
   shares       Int       @default(0)
-  waveform     String?   @db.LongText
+  waveform     String?   @db.Text
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   postComments Comment[] @relation("VoicePostComments")
@@ -455,9 +496,9 @@ model UserSettings {
   userId                  String   @unique
   theme                   Theme    @default(SYSTEM)
   language                String   @default("en")
-  notificationPreferences String   @db.LongText
-  privacySettings         String   @db.LongText
-  accessibilitySettings   String   @db.LongText
+  notificationPreferences String   @db.Text
+  privacySettings         String   @db.Text
+  accessibilitySettings   String   @db.Text
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
   user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -536,7 +577,7 @@ model ContactMessage {
   status      ContactStatus    @default(NEW)
   timestamp   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
-  attachments String?          @db.LongText
+  attachments String?          @db.Text
   responseId  String?
   userId      String?
   user        User?            @relation(fields: [userId], references: [id])
@@ -561,7 +602,7 @@ model AIAssistantChat {
   id        String   @id @default(uuid())
   sessionId String   @unique
   userId    String?
-  messages  String   @db.LongText
+  messages  String   @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User?    @relation(fields: [userId], references: [id])
@@ -695,7 +736,7 @@ model SavedVoiceCreation {
   effectId           String?
   effectName         String?
   effectCategory     String?
-  settings           String?    @db.LongText
+  settings           String?    @db.Text
   isPublic           Boolean    @default(false)
   tags               String?    @db.Text
   createdAt          DateTime   @default(now())

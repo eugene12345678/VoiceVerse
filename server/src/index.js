@@ -7,6 +7,7 @@ const { PrismaClient } = require('@prisma/client');
 const authRoutes = require('./routes/auth');
 const voiceRoutes = require('./routes/voice');
 const translationRoutes = require('./routes/translation');
+const voiceTranslationRoutes = require('./routes/voiceTranslation');
 const uploadRoutes = require('./routes/upload');
 const feedRoutes = require('./routes/feed');
 const challengeRoutes = require('./routes/challenge');
@@ -69,6 +70,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/voice', voiceRoutes);
 app.use('/api/translation', translationRoutes);
+app.use('/api/voice-translate', voiceTranslationRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/feed', feedRoutes);
 app.use('/api/challenges', challengeRoutes);

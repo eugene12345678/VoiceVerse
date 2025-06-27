@@ -1,5 +1,8 @@
 # VoiceVerse - Complete Video Script
 
+
+"Hi, I'm Eugene Mathenge, a passionate full-stack developer from the beautiful coast of Diani, Kenya. I'm thrilled to participate in the world’s largest hackathon by Bolt, where innovation meets global impact."
+
 ## Project Overview
 **VoiceVerse** is a cutting-edge full-stack voice transformation platform that leverages AI technology to transform, clone, and share voice content. Built with modern web technologies, it offers a comprehensive suite of features for voice manipulation, social sharing, and monetization through NFTs.
 
