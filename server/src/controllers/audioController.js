@@ -256,19 +256,38 @@ const serveAudioFile = (req, res, audioFile) => {
   try {
     console.log(`Serving audio file: ${audioFile.id} from ${audioFile.storagePath || 'database'}`);
     
-    // Check if we have audio data in the database
+    // Check if we have audio data in the database (priority for serverless environments)
     if (audioFile.audioData) {
       console.log(`Serving audio data from database for file: ${audioFile.id}`);
-      // Set appropriate headers
+      // Set appropriate headers for audio streaming
       res.set('Content-Type', audioFile.mimeType || 'audio/mpeg');
       res.set('Content-Length', audioFile.fileSize || audioFile.audioData.length);
       res.set('Accept-Ranges', 'bytes');
+      res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      res.set('Access-Control-Allow-Headers', 'Range');
+      
+      // Handle range requests for audio streaming
+      const range = req.headers.range;
+      if (range) {
+        const parts = range.replace(/bytes=/, "").split("-");
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : audioFile.audioData.length - 1;
+        const chunksize = (end - start) + 1;
+        const chunk = audioFile.audioData.slice(start, end + 1);
+        
+        res.status(206);
+        res.set('Content-Range', `bytes ${start}-${end}/${audioFile.audioData.length}`);
+        res.set('Content-Length', chunksize);
+        return res.send(chunk);
+      }
       
       // Send the audio data directly from the database
       return res.send(audioFile.audioData);
     }
     
-    // If no audio data in database, try the file path
+    // If no audio data in database, try the file path (for local development)
     let filePath;
     if (audioFile.storagePath) {
       // Use the storage path from the database - but make sure it's absolute
@@ -298,7 +317,13 @@ const serveAudioFile = (req, res, audioFile) => {
     if (!fs.existsSync(filePath)) {
       console.warn(`Audio file not found on filesystem: ${filePath}`);
       
-      // Try alternative paths if the primary path doesn't exist
+      // In serverless environments, files may not persist, so prioritize database storage
+      if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+        console.log('Running in serverless environment, serving fallback audio');
+        return serveFallbackAudio(req, res, audioFile.id);
+      }
+      
+      // Try alternative paths if the primary path doesn't exist (local development)
       const fileName = audioFile.originalFilename || `${audioFile.id}.mp3`;
       const alternativePaths = [
         path.join(process.cwd(), 'uploads', 'audio', 'original', fileName),
@@ -324,8 +349,10 @@ const serveAudioFile = (req, res, audioFile) => {
       }
     }
     
-    // Send the file from the filesystem
+    // Send the file from the filesystem with proper headers
     console.log(`Successfully serving file from filesystem: ${filePath}`);
+    res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+    res.set('Access-Control-Allow-Origin', '*');
     res.sendFile(path.resolve(filePath));
   } catch (error) {
     console.error('Error serving audio file:', error);
@@ -341,6 +368,28 @@ const serveAudioFile = (req, res, audioFile) => {
  */
 const serveFallbackAudio = (req, res, requestedId) => {
   try {
+    console.log(`Serving fallback audio for requested ID: ${requestedId}`);
+    
+    // In serverless environments, generate a simple audio response
+    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+      // Create a minimal MP3 header for a silent audio file
+      const silentMp3Buffer = Buffer.from([
+        0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+      ]);
+      
+      res.set('Content-Type', 'audio/mpeg');
+      res.set('Content-Length', silentMp3Buffer.length);
+      res.set('X-Audio-Fallback', 'true');
+      res.set('X-Audio-Fallback-Type', 'silent');
+      res.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+      res.set('Access-Control-Allow-Origin', '*');
+      
+      console.log(`Serving silent audio fallback for serverless environment`);
+      return res.send(silentMp3Buffer);
+    }
+    
+    // For local development, try to serve actual fallback files
     // Use a deterministic approach to select a fallback file based on the requested ID
     // This ensures the same fallback is always used for the same requested ID
     const fallbackIndex = Math.abs(
@@ -348,34 +397,59 @@ const serveFallbackAudio = (req, res, requestedId) => {
     ) % FALLBACK_AUDIO_FILES.length;
     
     const fallbackFileName = FALLBACK_AUDIO_FILES[fallbackIndex];
-    const fallbackPath = path.join(process.cwd(), '..', 'public', fallbackFileName);
     
-    console.log(`Serving fallback audio file: ${fallbackPath} for requested ID: ${requestedId}`);
+    // Try multiple possible locations for fallback files
+    const possiblePaths = [
+      path.join(process.cwd(), '..', 'public', fallbackFileName),
+      path.join(process.cwd(), 'public', fallbackFileName),
+      path.join(process.cwd(), 'assets', fallbackFileName),
+      path.join(__dirname, '..', '..', '..', 'public', fallbackFileName)
+    ];
     
-    // Check if the fallback file exists
-    if (fs.existsSync(fallbackPath)) {
+    let fallbackPath = null;
+    for (const possiblePath of possiblePaths) {
+      if (fs.existsSync(possiblePath)) {
+        fallbackPath = possiblePath;
+        break;
+      }
+    }
+    
+    if (fallbackPath) {
+      console.log(`Serving fallback audio file: ${fallbackPath} for requested ID: ${requestedId}`);
       // Set headers to indicate this is a fallback file
       res.set('X-Audio-Fallback', 'true');
-      return res.sendFile(fallbackPath);
+      res.set('X-Audio-Fallback-File', fallbackFileName);
+      res.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+      res.set('Access-Control-Allow-Origin', '*');
+      return res.sendFile(path.resolve(fallbackPath));
     }
     
-    // If fallback file doesn't exist, try the first fallback file
-    const firstFallbackPath = path.join(process.cwd(), '..', 'public', FALLBACK_AUDIO_FILES[0]);
-    if (fs.existsSync(firstFallbackPath)) {
-      res.set('X-Audio-Fallback', 'true');
-      return res.sendFile(firstFallbackPath);
-    }
+    // If no fallback files are found, create a minimal response
+    console.warn(`No fallback audio files found, creating minimal response`);
     
-    // If all else fails, return a 404 error
-    return res.status(404).json({
-      status: 'error',
-      message: 'Audio file not found and no fallback available'
-    });
+    // Create a minimal MP3 header for a silent audio file
+    const silentMp3Buffer = Buffer.from([
+      0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    ]);
+    
+    res.set('Content-Type', 'audio/mpeg');
+    res.set('Content-Length', silentMp3Buffer.length);
+    res.set('X-Audio-Fallback', 'true');
+    res.set('X-Audio-Fallback-Type', 'silent');
+    res.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+    res.set('Access-Control-Allow-Origin', '*');
+    
+    return res.send(silentMp3Buffer);
   } catch (error) {
     console.error('Error serving fallback audio:', error);
+    
+    // Last resort: return a JSON error response
     return res.status(500).json({
       status: 'error',
-      message: 'Failed to serve fallback audio file'
+      message: 'Failed to serve audio file',
+      fallback: true,
+      requestedId: requestedId
     });
   }
 };

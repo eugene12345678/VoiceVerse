@@ -17,6 +17,7 @@ const contactRoutes = require('./routes/contactRoutes');
 const audioRoutes = require('./routes/audio');
 const savedVoiceRoutes = require('./routes/savedVoice');
 const userRoutes = require('./routes/user');
+const healthRoutes = require('./routes/health');
 require('dotenv').config();
 
 // Initialize Express app
@@ -24,7 +25,18 @@ const app = express();
 const prisma = new PrismaClient();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'https://voice-verse-two.vercel.app',
+    'https://*.vercel.app'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Range', 'Accept', 'Origin', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length', 'X-Audio-Fallback']
+}));
 app.use(express.json());
 app.use(morgan('dev'));
 
@@ -80,6 +92,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/audio', audioRoutes);
 app.use('/api/voice/saved', savedVoiceRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/health', healthRoutes);
 
 // Special handling for Stripe webhook endpoint
 app.post('/api/subscription/webhook', express.raw({ type: 'application/json' }), (req, res) => {

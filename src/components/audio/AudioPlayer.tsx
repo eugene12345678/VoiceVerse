@@ -25,6 +25,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [maxRetries] = useState(3);
 
   // Format time as MM:SS
   const formatTime = (time: number) => {
@@ -134,9 +136,48 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     };
 
     const handleError = (e: Event) => {
-      console.error('Audio error:', e);
-      setError('Failed to load audio');
-      setIsLoading(false);
+      const target = e.target as HTMLAudioElement;
+      const mediaError = target.error;
+      let errorMessage = 'Failed to load audio';
+      
+      if (mediaError) {
+        switch (mediaError.code) {
+          case MediaError.MEDIA_ERR_ABORTED:
+            errorMessage = 'Audio loading was aborted';
+            break;
+          case MediaError.MEDIA_ERR_NETWORK:
+            errorMessage = 'Network error while loading audio';
+            break;
+          case MediaError.MEDIA_ERR_DECODE:
+            errorMessage = 'Audio format not supported or corrupted';
+            break;
+          case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            errorMessage = 'Audio source not supported';
+            break;
+          default:
+            errorMessage = 'Unknown audio error occurred';
+        }
+      }
+      
+      console.error('Audio error:', errorMessage, e);
+      
+      // Try to retry loading if we haven't exceeded max retries
+      if (retryCount < maxRetries && audioUrl) {
+        console.log(`Retrying audio load (attempt ${retryCount + 1}/${maxRetries})`);
+        setRetryCount(prev => prev + 1);
+        setError(null);
+        setIsLoading(true);
+        
+        // Wait a bit before retrying
+        setTimeout(() => {
+          if (audioRef.current) {
+            audioRef.current.load();
+          }
+        }, 1000 * (retryCount + 1)); // Exponential backoff
+      } else {
+        setError(errorMessage);
+        setIsLoading(false);
+      }
     };
 
     const handleCanPlay = () => {
@@ -177,6 +218,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       setDuration(0);
       setIsLoading(true);
       setError(null);
+      setRetryCount(0); // Reset retry count for new URL
       
       // Set new source
       audioRef.current.src = audioUrl;
