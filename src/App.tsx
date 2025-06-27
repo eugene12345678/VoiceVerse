@@ -20,6 +20,7 @@ import { CheckoutPage } from './pages/CheckoutPage';
 import { Layout } from './components/common/Layout';
 import { IntroLoader } from './components/IntroLoader';
 import { ProtectedRoute } from './components/common/ProtectedRoute';
+import { CookieConsent } from './components/common/CookieConsent';
 import { initializeTheme } from './store/themeStore';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -147,6 +148,7 @@ function App() {
       </Router>
       <ReactQueryDevtools initialIsOpen={false} />
       <ToastContainer />
+      <CookieConsent />
     </QueryClientProvider>
   );
 }

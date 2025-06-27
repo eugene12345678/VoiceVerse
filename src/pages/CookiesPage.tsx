@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { getCookiePreferences, resetCookieConsent } from '../components/common/CookieConsent';
 
 const cookieCategories = [
   {
@@ -110,10 +111,22 @@ const cookieCategories = [
 
 export const CookiesPage = () => {
   const [cookiePreferences, setCookiePreferences] = React.useState<Record<string, boolean>>({
-    functional: true,
-    analytics: true,
+    functional: false,
+    analytics: false,
     marketing: false
   });
+
+  // Load existing preferences on component mount
+  React.useEffect(() => {
+    const existingPreferences = getCookiePreferences();
+    if (existingPreferences) {
+      setCookiePreferences({
+        functional: existingPreferences.functional,
+        analytics: existingPreferences.analytics,
+        marketing: existingPreferences.marketing
+      });
+    }
+  }, []);
 
   const handleToggleCookie = (category: string) => {
     setCookiePreferences(prev => ({
@@ -123,8 +136,30 @@ export const CookiesPage = () => {
   };
 
   const handleSavePreferences = () => {
-    // Save cookie preferences
-    console.log('Saving preferences:', cookiePreferences);
+    // Save cookie preferences to localStorage
+    const preferences = {
+      necessary: true,
+      functional: cookiePreferences.functional,
+      analytics: cookiePreferences.analytics,
+      marketing: cookiePreferences.marketing
+    };
+    
+    localStorage.setItem('voiceverse_cookie_consent', 'customized');
+    localStorage.setItem('voiceverse_cookie_preferences', JSON.stringify(preferences));
+    
+    // Show success message or redirect
+    alert('Cookie preferences saved successfully!');
+  };
+
+  const handleResetPreferences = () => {
+    resetCookieConsent();
+    setCookiePreferences({
+      functional: false,
+      analytics: false,
+      marketing: false
+    });
+    // Reload page to show cookie consent popup again
+    window.location.reload();
   };
 
   return (
@@ -286,8 +321,9 @@ export const CookiesPage = () => {
                   variant="outline"
                   className="border-white text-white hover:bg-white/10"
                   leftIcon={<Lock className="h-5 w-5" />}
+                  onClick={handleResetPreferences}
                 >
-                  Accept All
+                  Reset Preferences
                 </Button>
               </div>
             </div>
