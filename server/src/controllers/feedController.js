@@ -206,7 +206,7 @@ exports.createFeedPost = async (req, res) => {
     
     // Check if user owns the audio file
     // In development mode, skip this check if using the dev user
-    const isDevelopment = process.env.NODE_ENV === 'development' || true;
+    const isDevelopment = process.env.NODE_ENV === 'development';
     if (!isDevelopment && audioFile.userId !== req.user.id) {
       return res.status(403).json({
         status: 'error',

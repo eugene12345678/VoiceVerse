@@ -22,7 +22,7 @@ router.post('/nft/create', (req, res, next) => {
   console.log('POST /nft/create called with body:', req.body);
   
   // Skip authentication in development mode
-  const isDevelopment = process.env.NODE_ENV === 'development' || true;
+  const isDevelopment = process.env.NODE_ENV === 'development';
   if (isDevelopment) {
     // Add a mock user for development
     req.user = {
@@ -42,7 +42,7 @@ router.post('/algorand/nft/create', (req, res, next) => {
   console.log('POST /algorand/nft/create called with body:', req.body);
   
   // Skip authentication in development mode
-  const isDevelopment = process.env.NODE_ENV === 'development' || true;
+  const isDevelopment = process.env.NODE_ENV === 'development';
   if (isDevelopment) {
     // Add a mock user for development
     req.user = {

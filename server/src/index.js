@@ -96,7 +96,7 @@ app.post('/nft/create', (req, res, next) => {
   const nftController = require('./controllers/nftController');
   
   // Skip authentication in development mode
-  const isDevelopment = process.env.NODE_ENV === 'development' || true;
+  const isDevelopment = process.env.NODE_ENV === 'development';
   if (isDevelopment) {
     // Add a mock user for development
     req.user = {
@@ -121,7 +121,7 @@ app.post('/api/algorand/nft/create', (req, res, next) => {
   const nftController = require('./controllers/nftController');
   
   // Skip authentication in development mode
-  const isDevelopment = process.env.NODE_ENV === 'development' || true;
+  const isDevelopment = process.env.NODE_ENV === 'development';
   if (isDevelopment) {
     // Add a mock user for development
     req.user = {
