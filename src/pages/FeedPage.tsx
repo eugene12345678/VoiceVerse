@@ -12,8 +12,6 @@ import {
   Award,
   Sparkles,
   MoreHorizontal,
-  Play,
-  Pause,
   ChevronDown,
   Zap,
   X
@@ -22,7 +20,7 @@ import { Avatar } from '../components/ui/Avatar';
 import { IconButton } from '../components/ui/IconButton';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
-import { WaveformVisualizer } from '../components/audio/WaveformVisualizer';
+import { AudioPlayer } from '../components/audio/AudioPlayer';
 import { formatNumber, formatTimeAgo } from '../lib/utils';
 import { feedAPI, uploadAPI } from '../lib/api';
 
@@ -102,7 +100,6 @@ const AudioPost: React.FC<AudioPostProps> = ({
   fetchComments,
   handleLikeComment
 }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -178,34 +175,18 @@ const AudioPost: React.FC<AudioPostProps> = ({
           </div>
 
           {/* Audio Player */}
-          <div className="bg-gray-50 dark:bg-dark-800/50 rounded-xl p-4 mb-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <IconButton
-                  variant={isPlaying ? 'accent' : 'primary'}
-                  size="sm"
-                  icon={isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-                  onClick={() => setIsPlaying(!isPlaying)}
-                  aria-label={isPlaying ? 'Pause' : 'Play'}
-                />
-                <span className="text-sm font-medium text-dark-600 dark:text-dark-400">
-                  {post.duration}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-dark-500 dark:text-dark-400 flex items-center gap-1">
-                  <Zap className="h-4 w-4" />
-                  {post.engagement}% Match
-                </span>
-              </div>
-            </div>
-
-            <WaveformVisualizer
+          <div className="mb-4">
+            <AudioPlayer
               audioUrl={post.audioUrl || ''}
-              isPlaying={isPlaying}
-              onPlayPause={() => setIsPlaying(!isPlaying)}
               height={80}
+              className="mb-2"
             />
+            <div className="flex justify-end">
+              <span className="text-sm text-dark-500 dark:text-dark-400 flex items-center gap-1">
+                <Zap className="h-4 w-4" />
+                {post.engagement}% Match
+              </span>
+            </div>
           </div>
 
           {/* Interaction Stats */}

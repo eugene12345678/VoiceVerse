@@ -6,6 +6,7 @@ interface WaveformVisualizerProps {
   audioUrl: string;
   isPlaying: boolean;
   onPlayPause: () => void;
+  onStop?: () => void;
   onReady?: (duration: number) => void;
   onPositionChange?: (position: number) => void;
   waveColor?: string;
@@ -21,6 +22,7 @@ export const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
   audioUrl,
   isPlaying,
   onPlayPause,
+  onStop,
   onReady,
   onPositionChange,
   waveColor = 'rgba(77, 141, 243, 0.4)',
@@ -37,6 +39,18 @@ export const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
   // Use separate refs to track component state and abort controller
   const isMountedRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
+  
+  // Add a method to stop audio playback
+  const stopAudio = () => {
+    if (wavesurferRef.current && isMountedRef.current) {
+      try {
+        wavesurferRef.current.stop();
+        onStop?.();
+      } catch (err) {
+        console.warn('Error stopping audio:', err);
+      }
+    }
+  };
   
   // Initialize WaveSurfer only once to avoid recreation issues
   useEffect(() => {
@@ -632,6 +646,8 @@ export const WaveformVisualizer: React.FC<WaveformVisualizerProps> = ({
         ref={containerRef} 
         className="cursor-pointer rounded-lg overflow-hidden w-full"
         style={{ minHeight: `${height}px` }}
+        onDoubleClick={stopAudio}
+        title="Click to play/pause, double-click to stop"
       />
       
       {/* Hidden audio element with multiple sources for better format support */}
