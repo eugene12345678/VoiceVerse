@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   Github,
   Linkedin,
-  Twitter,
+ 
   Globe,
   Mail,
   Brain,
@@ -85,7 +85,7 @@ export const TeamPage = () => {
                 </p>
                 <div className="flex gap-4">
                   <a
-                    href="https://github.com/yourusername"
+                    href="https://github.com/eugene12345678"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-white hover:text-primary-400 transition-colors"
@@ -93,21 +93,14 @@ export const TeamPage = () => {
                     <Github className="h-6 w-6" />
                   </a>
                   <a
-                    href="https://linkedin.com/in/yourusername"
+                    href="https://www.linkedin.com/in/eugene-mathenge-981189262/"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-white hover:text-primary-400 transition-colors"
                   >
                     <Linkedin className="h-6 w-6" />
                   </a>
-                  <a
-                    href="https://twitter.com/yourusername"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white hover:text-primary-400 transition-colors"
-                  >
-                    <Twitter className="h-6 w-6" />
-                  </a>
+                 
                 </div>
               </div>
             </Card>
