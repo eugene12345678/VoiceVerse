@@ -225,7 +225,7 @@ exports.forgotPassword = async (req, res) => {
 
     // Create reset URL - use environment variable or fallback to production URL
     const frontendUrl = process.env.FRONTEND_URL || 'https://voice-verse-two.vercel.app';
-    const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
+    const resetUrl = `${frontendUrl}/#/reset-password/${resetToken}`;
     
     console.log(`Generated reset URL: ${resetUrl}`);
 
