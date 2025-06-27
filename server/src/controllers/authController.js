@@ -223,9 +223,9 @@ exports.forgotPassword = async (req, res) => {
       }
     });
 
-    // Create reset URL - use a hardcoded URL for development
-    // In production, this should be configured properly in environment variables
-    const resetUrl = `https://voice-verse-two.vercel.app/reset-password/${resetToken}`;
+    // Create reset URL - use environment variable or fallback to production URL
+    const frontendUrl = process.env.FRONTEND_URL || 'https://voice-verse-two.vercel.app';
+    const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
     
     console.log(`Generated reset URL: ${resetUrl}`);
 
@@ -276,6 +276,7 @@ exports.resetPassword = async (req, res) => {
   const { token } = req.params;
 
   console.log(`Reset password request received for token: ${token}`);
+  console.log(`Token length: ${token.length}`);
 
   try {
     // Hash the token from the URL to compare with the stored hashed token
@@ -285,6 +286,7 @@ exports.resetPassword = async (req, res) => {
       .digest('hex');
 
     console.log(`Looking for user with hashed token: ${hashedToken}`);
+    console.log(`Hashed token length: ${hashedToken.length}`);
 
     // Find user with the token and check if token is still valid
     const user = await req.prisma.user.findFirst({
