@@ -135,7 +135,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       setCurrentTime(0);
     };
 
-    const handleError = (e: Event) => {
+    const handleError = async (e: Event) => {
       const target = e.target as HTMLAudioElement;
       const mediaError = target.error;
       let errorMessage = 'Failed to load audio';
@@ -161,8 +161,20 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       
       console.error('Audio error:', errorMessage, e);
       
-      // Try to retry loading if we haven't exceeded max retries
-      if (retryCount < maxRetries && audioUrl) {
+      // Check if the audio URL returns a 404 or error response
+      try {
+        const response = await fetch(audioUrl, { method: 'HEAD' });
+        if (response.status === 404) {
+          setError('Audio file not found');
+          setIsLoading(false);
+          return;
+        }
+      } catch (fetchError) {
+        console.error('Error checking audio URL:', fetchError);
+      }
+      
+      // Try to retry loading if we haven't exceeded max retries and it's not a 404
+      if (retryCount < maxRetries && audioUrl && !errorMessage.includes('not found')) {
         console.log(`Retrying audio load (attempt ${retryCount + 1}/${maxRetries})`);
         setRetryCount(prev => prev + 1);
         setError(null);

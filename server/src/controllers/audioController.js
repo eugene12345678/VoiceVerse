@@ -370,23 +370,15 @@ const serveFallbackAudio = (req, res, requestedId) => {
   try {
     console.log(`Serving fallback audio for requested ID: ${requestedId}`);
     
-    // In serverless environments, generate a simple audio response
+    // In serverless environments, return a proper error response instead of invalid audio
     if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-      // Create a minimal MP3 header for a silent audio file
-      const silentMp3Buffer = Buffer.from([
-        0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-      ]);
-      
-      res.set('Content-Type', 'audio/mpeg');
-      res.set('Content-Length', silentMp3Buffer.length);
-      res.set('X-Audio-Fallback', 'true');
-      res.set('X-Audio-Fallback-Type', 'silent');
-      res.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
-      res.set('Access-Control-Allow-Origin', '*');
-      
-      console.log(`Serving silent audio fallback for serverless environment`);
-      return res.send(silentMp3Buffer);
+      console.log(`Audio file not found in serverless environment, returning 404`);
+      return res.status(404).json({
+        status: 'error',
+        message: 'Audio file not found',
+        requestedId: requestedId,
+        fallback: true
+      });
     }
     
     // For local development, try to serve actual fallback files
@@ -424,23 +416,15 @@ const serveFallbackAudio = (req, res, requestedId) => {
       return res.sendFile(path.resolve(fallbackPath));
     }
     
-    // If no fallback files are found, create a minimal response
-    console.warn(`No fallback audio files found, creating minimal response`);
+    // If no fallback files are found, return a proper error response
+    console.warn(`No fallback audio files found, returning 404`);
     
-    // Create a minimal MP3 header for a silent audio file
-    const silentMp3Buffer = Buffer.from([
-      0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    ]);
-    
-    res.set('Content-Type', 'audio/mpeg');
-    res.set('Content-Length', silentMp3Buffer.length);
-    res.set('X-Audio-Fallback', 'true');
-    res.set('X-Audio-Fallback-Type', 'silent');
-    res.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
-    res.set('Access-Control-Allow-Origin', '*');
-    
-    return res.send(silentMp3Buffer);
+    return res.status(404).json({
+      status: 'error',
+      message: 'Audio file not found and no fallback available',
+      requestedId: requestedId,
+      fallback: true
+    });
   } catch (error) {
     console.error('Error serving fallback audio:', error);
     
