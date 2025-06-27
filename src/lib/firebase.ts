@@ -82,12 +82,12 @@ export const firebaseAuth = {
       // Use backend authentication instead of Firebase for email/password
       const response = await authAPI.login(email.trim(), password);
       
-      // Create a Firebase-compatible UserCredential object
+      // Create a Firebase-compatible UserCredential object using the backend user ID
       const userCredential: UserCredential = {
         user: {
-          uid: response.user.id,
+          uid: response.user.id, // Use the backend user ID directly
           email: response.user.email,
-          displayName: response.user.username,
+          displayName: response.user.displayName || response.user.username,
           photoURL: response.user.profilePicture,
           emailVerified: true,
           isAnonymous: false,
@@ -99,7 +99,7 @@ export const firebaseAuth = {
           refreshToken: '',
           tenantId: null,
           delete: async () => { throw new Error('Not implemented'); },
-          getIdToken: async () => response.token,
+          getIdToken: async () => response.token, // Use the backend JWT token
           getIdTokenResult: async () => ({ token: response.token } as any),
           reload: async () => {},
           toJSON: () => ({}),
@@ -127,12 +127,12 @@ export const firebaseAuth = {
         password
       );
       
-      // Create a Firebase-compatible UserCredential object
+      // Create a Firebase-compatible UserCredential object using the backend user ID
       const userCredential: UserCredential = {
         user: {
-          uid: response.user.id,
+          uid: response.user.id, // Use the backend user ID directly
           email: response.user.email,
-          displayName: response.user.username,
+          displayName: response.user.displayName || response.user.username,
           photoURL: response.user.profilePicture,
           emailVerified: true,
           isAnonymous: false,
@@ -144,7 +144,7 @@ export const firebaseAuth = {
           refreshToken: '',
           tenantId: null,
           delete: async () => { throw new Error('Not implemented'); },
-          getIdToken: async () => response.token,
+          getIdToken: async () => response.token, // Use the backend JWT token
           getIdTokenResult: async () => ({ token: response.token } as any),
           reload: async () => {},
           toJSON: () => ({}),

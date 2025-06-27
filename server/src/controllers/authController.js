@@ -225,7 +225,7 @@ exports.forgotPassword = async (req, res) => {
 
     // Create reset URL - use a hardcoded URL for development
     // In production, this should be configured properly in environment variables
-    const resetUrl = `http://localhost:5173/reset-password/${resetToken}`;
+    const resetUrl = `https://voice-verse-two.vercel.app/reset-password/${resetToken}`;
     
     console.log(`Generated reset URL: ${resetUrl}`);
 

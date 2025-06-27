@@ -67,13 +67,20 @@ const authenticateToken = async (req, res, next) => {
       }
     }
 
-    // Get user from database using Firebase UID
+    // First try to find user by regular ID (for backend-created users)
     let user = await req.prisma.user.findUnique({
-      where: { firebaseUid: decoded.id }
+      where: { id: decoded.id }
     });
 
-    // If user doesn't exist, try to create one automatically for Firebase users
-    if (!user && decoded.id && decoded.id !== 'dev-user-id') {
+    // If not found by regular ID, try to find by Firebase UID
+    if (!user) {
+      user = await req.prisma.user.findUnique({
+        where: { firebaseUid: decoded.id }
+      });
+    }
+
+    // If user doesn't exist and this looks like a Firebase UID, try to create one automatically for Firebase users
+    if (!user && decoded.id && decoded.id !== 'dev-user-id' && decoded.id.length > 20) {
       try {
         // Create a new user with the Firebase UID
         const displayName = decoded.name || decoded.displayName;
