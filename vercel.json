@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "buildCommand": "npm run build && cd server && npm install && npx prisma generate",
   "builds": [
     {
       "src": "package.json",
@@ -13,8 +12,7 @@
       "src": "server/src/index.js",
       "use": "@vercel/node",
       "config": {
-        "maxLambdaSize": "50mb",
-        "includeFiles": "server/prisma/**"
+        "maxLambdaSize": "50mb"
       }
     }
   ],
@@ -29,7 +27,7 @@
       }
     },
     {
-      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot))",
+      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|mp3|wav|ogg))",
       "dest": "/dist/$1",
       "headers": {
         "Cache-Control": "public, max-age=31536000, immutable"
