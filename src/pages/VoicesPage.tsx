@@ -548,75 +548,12 @@ const VoicePost: React.FC<VoicePostProps> = ({
 
   // Load audio source
   useEffect(() => {
-    // Make sure the audio source is properly set before attempting to play
-    if (audioRef.current) {
-      // Clear any existing sources
-      while (audioRef.current.firstChild) {
-        audioRef.current.removeChild(audioRef.current.firstChild);
-      }
-      
-      // Normalize the URL
-      const normalizedUrl = post.audioUrl.startsWith('http') || post.audioUrl.startsWith('/') 
-        ? post.audioUrl 
-        : `/${post.audioUrl}`;
-      
-      // Create a full URL if it's an API path
-      let fullUrl = normalizedUrl;
-      if (normalizedUrl.includes('/api/audio/') && !normalizedUrl.startsWith('http')) {
-        const baseUrl = window.location.origin;
-        fullUrl = baseUrl + normalizedUrl;
-      }
-      
-      // Create source elements for different formats
-      const createSource = (url, type) => {
-        const source = document.createElement('source');
-        source.src = url;
-        source.type = type;
-        return source;
-      };
-      
-      // Try to detect the MIME type from the URL
-      const fileExtension = fullUrl.split('.').pop()?.toLowerCase();
-      let mimeType = 'audio/mpeg'; // Default to MP3
-      
-      if (fileExtension) {
-        switch (fileExtension) {
-          case 'mp3':
-            mimeType = 'audio/mpeg';
-            break;
-          case 'wav':
-            mimeType = 'audio/wav';
-            break;
-          case 'ogg':
-            mimeType = 'audio/ogg';
-            break;
-          case 'm4a':
-            mimeType = 'audio/mp4';
-            break;
-          case 'aac':
-            mimeType = 'audio/aac';
-            break;
-        }
-      }
-      
-      // Add the primary source
-      audioRef.current.appendChild(createSource(fullUrl, mimeType));
-      
-      // Add fallback sources
-      const fallbackSources = [
-        { url: '/sound-design-elements-sfx-ps-022-302865.mp3', type: 'audio/mpeg' },
-        { url: '/male-voice-bum-bum-104098.mp3', type: 'audio/mpeg' }
-      ];
-      
-      fallbackSources.forEach(source => {
-        audioRef.current.appendChild(createSource(source.url, source.type));
-      });
-      
-      // Load the audio
+    if (audioRef.current && post.audioUrl) {
+      // Set the audio source directly without fallbacks to ensure we play the correct audio
+      audioRef.current.src = post.audioUrl;
       audioRef.current.load();
       
-      // Log the sources for debugging
-      console.log('Audio sources:', Array.from(audioRef.current.children).map(source => (source as HTMLSourceElement).src));
+      console.log('Loading audio from URL:', post.audioUrl);
     }
   }, [post.audioUrl]);
 
@@ -635,39 +572,6 @@ const VoicePost: React.FC<VoicePostProps> = ({
             audioRef.current.play().catch(error => {
               console.error('Error playing audio:', error);
               setIsPlaying(false);
-              
-              // Try to recover by reloading the audio
-              if (audioRef.current) {
-                // Clear any existing sources
-                while (audioRef.current.firstChild) {
-                  audioRef.current.removeChild(audioRef.current.firstChild);
-                }
-                
-                // Try the fallback sources directly
-                const fallbackSources = [
-                  { url: '/sound-design-elements-sfx-ps-022-302865.mp3', type: 'audio/mpeg' },
-                  { url: '/male-voice-bum-bum-104098.mp3', type: 'audio/mpeg' }
-                ];
-                
-                fallbackSources.forEach(source => {
-                  const sourceElement = document.createElement('source');
-                  sourceElement.src = source.url;
-                  sourceElement.type = source.type;
-                  audioRef.current?.appendChild(sourceElement);
-                });
-                
-                audioRef.current.load();
-                
-                // Try to play again after a short delay
-                setTimeout(() => {
-                  if (audioRef.current && isPlaying) {
-                    audioRef.current.play().catch(secondError => {
-                      console.error('Error playing fallback audio:', secondError);
-                      setIsPlaying(false);
-                    });
-                  }
-                }, 500);
-              }
             });
           }
         }, 100);
@@ -749,25 +653,8 @@ const VoicePost: React.FC<VoicePostProps> = ({
         onTimeUpdate={handleTimeUpdate}
         onEnded={() => setIsPlaying(false)}
         preload="metadata"
+        src={post.audioUrl}
       >
-        {/* Primary source */}
-        <source 
-          src={post.audioUrl.startsWith('http') || post.audioUrl.startsWith('/') 
-            ? post.audioUrl 
-            : `/${post.audioUrl}`} 
-          type="audio/mpeg" 
-        />
-        
-        {/* Fallback sources */}
-        <source 
-          src={`/sound-design-elements-sfx-ps-022-302865.mp3`} 
-          type="audio/mpeg" 
-        />
-        <source 
-          src={`/male-voice-bum-bum-104098.mp3`} 
-          type="audio/mpeg" 
-        />
-        
         {/* Error message for browsers that don't support audio */}
         Your browser does not support the audio element.
       </audio>

@@ -14,7 +14,8 @@ import {
   MoreHorizontal,
   ChevronDown,
   Zap,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import { Avatar } from '../components/ui/Avatar';
 import { IconButton } from '../components/ui/IconButton';
@@ -78,6 +79,7 @@ interface AudioPostProps {
   onLike: (postId: string) => void;
   onSave: (postId: string) => void;
   onShare: (postId: string) => void;
+  onDelete: (postId: string) => void;
   newComment: { [key: string]: string };
   setNewComment: React.Dispatch<React.SetStateAction<{ [key: string]: string }>>;
   handleSubmitComment: (postId: string) => void;
@@ -85,6 +87,7 @@ interface AudioPostProps {
   postComments: { [key: string]: Comment[] };
   fetchComments: (postId: string) => void;
   handleLikeComment: (commentId: string, postId: string) => void;
+  currentUserId?: string;
 }
 
 const AudioPost: React.FC<AudioPostProps> = ({ 
@@ -92,18 +95,52 @@ const AudioPost: React.FC<AudioPostProps> = ({
   onLike, 
   onSave, 
   onShare,
+  onDelete,
   newComment,
   setNewComment,
   handleSubmitComment,
   isSubmittingComment,
   postComments,
   fetchComments,
-  handleLikeComment
+  handleLikeComment,
+  currentUserId
 }) => {
   const [showComments, setShowComments] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const postRef = useRef<HTMLDivElement>(null);
+  const optionsMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Check if current user owns this post
+  const isOwnPost = currentUserId && post.user.id === currentUserId;
+  
+  // Close options menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (optionsMenuRef.current && !optionsMenuRef.current.contains(event.target as Node)) {
+        setShowOptionsMenu(false);
+      }
+    };
+
+    if (showOptionsMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showOptionsMenu]);
+  
+  // Handle delete confirmation
+  const handleDeleteClick = () => {
+    setShowOptionsMenu(false);
+    setShowDeleteConfirm(true);
+  };
+  
+  // Handle delete confirmation
+  const handleConfirmDelete = () => {
+    onDelete(post.id);
+    setShowDeleteConfirm(false);
+  };
 
   return (
     <motion.div
@@ -141,12 +178,54 @@ const AudioPost: React.FC<AudioPostProps> = ({
               </div>
             </div>
           </div>
-          <IconButton
-            variant="ghost"
-            size="sm"
-            icon={<MoreHorizontal className="h-5 w-5" />}
-            aria-label="More options"
-          />
+          <div className="relative" ref={optionsMenuRef}>
+            <IconButton
+              variant="ghost"
+              size="sm"
+              icon={<MoreHorizontal className="h-5 w-5" />}
+              onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+              aria-label="More options"
+            />
+            
+            {/* Options Dropdown Menu */}
+            <AnimatePresence>
+              {showOptionsMenu && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-dark-800 rounded-lg shadow-lg border border-gray-200 dark:border-dark-700 z-50"
+                >
+                  <div className="py-2">
+                    {isOwnPost && (
+                      <button
+                        onClick={handleDeleteClick}
+                        className="w-full px-4 py-2 text-left text-sm text-error-600 dark:text-error-400 hover:bg-error-50 dark:hover:bg-error-900/20 flex items-center gap-2 transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete Post
+                      </button>
+                    )}
+                    {!isOwnPost && (
+                      <button
+                        onClick={() => {
+                          setShowOptionsMenu(false);
+                          // Add report functionality here if needed
+                          alert('Report functionality would be implemented here');
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-dark-600 dark:text-dark-400 hover:bg-gray-50 dark:hover:bg-dark-700 flex items-center gap-2 transition-colors"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                        Report Post
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Post Content */}
@@ -335,6 +414,50 @@ const AudioPost: React.FC<AudioPostProps> = ({
           )}
         </AnimatePresence>
       </Card>
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-error-100 dark:bg-error-900/30 rounded-full flex items-center justify-center">
+                  <Trash2 className="h-6 w-6 text-error-600 dark:text-error-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-dark-900 dark:text-white">
+                    Delete Post
+                  </h3>
+                  <p className="text-sm text-dark-600 dark:text-dark-400">
+                    This action cannot be undone
+                  </p>
+                </div>
+              </div>
+              
+              <p className="text-dark-700 dark:text-dark-300 mb-6">
+                Are you sure you want to delete this post? This will permanently remove the post and all its comments.
+              </p>
+              
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={handleConfirmDelete}
+                  className="flex-1"
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </motion.div>
   );
 };
@@ -404,6 +527,10 @@ export const FeedPage = () => {
   const [newComment, setNewComment] = useState<{ [key: string]: string }>({});
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [importedVoiceData, setImportedVoiceData] = useState<any>(null);
+  
+  // This would typically come from authentication context
+  // For now, we'll use a mock current user ID
+  const [currentUserId] = useState<string>('user1'); // Mock current user
 
   // Fetch posts on component mount and when filter changes
   useEffect(() => {
@@ -575,6 +702,37 @@ export const FeedPage = () => {
       }
     } catch (err) {
       console.error('Error sharing post:', err);
+    }
+  };
+  
+  // Handle delete action
+  const handleDelete = async (postId: string) => {
+    try {
+      const response = await feedAPI.deleteFeedPost(postId);
+      if (response.status === 'success') {
+        // Remove the post from the posts list
+        setPosts(posts.filter(post => post.id !== postId));
+        
+        // Also remove any comments for this post
+        const updatedComments = { ...postComments };
+        delete updatedComments[postId];
+        setPostComments(updatedComments);
+        
+        // Show success message
+        setError(null);
+      }
+    } catch (err) {
+      console.error('Error deleting post:', err);
+      setError('Failed to delete post. Please try again.');
+      
+      // Fallback: remove from UI anyway if it's the user's own post
+      const post = posts.find(p => p.id === postId);
+      if (post && post.user.id === currentUserId) {
+        setPosts(posts.filter(p => p.id !== postId));
+        const updatedComments = { ...postComments };
+        delete updatedComments[postId];
+        setPostComments(updatedComments);
+      }
     }
   };
   
@@ -853,6 +1011,7 @@ export const FeedPage = () => {
                 onLike={handleLike}
                 onSave={handleSave}
                 onShare={handleShare}
+                onDelete={handleDelete}
                 newComment={newComment}
                 setNewComment={setNewComment}
                 handleSubmitComment={handleSubmitComment}
@@ -860,6 +1019,7 @@ export const FeedPage = () => {
                 postComments={postComments}
                 fetchComments={fetchComments}
                 handleLikeComment={handleLikeComment}
+                currentUserId={currentUserId}
               />
             ))}
           </AnimatePresence>

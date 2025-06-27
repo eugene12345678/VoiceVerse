@@ -333,6 +333,12 @@ export const feedAPI = {
     return response.data;
   },
   
+  // Delete a feed post
+  deleteFeedPost: async (postId: string) => {
+    const response = await api.delete(`/feed/${postId}`);
+    return response.data;
+  },
+  
   // Get saved posts
   getSavedPosts: async (page: number = 1, limit: number = 10) => {
     const response = await api.get('/feed/saved', { params: { page, limit } });
