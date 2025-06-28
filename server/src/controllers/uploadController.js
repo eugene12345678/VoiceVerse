@@ -52,10 +52,10 @@ const storage = multer.diskStorage({
 // File filter to accept only audio files
 const fileFilter = (req, file, cb) => {
   const allowedMimeTypes = [
-    'audio/mpeg',
-    'audio/mp3',
-    'audio/wav',
-    'audio/ogg',
+    'audio/mpeg',,
+    'audio/mp3',,
+    'audio/wav',,
+    'audio/ogg',,
     'audio/webm'
   ];
   
@@ -306,7 +306,7 @@ exports.uploadNFTFile = (req, res, next) => {
         }),
         fileFilter: (req, file, cb) => {
           // Accept both audio and image files
-          const allowedAudioTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/webm'];
+          const allowedAudioTypes = ['audio/mpeg',, 'audio/mp3',, 'audio/wav',, 'audio/ogg',, 'audio/webm'];
           const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
           
           if (allowedAudioTypes.includes(file.mimetype) || allowedImageTypes.includes(file.mimetype)) {

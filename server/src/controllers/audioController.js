@@ -260,7 +260,41 @@ const serveAudioFile = (req, res, audioFile) => {
     if (audioFile.audioData) {
       console.log(`Serving audio data from database for file: ${audioFile.id}`);
       // Set appropriate headers for audio streaming
-      res.set('Content-Type', audioFile.mimeType || 'audio/mpeg');
+      
+      // Detect the correct MIME type based on file signature
+      let mimeType = audioFile.mimeType || 'audio/mpeg';
+      
+      if (audioFile.audioData && audioFile.audioData.length > 4) {
+        const signature = audioFile.audioData.slice(0, 4);
+        const signatureHex = Array.from(signature).map(b => b.toString(16).padStart(2, '0')).join('')
+        
+        console.log(`File signature for ${audioFile.id}: ${signatureHex}`);
+        
+        // WebM signature: 1A 45 DF A3
+        if (signatureHex === '1a45dfa3') {
+          mimeType = 'audio/webm';
+          console.log(`Detected WebM file, using MIME type: ${mimeType}`);
+        }
+        // WAV signature: 52 49 46 46 (RIFF)
+        else if (signatureHex.startsWith('52494646')) {
+          mimeType = 'audio/wav';
+          console.log(`Detected WAV file, using MIME type: ${mimeType}`);
+        }
+        // MP3 signature: FF FB or FF F3 or FF F2
+        else if (signatureHex.startsWith('fffb') || signatureHex.startsWith('fff3') || signatureHex.startsWith('fff2')) {
+          mimeType = 'audio/mpeg';
+          console.log(`Detected MP3 file, using MIME type: ${mimeType}`);
+        }
+        // OGG signature: 4F 67 67 53 (OggS)
+        else if (signatureHex === '4f676753') {
+          mimeType = 'audio/ogg';
+          console.log(`Detected OGG file, using MIME type: ${mimeType}`);
+        }
+        else {
+          console.log(`Unknown file signature: ${signatureHex}, using default MIME type: ${mimeType}`);
+        }
+      }
+      res.set('Content-Type', mimeType);
       res.set('Content-Length', audioFile.fileSize || audioFile.audioData.length);
       res.set('Accept-Ranges', 'bytes');
       res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
