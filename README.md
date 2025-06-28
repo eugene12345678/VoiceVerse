@@ -67,6 +67,7 @@ The development process was methodical and iterative:
    ```
 
 3. Set up environment variables:
+   - Copy the following into a `.env` file at the root of your project and fill in your actual keys:
    ```
    # Database
    DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
