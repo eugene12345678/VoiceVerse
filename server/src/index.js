@@ -28,20 +28,50 @@ const prisma = new PrismaClient();
 const isDevelopment = process.env.NODE_ENV === 'development';
 const isProduction = process.env.NODE_ENV === 'production';
 
+console.log('🌍 Environment:', process.env.NODE_ENV);
+console.log('🔧 Is Production:', isProduction);
+console.log('🔧 Frontend URL:', process.env.FRONTEND_URL);
+
 // Middleware
 app.use(cors({
-  origin: isProduction 
-    ? [
-        process.env.FRONTEND_URL || 'https://voice-verse-two.vercel.app',
-        'https://voice-verse-two.vercel.app',
-        'https://*.vercel.app'
-      ]
-    : [
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'https://voice-verse-two.vercel.app',
-        'https://*.vercel.app'
-      ],
+  origin: function (origin, callback) {
+    console.log(`🔍 CORS: Checking origin: ${origin}`);
+    
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) {
+      console.log('✅ CORS: Allowing request with no origin');
+      return callback(null, true);
+    }
+    
+    const allowedOrigins = isProduction 
+      ? [
+          process.env.FRONTEND_URL || 'https://voice-verse-two.vercel.app',
+          'https://voice-verse-two.vercel.app'
+        ]
+      : [
+          'http://localhost:3000',
+          'http://localhost:5173',
+          'https://voice-verse-two.vercel.app'
+        ];
+    
+    console.log('🔧 CORS: Allowed origins:', allowedOrigins);
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      console.log('✅ CORS: Origin found in allowed list');
+      return callback(null, true);
+    }
+    
+    // Check if origin matches vercel.app pattern
+    if (origin.match(/^https:\/\/.*\.vercel\.app$/)) {
+      console.log('✅ CORS: Origin matches vercel.app pattern');
+      return callback(null, true);
+    }
+    
+    // Log the rejected origin for debugging
+    console.log(`❌ CORS: Rejected origin: ${origin}`);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Range', 'Accept', 'Origin', 'X-Requested-With', 'x-api-key'],
@@ -49,6 +79,40 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(morgan('dev'));
+
+// Handle preflight requests for all routes
+app.options('*', (req, res) => {
+  const origin = req.headers.origin;
+  console.log(`🔍 OPTIONS: Handling preflight for origin: ${origin}`);
+  
+  // Check if origin is allowed
+  const allowedOrigins = isProduction 
+    ? [
+        process.env.FRONTEND_URL || 'https://voice-verse-two.vercel.app',
+        'https://voice-verse-two.vercel.app'
+      ]
+    : [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'https://voice-verse-two.vercel.app'
+      ];
+  
+  const isAllowed = !origin || 
+                   allowedOrigins.includes(origin) || 
+                   (origin && origin.match(/^https:\/\/.*\.vercel\.app$/));
+  
+  if (isAllowed) {
+    res.header('Access-Control-Allow-Origin', origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, HEAD');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Range, Accept, Origin, X-Requested-With, x-api-key');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    console.log('✅ OPTIONS: Preflight allowed');
+  } else {
+    console.log(`❌ OPTIONS: Preflight rejected for origin: ${origin}`);
+  }
+  
+  res.sendStatus(200);
+});
 
 // Serve static files
 app.use('/api/audio', express.static(path.join(process.cwd(), 'uploads', 'audio')));
