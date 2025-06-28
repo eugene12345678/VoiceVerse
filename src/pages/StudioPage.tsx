@@ -395,6 +395,13 @@ export const StudioPage = () => {
         
         setAudioFile(response.data);
         setAudioDuration(response.data.duration || calculatedDuration || 0);
+        
+        // Use the public URL from the server response instead of blob URL
+        if (response.data.publicUrl || response.data.url) {
+          const publicUrl = response.data.publicUrl || response.data.url;
+          setRecordedAudio(publicUrl);
+          console.log('Using public URL for audio:', publicUrl);
+        }
         console.log('Audio file uploaded successfully:', response.data);
       } else {
         console.error('Upload API returned unsuccessful status:', response);
