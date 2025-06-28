@@ -27,6 +27,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [maxRetries] = useState(3);
+  const [fallbackAttempted, setFallbackAttempted] = useState(false);
 
   // Format time as MM:SS
   const formatTime = (time: number) => {
@@ -161,21 +162,60 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       
       console.error('Audio error:', errorMessage, e);
       console.log('Audio URL that failed:', audioUrl);
+      console.log('Browser info:', {
+        userAgent: navigator.userAgent,
+        canPlayWebM: audio?.canPlayType('audio/webm; codecs=opus'),
+        canPlayMP3: audio?.canPlayType('audio/mpeg'),
+        canPlayWAV: audio?.canPlayType('audio/wav')
+      });
       
       // Check if the audio URL returns a 404 or error response
       try {
         const response = await fetch(audioUrl, { method: 'HEAD' });
+        console.log('Audio URL HEAD response:', {
+          status: response.status,
+          statusText: response.statusText,
+          contentType: response.headers.get('content-type'),
+          contentLength: response.headers.get('content-length')
+        });
+        
         if (response.status === 404) {
           setError('Audio file not found');
           setIsLoading(false);
           return;
+        }
+        
+        // If it's a WebM file and the browser doesn't support it well, try fallback
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('webm') && audio?.canPlayType('audio/webm; codecs=opus') === '' && !fallbackAttempted) {
+          console.warn('Browser does not support WebM audio format, attempting fallback');
+          setFallbackAttempted(true);
+          
+          // Try to get a fallback URL (e.g., convert WebM ID to MP3 fallback)
+          const audioId = audioUrl.split('/').pop();
+          if (audioId) {
+            // Try the fallback endpoint or a different format
+            const fallbackUrl = audioUrl.replace('/api/audio/', '/api/audio/original/');
+            console.log('Trying fallback URL:', fallbackUrl);
+            
+            if (audioRef.current) {
+              audioRef.current.src = fallbackUrl;
+              audioRef.current.load();
+              return;
+            }
+          }
+        }
+        
+        if (contentType.includes('webm') && audio?.canPlayType('audio/webm; codecs=opus') === '') {
+          console.warn('Browser does not support WebM audio format');
+          errorMessage = 'Audio format not supported by this browser';
         }
       } catch (fetchError) {
         console.error('Error checking audio URL:', fetchError);
       }
       
       // Try to retry loading if we haven't exceeded max retries and it's not a 404
-      if (retryCount < maxRetries && audioUrl && !errorMessage.includes('not found')) {
+      if (retryCount < maxRetries && audioUrl && !errorMessage.includes('not found') && !errorMessage.includes('not supported')) {
         console.log(`Retrying audio load (attempt ${retryCount + 1}/${maxRetries})`);
         setRetryCount(prev => prev + 1);
         setError(null);
@@ -232,6 +272,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       setIsLoading(true);
       setError(null);
       setRetryCount(0); // Reset retry count for new URL
+      setFallbackAttempted(false); // Reset fallback flag for new URL
       
       // Set new source
       audioRef.current.src = audioUrl;

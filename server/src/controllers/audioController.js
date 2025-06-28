@@ -247,6 +247,28 @@ exports.getTranslatedAudio = async (req, res) => {
 };
 
 /**
+ * Check if the browser supports WebM audio
+ * @param {Object} req - Express request object
+ * @returns {boolean} - Whether the browser supports WebM
+ */
+const supportsWebM = (req) => {
+  const userAgent = req.headers['user-agent'] || '';
+  const accept = req.headers['accept'] || '';
+  
+  // Check if the client explicitly accepts WebM
+  if (accept.includes('audio/webm')) {
+    return true;
+  }
+  
+  // Check for browsers that support WebM
+  const isChrome = userAgent.includes('Chrome') && !userAgent.includes('Edge');
+  const isFirefox = userAgent.includes('Firefox');
+  const isOpera = userAgent.includes('Opera') || userAgent.includes('OPR');
+  
+  return isChrome || isFirefox || isOpera;
+};
+
+/**
  * Serve an audio file from the database record
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
@@ -264,42 +286,76 @@ const serveAudioFile = (req, res, audioFile) => {
       // Detect the correct MIME type based on file signature
       let mimeType = audioFile.mimeType || 'audio/mpeg';
       
-      if (audioFile.audioData && audioFile.audioData.length > 4) {
-        const signature = audioFile.audioData.slice(0, 4);
-        const signatureHex = Array.from(signature).map(b => b.toString(16).padStart(2, '0')).join('')
+      if (audioFile.audioData && audioFile.audioData.length > 12) {
+        const signature = audioFile.audioData.slice(0, 12);
+        const signatureHex = Array.from(signature).map(b => b.toString(16).padStart(2, '0')).join('');
         
         console.log(`File signature for ${audioFile.id}: ${signatureHex}`);
         
-        // WebM signature: 1A 45 DF A3
-        if (signatureHex === '1a45dfa3') {
-          mimeType = 'audio/webm';
-          console.log(`Detected WebM file, using MIME type: ${mimeType}`);
+        // WebM signature: 1A 45 DF A3 (EBML header)
+        if (signatureHex.startsWith('1a45dfa3')) {
+          // Check if the browser supports WebM
+          if (supportsWebM(req)) {
+            mimeType = 'audio/webm;codecs=opus';
+            console.log(`Detected WebM file, browser supports WebM, using MIME type: ${mimeType}`);
+          } else {
+            console.log(`Detected WebM file, but browser may not support it. User-Agent: ${req.headers['user-agent']}`);
+            // For browsers that don't support WebM, we'll still serve it but with additional headers
+            mimeType = 'audio/webm;codecs=opus';
+          }
         }
         // WAV signature: 52 49 46 46 (RIFF)
         else if (signatureHex.startsWith('52494646')) {
-          mimeType = 'audio/webm';
+          mimeType = 'audio/wav';
           console.log(`Detected WAV file, using MIME type: ${mimeType}`);
         }
-        // MP3 signature: FF FB or FF F3 or FF F2
-        else if (signatureHex.startsWith('fffb') || signatureHex.startsWith('fff3') || signatureHex.startsWith('fff2')) {
+        // MP3 signature: FF FB or FF F3 or FF F2 or ID3 tag (49 44 33)
+        else if (signatureHex.startsWith('fffb') || signatureHex.startsWith('fff3') || 
+                 signatureHex.startsWith('fff2') || signatureHex.startsWith('494433')) {
           mimeType = 'audio/mpeg';
           console.log(`Detected MP3 file, using MIME type: ${mimeType}`);
         }
         // OGG signature: 4F 67 67 53 (OggS)
-        else if (signatureHex === '4f676753') {
+        else if (signatureHex.startsWith('4f676753')) {
           mimeType = 'audio/ogg';
           console.log(`Detected OGG file, using MIME type: ${mimeType}`);
         }
+        // M4A/AAC signature: 00 00 00 XX 66 74 79 70 (ftyp)
+        else if (signatureHex.includes('66747970')) {
+          mimeType = 'audio/mp4';
+          console.log(`Detected M4A/AAC file, using MIME type: ${mimeType}`);
+        }
         else {
-          console.log(`Unknown file signature: ${signatureHex}, using default MIME type: ${mimeType}`);
+          console.log(`Unknown file signature: ${signatureHex}, checking filename for hints`);
+          
+          // Fallback to filename-based detection
+          const filename = audioFile.originalFilename || '';
+          if (filename.toLowerCase().includes('.webm')) {
+            mimeType = 'audio/webm;codecs=opus';
+            console.log(`Filename suggests WebM, using MIME type: ${mimeType}`);
+          } else if (filename.toLowerCase().includes('.wav')) {
+            mimeType = 'audio/wav';
+            console.log(`Filename suggests WAV, using MIME type: ${mimeType}`);
+          } else if (filename.toLowerCase().includes('.ogg')) {
+            mimeType = 'audio/ogg';
+            console.log(`Filename suggests OGG, using MIME type: ${mimeType}`);
+          } else {
+            console.log(`Using default MIME type: ${mimeType}`);
+          }
         }
       }
       res.set('Content-Type', mimeType);
       
-      // Add additional headers for Chrome WebM compatibility
+      // Add additional headers for WebM compatibility
       if (mimeType.includes('webm')) {
         res.set('X-Content-Type-Options', 'nosniff');
         res.set('Content-Disposition', 'inline');
+        res.set('Accept-Ranges', 'bytes');
+        // Ensure proper CORS headers for WebM
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+        res.set('Access-Control-Allow-Headers', 'Range, Content-Type');
+        res.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range');
       }
       res.set('Content-Length', audioFile.fileSize || audioFile.audioData.length);
       res.set('Accept-Ranges', 'bytes');
@@ -308,9 +364,16 @@ const serveAudioFile = (req, res, audioFile) => {
       res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
       res.set('Access-Control-Allow-Headers', 'Range');
       
+      // Handle HEAD requests (just send headers, no body)
+      if (req.method === 'HEAD') {
+        console.log(`Handling HEAD request for audio file: ${audioFile.id}`);
+        return res.status(200).end();
+      }
+      
       // Handle range requests for audio streaming
       const range = req.headers.range;
       if (range) {
+        console.log(`Handling range request for audio file: ${audioFile.id}, range: ${range}`);
         const parts = range.replace(/bytes=/, "").split("-");
         const start = parseInt(parts[0], 10);
         const end = parts[1] ? parseInt(parts[1], 10) : audioFile.audioData.length - 1;
@@ -324,6 +387,7 @@ const serveAudioFile = (req, res, audioFile) => {
       }
       
       // Send the audio data directly from the database
+      console.log(`Sending complete audio file: ${audioFile.id}, size: ${audioFile.audioData.length} bytes, MIME: ${mimeType}`);
       return res.send(audioFile.audioData);
     }
     
@@ -391,9 +455,43 @@ const serveAudioFile = (req, res, audioFile) => {
     
     // Send the file from the filesystem with proper headers
     console.log(`Successfully serving file from filesystem: ${filePath}`);
+    
+    // Set proper headers for file serving
     res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
     res.set('Access-Control-Allow-Origin', '*');
-    res.sendFile(path.resolve(filePath));
+    res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Range, Content-Type');
+    res.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Content-Type');
+    
+    // Handle HEAD requests for file serving
+    if (req.method === 'HEAD') {
+      console.log(`Handling HEAD request for file: ${filePath}`);
+      const stats = fs.statSync(filePath);
+      res.set('Content-Length', stats.size);
+      
+      // Detect MIME type from file extension if not already set
+      const ext = path.extname(filePath).toLowerCase();
+      let fileMimeType = 'audio/mpeg'; // default
+      if (ext === '.webm') {
+        fileMimeType = 'audio/webm;codecs=opus';
+      } else if (ext === '.wav') {
+        fileMimeType = 'audio/wav';
+      } else if (ext === '.ogg') {
+        fileMimeType = 'audio/ogg';
+      } else if (ext === '.m4a' || ext === '.aac') {
+        fileMimeType = 'audio/mp4';
+      }
+      
+      res.set('Content-Type', fileMimeType);
+      return res.status(200).end();
+    }
+    
+    res.sendFile(path.resolve(filePath), (err) => {
+      if (err) {
+        console.error(`Error sending file ${filePath}:`, err);
+        return serveFallbackAudio(req, res, audioFile.id);
+      }
+    });
   } catch (error) {
     console.error('Error serving audio file:', error);
     return serveFallbackAudio(req, res, audioFile.id);
@@ -474,6 +572,100 @@ const serveFallbackAudio = (req, res, requestedId) => {
       message: 'Failed to serve audio file',
       fallback: true,
       requestedId: requestedId
+    });
+  }
+};
+
+/**
+ * Debug audio file information
+ * @route GET /api/audio/debug/:id
+ * @access Public
+ */
+exports.debugAudioFile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`Debug request for audio file: ${id}`);
+    
+    const debugInfo = {
+      requestedId: id,
+      timestamp: new Date().toISOString(),
+      userAgent: req.headers['user-agent'],
+      accept: req.headers['accept'],
+      supportsWebM: supportsWebM(req),
+      database: {},
+      filesystem: {},
+      errors: []
+    };
+    
+    // Check database
+    try {
+      const audioFile = await req.prisma.audioFile.findUnique({
+        where: { id },
+      });
+      
+      if (audioFile) {
+        debugInfo.database = {
+          found: true,
+          id: audioFile.id,
+          originalFilename: audioFile.originalFilename,
+          storagePath: audioFile.storagePath,
+          fileSize: audioFile.fileSize,
+          mimeType: audioFile.mimeType,
+          hasAudioData: !!audioFile.audioData,
+          audioDataSize: audioFile.audioData ? audioFile.audioData.length : 0,
+          createdAt: audioFile.createdAt
+        };
+        
+        // Check file signature if audio data exists
+        if (audioFile.audioData && audioFile.audioData.length > 12) {
+          const signature = audioFile.audioData.slice(0, 12);
+          const signatureHex = Array.from(signature).map(b => b.toString(16).padStart(2, '0')).join('');
+          debugInfo.database.fileSignature = signatureHex;
+        }
+      } else {
+        debugInfo.database.found = false;
+      }
+    } catch (dbError) {
+      debugInfo.errors.push(`Database error: ${dbError.message}`);
+    }
+    
+    // Check filesystem
+    const possiblePaths = [
+      path.join(process.cwd(), 'uploads', 'audio', 'original', `${id}.mp3`),
+      path.join(process.cwd(), 'uploads', 'audio', 'original', `${id}.webm`),
+      path.join(process.cwd(), 'uploads', 'audio', 'original', `${id}.wav`),
+      path.join(process.cwd(), 'uploads', 'audio', 'transformed', `${id}.mp3`),
+      path.join(process.cwd(), 'uploads', 'audio', 'translated', `translated_${id}.mp3`)
+    ];
+    
+    debugInfo.filesystem.checkedPaths = [];
+    for (const filePath of possiblePaths) {
+      const exists = fs.existsSync(filePath);
+      const pathInfo = { path: filePath, exists };
+      
+      if (exists) {
+        try {
+          const stats = fs.statSync(filePath);
+          pathInfo.size = stats.size;
+          pathInfo.modified = stats.mtime;
+          
+          // Read file signature
+          const buffer = fs.readFileSync(filePath, { start: 0, end: 11 });
+          pathInfo.signature = Array.from(buffer).map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (fsError) {
+          pathInfo.error = fsError.message;
+        }
+      }
+      
+      debugInfo.filesystem.checkedPaths.push(pathInfo);
+    }
+    
+    res.json(debugInfo);
+  } catch (error) {
+    console.error('Error in debug endpoint:', error);
+    res.status(500).json({
+      error: 'Debug endpoint failed',
+      message: error.message
     });
   }
 };
