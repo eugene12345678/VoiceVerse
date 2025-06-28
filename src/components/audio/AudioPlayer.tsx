@@ -160,6 +160,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       }
       
       console.error('Audio error:', errorMessage, e);
+      console.log('Audio URL that failed:', audioUrl);
       
       // Check if the audio URL returns a 404 or error response
       try {
