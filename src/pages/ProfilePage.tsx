@@ -52,7 +52,8 @@ const getAvatarUrl = (avatarPath: string | null | undefined): string => {
     return avatarPath; // Already a full URL
   }
   if (avatarPath.startsWith('/uploads/')) {
-    return `http://localhost:5000${avatarPath}`;
+    const API_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://voiceverse-dzza.onrender.com';
+    return `${API_BASE}${avatarPath}`;
   }
   return avatarPath;
 };
