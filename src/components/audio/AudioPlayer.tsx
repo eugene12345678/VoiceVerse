@@ -7,17 +7,6 @@ interface AudioPlayerProps {
   audioUrl: string;
   className?: string;
   showWaveform?: boolean;
-  // Check browser audio format support
-  React.useEffect(() => {
-    const audio = document.createElement('audio');
-    console.log('Browser audio format support:');
-    console.log('MP3:', audio.canPlayType('audio/mpeg'));
-    console.log('WAV:', audio.canPlayType('audio/wav'));
-    console.log('WebM:', audio.canPlayType('audio/webm'));
-    console.log('WebM Opus:', audio.canPlayType('audio/webm; codecs="opus"'));
-    console.log('WebM Vorbis:', audio.canPlayType('audio/webm; codecs="vorbis"'));
-    console.log('OGG:', audio.canPlayType('audio/ogg'));
-  }, []);
   height?: number;
 }
 
