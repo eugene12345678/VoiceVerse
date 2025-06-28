@@ -48,7 +48,21 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
       visualizeAudio();
       
       // Set up media recorder
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      // Try to use WAV format for better Chrome compatibility
+      let mimeType = '';
+      if (MediaRecorder.isTypeSupported('audio/wav')) {
+        mimeType = 'audio/wav';
+      } else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+        mimeType = 'audio/webm';
+      }
+      
+      console.log('Using MediaRecorder MIME type:', mimeType);
+      
+      mediaRecorderRef.current = mimeType 
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
       audioChunksRef.current = [];
       
       mediaRecorderRef.current.ondataavailable = (event) => {
@@ -58,7 +72,11 @@ export const AudioRecorder: React.FC<AudioRecorderProps> = ({
       };
       
       mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        // Use the actual MIME type from the MediaRecorder
+        const actualMimeType = mediaRecorderRef.current?.mimeType || mimeType || 'audio/webm';
+        console.log('Creating blob with MIME type:', actualMimeType);
+        
+        const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
         setIsProcessing(true);
         // Simulate processing delay
         setTimeout(() => {

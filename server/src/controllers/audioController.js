@@ -272,12 +272,12 @@ const serveAudioFile = (req, res, audioFile) => {
         
         // WebM signature: 1A 45 DF A3
         if (signatureHex === '1a45dfa3') {
-          mimeType = 'audio/wav';
-          console.log(`Detected WebM file, serving as WAV for Chrome compatibility`);
+          mimeType = 'audio/webm';
+          console.log(`Detected WebM file, using MIME type: ${mimeType}`);
         }
         // WAV signature: 52 49 46 46 (RIFF)
         else if (signatureHex.startsWith('52494646')) {
-          mimeType = 'audio/wav';
+          mimeType = 'audio/webm';
           console.log(`Detected WAV file, using MIME type: ${mimeType}`);
         }
         // MP3 signature: FF FB or FF F3 or FF F2
