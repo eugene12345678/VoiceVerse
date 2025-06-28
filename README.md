@@ -67,8 +67,50 @@ The development process was methodical and iterative:
    ```
 
 3. Set up environment variables:
-   - Create a `.env` file based on `.env.example`
-   - Configure your database connection and JWT secrets
+   ```
+   # Database
+   DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/DATABASE"
+
+   # Authentication
+   JWT_SECRET="your_jwt_secret_key"
+   JWT_EXPIRES_IN="7d"
+
+   # Server
+   PORT=5000
+   NODE_ENV=production
+
+   EMAIL_FROM='youremail@example.com'
+   EMAIL_PASS='your_email_app_password'
+
+   # Stripe
+   STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key
+   STRIPE_WEBHOOK_SECRET=whsec_your_stripe_webhook_secret
+
+   # Calendly
+   CALENDY_ACCESS_TOKEN=your_calendly_access_token
+
+   # API Keys
+   ELEVENLABS_API_KEY=your_elevenlabs_api_key
+   LINGO_API_KEY=your_lingo_api_key
+   VITE_API_URL=https://your-api-domain.com/api
+   FRONTEND_URL=https://your-frontend-url.com
+
+   # Translation API
+   LIBRETRANSLATE_API_URL=https://translate.monocles.de/translate
+   LIBRETRANSLATE_API_KEY=
+
+   # OpenAI
+   OPENAI_API_KEY=your_openai_api_key
+
+   # Firebase
+   VITE_FIREBASE_API_KEY=your_firebase_api_key
+   VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=your_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   VITE_FIREBASE_APP_ID=your_firebase_app_id
+   VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
+   ```
 
 4. Run database migrations:
    ```
