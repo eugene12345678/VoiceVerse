@@ -93,6 +93,7 @@ The development process was methodical and iterative:
    # API Keys
    ELEVENLABS_API_KEY=your_elevenlabs_api_key
    LINGO_API_KEY=your_lingo_api_key
+   ALGORAND_API_KEY=algorand_api_key
    VITE_API_URL=https://your-api-domain.com/api
    FRONTEND_URL=https://your-frontend-url.com
 
