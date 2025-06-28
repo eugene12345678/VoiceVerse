@@ -263,7 +263,7 @@ exports.getEmotionTransformationStatus = async (req, res) => {
       data: {
         ...transformation,
         audioUrl: transformation.transformedAudio ? 
-          `/api/audio/transformed/${path.basename(transformation.transformedAudio.storagePath)}` : 
+          `${process.env.VITE_API_URL || 'https://voiceverse-dzza.onrender.com/api'}/audio/transformed/${path.basename(transformation.transformedAudio.storagePath)}` : 
           null
       }
     });

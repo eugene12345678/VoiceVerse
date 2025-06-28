@@ -181,7 +181,7 @@ exports.getChallenge = async (req, res) => {
         id: p.id,
         userId: p.userId,
         user: p.user,
-        audioUrl: `/api/audio/${p.submissionAudioId}`,
+        audioUrl: `${process.env.VITE_API_URL || 'https://voiceverse-dzza.onrender.com/api'}/audio/${p.submissionAudioId}`,
         submissionDate: p.submissionDate,
         votes: 0 // Would need a separate votes table to track this
       }));
@@ -532,7 +532,7 @@ exports.getChallengeSubmissions = async (req, res) => {
       id: submission.id,
       userId: submission.userId,
       user: submission.user,
-      audioUrl: `/api/audio/${submission.submissionAudioId}`,
+      audioUrl: `${process.env.VITE_API_URL || 'https://voiceverse-dzza.onrender.com/api'}/audio/${submission.submissionAudioId}`,
       submissionDate: submission.submissionDate.toISOString(),
       votes: 0, // Would need a separate votes table to track this
       hasVoted: false // Would need to check if current user has voted

@@ -320,6 +320,7 @@ exports.createNFT = async (req, res) => {
     
     // Get the actual audio file path from the database
     let audioUrl;
+    const baseUrl = process.env.VITE_API_URL || 'https://voiceverse-dzza.onrender.com/api';
     try {
       const audioFile = await prisma.audioFile.findUnique({
         where: { id: audioFileId }
@@ -328,15 +329,15 @@ exports.createNFT = async (req, res) => {
       if (audioFile && audioFile.storagePath) {
         // Extract the filename from the storage path
         const filename = path.basename(audioFile.storagePath);
-        audioUrl = `/api/audio/original/${filename}`;
+        audioUrl = `${baseUrl}/audio/original/${filename}`;
       } else {
         // Fallback if no audio file found
-        audioUrl = `/api/audio/original/${audioFileId}`;
+        audioUrl = `${baseUrl}/audio/original/${audioFileId}`;
       }
     } catch (error) {
       console.warn(`Could not find audio file ${audioFileId}:`, error.message);
       // Fallback URL
-      audioUrl = `/api/audio/original/${audioFileId}`;
+      audioUrl = `${baseUrl}/audio/original/${audioFileId}`;
     }
 
     // Return the created NFT with additional information
@@ -821,6 +822,7 @@ exports.getMarketplaceNFTs = async (req, res) => {
       }
       
       // Get the actual audio file path from the database
+      const baseUrl = process.env.VITE_API_URL || 'https://voiceverse-dzza.onrender.com/api';
       let audioUrl;
       try {
         const audioFile = await prisma.audioFile.findUnique({
@@ -830,15 +832,15 @@ exports.getMarketplaceNFTs = async (req, res) => {
         if (audioFile && audioFile.storagePath) {
           // Extract the filename from the storage path
           const filename = path.basename(audioFile.storagePath);
-          audioUrl = `/api/audio/original/${filename}`;
+          audioUrl = `${baseUrl}/audio/original/${filename}`;
         } else {
           // Fallback if no audio file found
-          audioUrl = `/api/audio/original/${nft.audioFileId}`;
+          audioUrl = `${baseUrl}/audio/original/${nft.audioFileId}`;
         }
       } catch (error) {
         console.warn(`Could not find audio file for NFT ${nft.id}:`, error.message);
         // Fallback URL
-        audioUrl = `/api/audio/original/${nft.audioFileId}`;
+        audioUrl = `${baseUrl}/audio/original/${nft.audioFileId}`;
       }
       
       return {
@@ -924,6 +926,7 @@ exports.getUserNFTs = async (req, res) => {
       }
       
       // Get the actual audio file path from the database
+      const baseUrl = process.env.VITE_API_URL || 'https://voiceverse-dzza.onrender.com/api';
       let audioUrl;
       try {
         const audioFile = await prisma.audioFile.findUnique({
@@ -933,15 +936,15 @@ exports.getUserNFTs = async (req, res) => {
         if (audioFile && audioFile.storagePath) {
           // Extract the filename from the storage path
           const filename = path.basename(audioFile.storagePath);
-          audioUrl = `/api/audio/original/${filename}`;
+          audioUrl = `${baseUrl}/audio/original/${filename}`;
         } else {
           // Fallback if no audio file found
-          audioUrl = `/api/audio/original/${nft.audioFileId}`;
+          audioUrl = `${baseUrl}/audio/original/${nft.audioFileId}`;
         }
       } catch (error) {
         console.warn(`Could not find audio file for NFT ${nft.id}:`, error.message);
         // Fallback URL
-        audioUrl = `/api/audio/original/${nft.audioFileId}`;
+        audioUrl = `${baseUrl}/audio/original/${nft.audioFileId}`;
       }
       
       return {
@@ -1025,6 +1028,7 @@ exports.getCreatedNFTs = async (req, res) => {
       }
       
       // Get the actual audio file path from the database
+      const baseUrl = process.env.VITE_API_URL || 'https://voiceverse-dzza.onrender.com/api';
       let audioUrl;
       try {
         const audioFile = await prisma.audioFile.findUnique({
@@ -1034,15 +1038,15 @@ exports.getCreatedNFTs = async (req, res) => {
         if (audioFile && audioFile.storagePath) {
           // Extract the filename from the storage path
           const filename = path.basename(audioFile.storagePath);
-          audioUrl = `/api/audio/original/${filename}`;
+          audioUrl = `${baseUrl}/audio/original/${filename}`;
         } else {
           // Fallback if no audio file found
-          audioUrl = `/api/audio/original/${nft.audioFileId}`;
+          audioUrl = `${baseUrl}/audio/original/${nft.audioFileId}`;
         }
       } catch (error) {
         console.warn(`Could not find audio file for NFT ${nft.id}:`, error.message);
         // Fallback URL
-        audioUrl = `/api/audio/original/${nft.audioFileId}`;
+        audioUrl = `${baseUrl}/audio/original/${nft.audioFileId}`;
       }
       
       return {
@@ -1146,6 +1150,7 @@ exports.getNFTDetails = async (req, res) => {
     }
     
     // Get the actual audio file path from the database
+    const baseUrl = process.env.VITE_API_URL || 'https://voiceverse-dzza.onrender.com/api';
     let audioUrl;
     try {
       const audioFile = await prisma.audioFile.findUnique({
@@ -1155,15 +1160,15 @@ exports.getNFTDetails = async (req, res) => {
       if (audioFile && audioFile.storagePath) {
         // Extract the filename from the storage path
         const filename = path.basename(audioFile.storagePath);
-        audioUrl = `/api/audio/original/${filename}`;
+        audioUrl = `${baseUrl}/audio/original/${filename}`;
       } else {
         // Fallback if no audio file found
-        audioUrl = `/api/audio/original/${nft.audioFileId}`;
+        audioUrl = `${baseUrl}/audio/original/${nft.audioFileId}`;
       }
     } catch (error) {
       console.warn(`Could not find audio file for NFT ${nft.id}:`, error.message);
       // Fallback URL
-      audioUrl = `/api/audio/original/${nft.audioFileId}`;
+      audioUrl = `${baseUrl}/audio/original/${nft.audioFileId}`;
     }
     
     // Create a formatted NFT object with proper URLs

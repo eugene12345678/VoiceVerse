@@ -202,7 +202,7 @@ exports.createNFT = async (req, res) => {
       nft: {
         ...nft,
         imageUrl: formattedImageUrl,
-        audioUrl: `/api/audio/${audioFileId}`,
+        audioUrl: `${process.env.VITE_API_URL || 'https://voiceverse-dzza.onrender.com/api'}/audio/${audioFileId}`,
         tags: tags || [],
         duration: duration || '00:30'
       },

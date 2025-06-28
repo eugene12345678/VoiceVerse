@@ -233,9 +233,17 @@ exports.uploadAudio = [
           }
         });
         
+        // Construct full public URL for the audio file
+        const baseUrl = process.env.VITE_API_URL || `${req.protocol}://${req.get('host')}/api`;
+        const publicUrl = `${baseUrl}/audio/${audioFile.id}`;
+        
         res.status(201).json({
           status: 'success',
-          data: audioFile
+          data: {
+            ...audioFile,
+            publicUrl: publicUrl,
+            url: publicUrl // Also provide 'url' field for compatibility
+          }
         });
       } catch (dbError) {
         console.error('Database error when saving audio file:', dbError);
@@ -504,11 +512,17 @@ const processAudioFile = async (req, res) => {
       }
     });
     
+    // Construct full public URL for the audio file
+    const baseUrl = process.env.VITE_API_URL || `${req.protocol}://${req.get('host')}/api`;
+    const publicUrl = `${baseUrl}/audio/${audioFile.id}`;
+    
     // Return the file ID and URL for NFT creation
     res.status(201).json({
       status: 'success',
       fileId: audioFile.id,
-      fileUrl: `/api/audio/${audioFile.id}`,
+      fileUrl: publicUrl,
+      publicUrl: publicUrl,
+      url: publicUrl, // Also provide 'url' field for compatibility
       duration: audioFile.duration,
       message: 'Audio file uploaded successfully'
     });
@@ -568,10 +582,16 @@ const processImageFile = async (req, res) => {
       // Use the optimized image path for storage
       const storagePath = path.relative(process.cwd(), optimizedImagePath);
       
+      // Construct full public URL for the image file
+      const baseUrl = process.env.VITE_API_URL || `${req.protocol}://${req.get('host')}/api`;
+      const publicUrl = `${baseUrl}/images/nft/${path.basename(optimizedImagePath)}`;
+      
       // Return the file URL for NFT creation
       res.status(201).json({
         status: 'success',
-        fileUrl: `/api/images/nft/${path.basename(optimizedImagePath)}`,
+        fileUrl: publicUrl,
+        publicUrl: publicUrl,
+        url: publicUrl, // Also provide 'url' field for compatibility
         message: 'Image file uploaded and processed successfully'
       });
     } catch (imageError) {
@@ -580,9 +600,15 @@ const processImageFile = async (req, res) => {
       // If image processing fails, use the original file
       const storagePath = path.relative(process.cwd(), filePath);
       
+      // Construct full public URL for the image file
+      const baseUrl = process.env.VITE_API_URL || `${req.protocol}://${req.get('host')}/api`;
+      const publicUrl = `${baseUrl}/images/nft/${path.basename(filePath)}`;
+      
       res.status(201).json({
         status: 'success',
-        fileUrl: `/api/images/nft/${path.basename(filePath)}`,
+        fileUrl: publicUrl,
+        publicUrl: publicUrl,
+        url: publicUrl, // Also provide 'url' field for compatibility
         message: 'Image file uploaded successfully (without optimization)'
       });
     }
