@@ -323,8 +323,6 @@ export const StudioPage = () => {
           request.onsuccess = () => {
             if (request.result) {
               const audioBlob = request.result;
-              const url = URL.createObjectURL(audioBlob);
-              setRecordedAudio(url);
               setShowTutorial(false);
               
               // Upload the audio to the server
@@ -344,8 +342,6 @@ export const StudioPage = () => {
                 }
                 
                 const blob = new Blob([ab], { type: mimeString });
-                const url = URL.createObjectURL(blob);
-                setRecordedAudio(url);
                 setShowTutorial(false);
                 
                 // Upload the audio to the server
@@ -371,7 +367,7 @@ export const StudioPage = () => {
     try {
       // Create a File object from the Blob with metadata
       const file = new File([audioBlob], 'recording.wav', { 
-        type: audioBlob.type,
+        type: audioBlob.type,,
         lastModified: Date.now()
       });
       
@@ -439,8 +435,6 @@ export const StudioPage = () => {
   ];
 
   const handleRecordingComplete = (audioBlob: Blob) => {
-    const url = URL.createObjectURL(audioBlob);
-    setRecordedAudio(url);
     setShowTutorial(false);
     setRecordingBlob(audioBlob);
     
@@ -451,7 +445,7 @@ export const StudioPage = () => {
       
       // Create a new blob with duration metadata
       const audioWithDuration = new File([audioBlob], 'recording.wav', { 
-        type: audioBlob.type,
+        type: audioBlob.type,,
         lastModified: Date.now()
       });
       
