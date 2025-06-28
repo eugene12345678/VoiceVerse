@@ -272,8 +272,8 @@ const serveAudioFile = (req, res, audioFile) => {
         
         // WebM signature: 1A 45 DF A3
         if (signatureHex === '1a45dfa3') {
-          mimeType = 'audio/webm';
-          console.log(`Detected WebM file, using MIME type: ${mimeType}`);
+          mimeType = 'audio/wav';
+          console.log(`Detected WebM file, serving as WAV for Chrome compatibility`);
         }
         // WAV signature: 52 49 46 46 (RIFF)
         else if (signatureHex.startsWith('52494646')) {
@@ -295,6 +295,12 @@ const serveAudioFile = (req, res, audioFile) => {
         }
       }
       res.set('Content-Type', mimeType);
+      
+      // Add additional headers for Chrome WebM compatibility
+      if (mimeType.includes('webm')) {
+        res.set('X-Content-Type-Options', 'nosniff');
+        res.set('Content-Disposition', 'inline');
+      }
       res.set('Content-Length', audioFile.fileSize || audioFile.audioData.length);
       res.set('Accept-Ranges', 'bytes');
       res.set('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
