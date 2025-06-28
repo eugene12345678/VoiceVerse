@@ -171,7 +171,7 @@ The development process was methodical and iterative:
 - **Express.js** - Fast, unopinionated web framework
 - **TypeScript** - Type safety across the entire stack
 - **Prisma ORM** - Next-generation database toolkit
-- **MySQL** - Reliable relational database
+- **PostgreSQL** - Reliable relational database
 - **JWT (jsonwebtoken)** - Secure authentication tokens
 - **bcryptjs** - Password hashing and security
 - **Multer** - Middleware for handling multipart/form-data
@@ -272,3 +272,4 @@ For questions, suggestions, or collaboration opportunities, please reach out thr
 ---
 
 **VoiceVerse - Transform Your Voice Into Magic** ✨🎙️
+

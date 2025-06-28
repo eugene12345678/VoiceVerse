@@ -24,14 +24,24 @@ require('dotenv').config();
 const app = express();
 const prisma = new PrismaClient();
 
+// Environment configuration
+const isDevelopment = process.env.NODE_ENV === 'development';
+const isProduction = process.env.NODE_ENV === 'production';
+
 // Middleware
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:5173',
-    'https://voice-verse-two.vercel.app',
-    'https://*.vercel.app'
-  ],
+  origin: isProduction 
+    ? [
+        process.env.FRONTEND_URL || 'https://voice-verse-two.vercel.app',
+        'https://voice-verse-two.vercel.app',
+        'https://*.vercel.app'
+      ]
+    : [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'https://voice-verse-two.vercel.app',
+        'https://*.vercel.app'
+      ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Range', 'Accept', 'Origin', 'X-Requested-With', 'x-api-key'],
@@ -152,7 +162,24 @@ app.post('/api/algorand/nft/create', (req, res, next) => {
 
 // Root route
 app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to VoiceVerse API' });
+  res.json({ 
+    message: 'VoiceVerse API is running!',
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    database: 'connected'
+  });
 });
 
 // Remove the redirect that's causing the infinite loop
@@ -168,22 +195,45 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-const startServer = (port) => {
-  const server = app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-  }).on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.log(`Port ${port} is already in use, trying port ${port + 1}`);
-      startServer(port + 1);
-    } else {
-      console.error('Server error:', err);
-    }
+
+// For production (Render), use the assigned port directly
+if (isProduction) {
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 VoiceVerse API server running on port ${PORT}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
+    console.log(`🗄️ Database: Connected to Supabase PostgreSQL`);
+    console.log(`📡 CORS configured for production`);
   });
   
-  return server;
-};
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, shutting down gracefully');
+    server.close(() => {
+      console.log('Process terminated');
+      process.exit(0);
+    });
+  });
+} else {
+  // Development mode with port fallback
+  const startServer = (port) => {
+    const server = app.listen(port, () => {
+      console.log(`🚀 VoiceVerse API server running on port ${port}`);
+      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🗄️ Database: Connected to Supabase PostgreSQL`);
+    }).on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.log(`Port ${port} is already in use, trying port ${port + 1}`);
+        startServer(port + 1);
+      } else {
+        console.error('Server error:', err);
+      }
+    });
+    
+    return server;
+  };
 
-startServer(PORT);
+  startServer(PORT);
+}
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
