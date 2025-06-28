@@ -89,7 +89,7 @@ exports.getAudioFile = async (req, res) => {
     
     // Check if this ID is a translated audio ID first (highest priority)
     let translatedAudio = await req.prisma.translatedAudio.findUnique({
-      where: { id }
+      where: { id },
     });
     
     if (translatedAudio) {
@@ -114,7 +114,7 @@ exports.getAudioFile = async (req, res) => {
     
     // Finally, try to get the original audio file
     let audioFile = await req.prisma.audioFile.findUnique({
-      where: { id }
+      where: { id },
     });
     
     if (audioFile) {
@@ -155,7 +155,7 @@ exports.getOriginalAudio = async (req, res) => {
     
     // Check if the file exists in the database
     let audioFile = await req.prisma.audioFile.findUnique({
-      where: { id }
+      where: { id },
     });
     
     // If the file doesn't exist in the database but exists on the filesystem, create a database entry
@@ -198,7 +198,7 @@ exports.getTranslatedAudio = async (req, res) => {
     
     // Check if the file exists in the database
     let translatedAudio = await req.prisma.translatedAudio.findUnique({
-      where: { id }
+      where: { id },
     });
     
     // If the file doesn't exist in the database but exists on the filesystem, try to create an entry
