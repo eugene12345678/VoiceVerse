@@ -40,7 +40,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
 // Algorand API configuration
-const ALGORAND_API_KEY = '98D9CE80660AD243893D56D9F125CD2D';
+const ALGORAND_API_KEY = import.meta.env.VITE_ALGORAND_API_KEY || '';
 // Use environment variable for API URL if available, otherwise use default
 const API_URL = import.meta.env.VITE_API_URL || 'https://voiceverse-dzza.onrender.com/api';
 

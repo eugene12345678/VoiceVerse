@@ -1,7 +1,7 @@
 const algosdk = require('algosdk');
 
 // Algorand API key from the task
-const ALGORAND_API_KEY = '98D9CE80660AD243893D56D9F125CD2D';
+const ALGORAND_API_KEY = process.env.ALGORAND_API_KEY || '';
 
 // Algorand network configuration
 const algodServer = 'https://testnet-algorand.api.purestake.io/ps2';
