@@ -445,7 +445,7 @@ export const StudioPage = () => {
       
       // Create a new blob with duration metadata
       const audioWithDuration = new File([audioBlob], 'recording.wav', { 
-        type: audioBlob.type,,
+        type: audioBlob.type,
         lastModified: Date.now()
       });
       
