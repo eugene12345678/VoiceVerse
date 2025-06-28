@@ -367,7 +367,7 @@ export const StudioPage = () => {
     try {
       // Create a File object from the Blob with metadata
       const file = new File([audioBlob], 'recording.wav', { 
-        type: audioBlob.type,,
+        type: audioBlob.type,
         lastModified: Date.now()
       });
       
