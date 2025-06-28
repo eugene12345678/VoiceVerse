@@ -55,7 +55,7 @@ For local development, you can use the Stripe CLI to forward webhook events to y
 2. Run the following command:
 
 ```
-stripe listen --forward-to http://localhost:5000/api/subscription/webhook
+stripe listen --forward-to https://voiceverse-dzza.onrender.com/api/subscription/webhook
 ```
 
 3. The CLI will provide a webhook signing secret. Update the `STRIPE_WEBHOOK_SECRET` in your `.env` file with this value.

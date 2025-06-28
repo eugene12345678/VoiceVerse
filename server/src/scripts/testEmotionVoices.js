@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 // Test script for emotion voice effects
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://voiceverse-dzza.onrender.com/api';
 
 // Test data
 const emotions = ['happy', 'sad', 'angry', 'calm', 'excited'];

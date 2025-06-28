@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // Use environment variable for API URL if available, otherwise use default
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://voiceverse-dzza.onrender.com/api';
 const ALGORAND_API_KEY = '98D9CE80660AD243893D56D9F125CD2D';
 
 // Create axios instance with base URL
