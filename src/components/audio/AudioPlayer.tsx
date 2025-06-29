@@ -185,30 +185,44 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           return;
         }
         
-        // If it's a WebM file and the browser doesn't support it well, try fallback
+        // If it's a WebM file, check browser support more thoroughly
         const contentType = response.headers.get('content-type') || '';
-        if (contentType.includes('webm') && audio?.canPlayType('audio/webm; codecs=opus') === '' && !fallbackAttempted) {
-          console.warn('Browser does not support WebM audio format, attempting fallback');
-          setFallbackAttempted(true);
+        if (contentType.includes('webm')) {
+          const webmSupport = audio?.canPlayType('audio/webm; codecs=opus');
+          const webmBasicSupport = audio?.canPlayType('audio/webm');
           
-          // Try to get a fallback URL (e.g., convert WebM ID to MP3 fallback)
-          const audioId = audioUrl.split('/').pop();
-          if (audioId) {
-            // Try the fallback endpoint or a different format
-            const fallbackUrl = audioUrl.replace('/api/audio/', '/api/audio/original/');
-            console.log('Trying fallback URL:', fallbackUrl);
+          console.log('WebM support check:', {
+            contentType,
+            webmOpusSupport: webmSupport,
+            webmBasicSupport: webmBasicSupport,
+            fallbackAttempted
+          });
+          
+          // If browser doesn't support WebM well and we haven't tried fallback
+          if ((webmSupport === '' || webmSupport === 'no') && !fallbackAttempted) {
+            console.warn('Browser does not support WebM audio format, attempting fallback');
+            setFallbackAttempted(true);
             
-            if (audioRef.current) {
-              audioRef.current.src = fallbackUrl;
-              audioRef.current.load();
-              return;
+            // Try to get a fallback URL (e.g., convert WebM ID to MP3 fallback)
+            const audioId = audioUrl.split('/').pop();
+            if (audioId) {
+              // Try the fallback endpoint or a different format
+              const fallbackUrl = audioUrl.replace('/api/audio/', '/api/audio/original/');
+              console.log('Trying fallback URL:', fallbackUrl);
+              
+              if (audioRef.current) {
+                audioRef.current.src = fallbackUrl;
+                audioRef.current.load();
+                return;
+              }
             }
           }
-        }
-        
-        if (contentType.includes('webm') && audio?.canPlayType('audio/webm; codecs=opus') === '') {
-          console.warn('Browser does not support WebM audio format');
-          errorMessage = 'Audio format not supported by this browser';
+          
+          // If WebM is not supported at all
+          if (webmSupport === '' || webmSupport === 'no') {
+            console.warn('Browser does not support WebM audio format');
+            errorMessage = 'WebM audio format not supported by this browser';
+          }
         }
       } catch (fetchError) {
         console.error('Error checking audio URL:', fetchError);
@@ -273,6 +287,17 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       setError(null);
       setRetryCount(0); // Reset retry count for new URL
       setFallbackAttempted(false); // Reset fallback flag for new URL
+      
+      // Log audio URL and browser capabilities
+      console.log('Loading new audio URL:', audioUrl);
+      console.log('Browser audio support:', {
+        canPlayWebM: audioRef.current.canPlayType('audio/webm'),
+        canPlayWebMOpus: audioRef.current.canPlayType('audio/webm; codecs=opus'),
+        canPlayWebMVorbis: audioRef.current.canPlayType('audio/webm; codecs=vorbis'),
+        canPlayMP3: audioRef.current.canPlayType('audio/mpeg'),
+        canPlayWAV: audioRef.current.canPlayType('audio/wav'),
+        canPlayOGG: audioRef.current.canPlayType('audio/ogg')
+      });
       
       // Set new source
       audioRef.current.src = audioUrl;

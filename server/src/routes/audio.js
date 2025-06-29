@@ -62,4 +62,9 @@ router.head('/translated/:id', audioController.getTranslatedAudio);
 // @access  Public
 router.get('/debug/:id', audioController.debugAudioFile);
 
+// @route   GET /api/audio/test/:id
+// @desc    Get test page for audio file
+// @access  Public
+router.get('/test/:id', audioController.testAudioFile);
+
 module.exports = router;

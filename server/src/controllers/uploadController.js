@@ -52,16 +52,21 @@ const storage = multer.diskStorage({
 // File filter to accept only audio files
 const fileFilter = (req, file, cb) => {
   const allowedMimeTypes = [
-    'audio/mpeg',,
-    'audio/mp3',,
-    'audio/wav',,
-    'audio/ogg',,
-    'audio/webm'
+    'audio/mpeg',
+    'audio/mp3',
+    'audio/wav',
+    'audio/ogg',
+    'audio/webm',
+    'audio/webm;codecs=opus'
   ];
   
+  console.log(`Upload file filter - checking MIME type: ${file.mimetype}`);
+  
   if (allowedMimeTypes.includes(file.mimetype)) {
+    console.log(`MIME type ${file.mimetype} accepted`);
     cb(null, true);
   } else {
+    console.log(`MIME type ${file.mimetype} rejected`);
     cb(new Error('Invalid file type. Only audio files are allowed.'), false);
   }
 };
@@ -132,12 +137,32 @@ exports.uploadAudio = [
       // Get file details
       const { filename, originalname, path: filePath, size, mimetype } = req.file;
       
+      console.log(`Processing uploaded audio file:`, {
+        filename,
+        originalname,
+        filePath,
+        size,
+        mimetype
+      });
+      
       // Verify the file exists and is readable
       if (!fs.existsSync(filePath)) {
+        console.error(`Uploaded file not found at path: ${filePath}`);
         return res.status(500).json({
           status: 'error',
           message: 'Uploaded file not found on server'
         });
+      }
+      
+      // Check file signature for WebM files
+      if (mimetype.includes('webm')) {
+        try {
+          const buffer = fs.readFileSync(filePath, { start: 0, end: 11 });
+          const signature = Array.from(buffer).map(b => b.toString(16).padStart(2, '0')).join('');
+          console.log(`WebM file signature: ${signature}`);
+        } catch (sigError) {
+          console.error('Error reading file signature:', sigError);
+        }
       }
       
       // Get audio duration with robust error handling
@@ -216,6 +241,16 @@ exports.uploadAudio = [
         // Read the file data to store in the database
         const audioData = fs.readFileSync(filePath);
         
+        console.log(`Creating database record for audio file:`, {
+          originalFilename: originalname,
+          storagePath,
+          fileSize: size,
+          duration,
+          mimeType: mimetype,
+          audioDataSize: audioData.length,
+          userId
+        });
+        
         // Create audio file record in database
         const audioFile = await req.prisma.audioFile.create({
           data: {
@@ -232,6 +267,8 @@ exports.uploadAudio = [
             updatedAt: new Date()
           }
         });
+        
+        console.log(`Successfully created audio file record with ID: ${audioFile.id}`);
         
         // Construct full public URL for the audio file
         const baseUrl = process.env.VITE_API_URL || `${req.protocol}://${req.get('host')}/api`;
@@ -306,13 +343,24 @@ exports.uploadNFTFile = (req, res, next) => {
         }),
         fileFilter: (req, file, cb) => {
           // Accept both audio and image files
-          const allowedAudioTypes = ['audio/mpeg',, 'audio/mp3',, 'audio/wav',, 'audio/ogg',, 'audio/webm'];
+          const allowedAudioTypes = [
+            'audio/mpeg',
+            'audio/mp3',
+            'audio/wav',
+            'audio/ogg',
+            'audio/webm',
+            'audio/webm;codecs=opus'
+          ];
           const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
           
+          console.log(`NFT upload file filter - checking MIME type: ${file.mimetype}`);
+          
           if (allowedAudioTypes.includes(file.mimetype) || allowedImageTypes.includes(file.mimetype)) {
+            console.log(`MIME type ${file.mimetype} accepted for NFT upload`);
             cb(null, true);
           } else {
-            cb(new Error('Invalid file type. Only audio (MP3, WAV) and image (JPEG, PNG, WebP) files are allowed.'), false);
+            console.log(`MIME type ${file.mimetype} rejected for NFT upload`);
+            cb(new Error('Invalid file type. Only audio (MP3, WAV, WebM) and image (JPEG, PNG, WebP) files are allowed.'), false);
           }
         },
         limits: {

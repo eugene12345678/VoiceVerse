@@ -577,6 +577,135 @@ const serveFallbackAudio = (req, res, requestedId) => {
 };
 
 /**
+ * Test audio file playback
+ * @route GET /api/audio/test/:id
+ * @access Public
+ */
+exports.testAudioFile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`Test request for audio file: ${id}`);
+    
+    // Get the audio file from database
+    const audioFile = await req.prisma.audioFile.findUnique({
+      where: { id },
+    });
+    
+    if (!audioFile) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Audio file not found'
+      });
+    }
+    
+    // Return a simple HTML page that tests the audio playback
+    const testHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio Test - ${id}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .info { background: #f0f0f0; padding: 10px; margin: 10px 0; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Audio File Test</h1>
+    <div class="info">
+        <strong>File ID:</strong> ${audioFile.id}<br>
+        <strong>Original Filename:</strong> ${audioFile.originalFilename}<br>
+        <strong>MIME Type:</strong> ${audioFile.mimeType}<br>
+        <strong>File Size:</strong> ${audioFile.fileSize} bytes<br>
+        <strong>Duration:</strong> ${audioFile.duration} seconds<br>
+        <strong>Has Audio Data:</strong> ${audioFile.audioData ? 'Yes' : 'No'}<br>
+        <strong>Audio Data Size:</strong> ${audioFile.audioData ? audioFile.audioData.length : 0} bytes
+    </div>
+    
+    <h2>Browser Support Test</h2>
+    <div id="support-info"></div>
+    
+    <h2>Audio Player Test</h2>
+    <audio id="testAudio" controls preload="metadata" style="width: 100%;">
+        <source src="/api/audio/${id}" type="${audioFile.mimeType}">
+        Your browser does not support the audio element.
+    </audio>
+    
+    <div id="status"></div>
+    
+    <script>
+        // Test browser support
+        const audio = document.createElement('audio');
+        const supportInfo = document.getElementById('support-info');
+        supportInfo.innerHTML = \`
+            <div class="info">
+                <strong>WebM Support:</strong> \${audio.canPlayType('audio/webm')}<br>
+                <strong>WebM + Opus Support:</strong> \${audio.canPlayType('audio/webm; codecs=opus')}<br>
+                <strong>MP3 Support:</strong> \${audio.canPlayType('audio/mpeg')}<br>
+                <strong>WAV Support:</strong> \${audio.canPlayType('audio/wav')}<br>
+                <strong>OGG Support:</strong> \${audio.canPlayType('audio/ogg')}
+            </div>
+        \`;
+        
+        // Test audio loading
+        const testAudio = document.getElementById('testAudio');
+        const status = document.getElementById('status');
+        
+        testAudio.addEventListener('loadstart', () => {
+            status.innerHTML = '<div>Loading started...</div>';
+        });
+        
+        testAudio.addEventListener('loadedmetadata', () => {
+            status.innerHTML += '<div class="success">Metadata loaded successfully</div>';
+        });
+        
+        testAudio.addEventListener('canplay', () => {
+            status.innerHTML += '<div class="success">Audio can play</div>';
+        });
+        
+        testAudio.addEventListener('error', (e) => {
+            const error = testAudio.error;
+            let errorMsg = 'Unknown error';
+            if (error) {
+                switch(error.code) {
+                    case 1: errorMsg = 'MEDIA_ERR_ABORTED'; break;
+                    case 2: errorMsg = 'MEDIA_ERR_NETWORK'; break;
+                    case 3: errorMsg = 'MEDIA_ERR_DECODE'; break;
+                    case 4: errorMsg = 'MEDIA_ERR_SRC_NOT_SUPPORTED'; break;
+                }
+            }
+            status.innerHTML += \`<div class="error">Audio error: \${errorMsg}</div>\`;
+        });
+        
+        // Test direct fetch
+        fetch('/api/audio/${id}', { method: 'HEAD' })
+            .then(response => {
+                status.innerHTML += \`<div class="info">
+                    <strong>HTTP Status:</strong> \${response.status}<br>
+                    <strong>Content-Type:</strong> \${response.headers.get('content-type')}<br>
+                    <strong>Content-Length:</strong> \${response.headers.get('content-length')}
+                </div>\`;
+            })
+            .catch(err => {
+                status.innerHTML += \`<div class="error">Fetch error: \${err.message}</div>\`;
+            });
+    </script>
+</body>
+</html>`;
+    
+    res.set('Content-Type', 'text/html');
+    res.send(testHtml);
+  } catch (error) {
+    console.error('Error in test endpoint:', error);
+    res.status(500).json({
+      error: 'Test endpoint failed',
+      message: error.message
+    });
+  }
+};
+
+/**
  * Debug audio file information
  * @route GET /api/audio/debug/:id
  * @access Public
