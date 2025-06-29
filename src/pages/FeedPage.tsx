@@ -511,6 +511,29 @@ interface Comment {
 export const FeedPage = () => {
   const location = useLocation();
   const [posts, setPosts] = useState<FeedPost[]>(mockPosts);
+  
+  // Debug function to test audio URLs
+  const testAudioUrl = async (url: string, postId: string) => {
+    try {
+      console.log(`Testing audio URL for post ${postId}:`, url);
+      const response = await fetch(url, { method: 'HEAD' });
+      console.log(`Audio URL test result for post ${postId}:`, {
+        url,
+        status: response.status,
+        contentType: response.headers.get('content-type'),
+        contentLength: response.headers.get('content-length')
+      });
+      
+      if (!response.ok) {
+        console.warn(`Audio URL not accessible for post ${postId}:`, response.status, response.statusText);
+      }
+      
+      return response.ok;
+    } catch (error) {
+      console.error(`Error testing audio URL for post ${postId}:`, error);
+      return false;
+    }
+  };
   const [filter, setFilter] = useState('trending');
   const [showFilters, setShowFilters] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -583,9 +606,18 @@ export const FeedPage = () => {
       const response = await feedAPI.getFeedPosts(filter);
       if (response.status === 'success') {
         // Transform API response to match our FeedPost interface
-        const transformedPosts = response.data.map((post: any) => ({
-          id: post.id,
-          audioUrl: post.audioFile ? `/api/audio/original/${post.audioFile.id}` : undefined,
+        const transformedPosts = response.data.map((post: any) => {
+          // Construct full audio URL with domain
+          let audioUrl = undefined;
+          if (post.audioFile) {
+            // Use full URL with domain for better compatibility
+            const baseUrl = window.location.origin;
+            audioUrl = `${baseUrl}/api/audio/${post.audioFile.id}`;
+          }
+          
+          return {
+            id: post.id,
+            audioUrl,
           caption: post.caption,
           description: post.description || '',
           tags: post.tags || [],
@@ -606,7 +638,8 @@ export const FeedPage = () => {
           engagement: post.engagement || 85,
           duration: post.audioFile ? `${Math.floor(post.audioFile.duration / 60)}:${String(Math.floor(post.audioFile.duration % 60)).padStart(2, '0')}` : '00:00',
           audioFile: post.audioFile
-        }));
+          };
+        });
         setPosts(transformedPosts);
       }
     } catch (err) {
@@ -789,9 +822,16 @@ export const FeedPage = () => {
       
       if (response.status === 'success') {
         // Add the new post to the posts list
+        // Construct full audio URL with domain
+        let audioUrl = undefined;
+        if (response.data.audioFile) {
+          const baseUrl = window.location.origin;
+          audioUrl = `${baseUrl}/api/audio/${response.data.audioFile.id}`;
+        }
+        
         const newPost: FeedPost = {
           id: response.data.id,
-          audioUrl: response.data.audioFile ? `/api/audio/original/${response.data.audioFile.id}` : undefined,
+          audioUrl,
           caption: response.data.caption,
           description: response.data.description || '',
           tags: response.data.tags || [],
