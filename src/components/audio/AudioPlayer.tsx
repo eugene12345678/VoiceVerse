@@ -29,6 +29,68 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const [maxRetries] = useState(3);
   const [fallbackAttempted, setFallbackAttempted] = useState(false);
 
+  // Try to fix WebM playback issues by creating a new blob
+  const tryWebMFix = async (audioUrl: string): Promise<string | null> => {
+    try {
+      console.log('Attempting WebM fix by re-creating blob');
+      
+      const response = await fetch(audioUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const arrayBuffer = await response.arrayBuffer();
+      console.log(`WebM fix: Fetched ${arrayBuffer.byteLength} bytes`);
+      
+      // Try different MIME types to see if one works better
+      const mimeTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/ogg'
+      ];
+      
+      for (const mimeType of mimeTypes) {
+        try {
+          const blob = new Blob([arrayBuffer], { type: mimeType });
+          const blobUrl = URL.createObjectURL(blob);
+          
+          // Test if this blob can be loaded
+          const testAudio = new Audio();
+          const canLoad = await new Promise<boolean>((resolve) => {
+            const timeout = setTimeout(() => resolve(false), 2000);
+            
+            testAudio.addEventListener('canplay', () => {
+              clearTimeout(timeout);
+              resolve(true);
+            });
+            
+            testAudio.addEventListener('error', () => {
+              clearTimeout(timeout);
+              resolve(false);
+            });
+            
+            testAudio.src = blobUrl;
+          });
+          
+          if (canLoad) {
+            console.log(`WebM fix successful with MIME type: ${mimeType}`);
+            return blobUrl;
+          } else {
+            URL.revokeObjectURL(blobUrl);
+          }
+        } catch (blobError) {
+          console.log(`WebM fix failed with MIME type ${mimeType}:`, blobError);
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('WebM fix failed:', error);
+      return null;
+    }
+  };
+
   // Format time as MM:SS
   const formatTime = (time: number) => {
     if (isNaN(time)) return '0:00';
@@ -204,46 +266,48 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             console.log('WebM file detected, attempting compatibility workarounds');
             setFallbackAttempted(true);
             
+            // Strategy 1: Try WebM fix first (most likely to work)
+            console.log('Trying WebM fix strategy');
+            tryWebMFix(audioUrl).then(fixedUrl => {
+            if (fixedUrl && audioRef.current) {
+            console.log('WebM fix successful, using fixed URL');
+            audioRef.current.src = fixedUrl;
+            audioRef.current.load();
+            } else {
+            console.log('WebM fix failed, trying original endpoint');
+            
             const audioId = audioUrl.split('/').pop();
-            if (audioId) {
-              // Strategy 1: Try the original endpoint (might serve differently)
-              const fallbackUrl = audioUrl.replace('/api/audio/', '/api/audio/original/');
-              console.log('Trying original endpoint fallback:', fallbackUrl);
-              
-              if (audioRef.current) {
-                // Set up a timeout to try another approach if this fails
-                const fallbackTimeout = setTimeout(() => {
-                  console.log('Original endpoint fallback failed, trying conversion endpoint');
-                  // Strategy 2: Try conversion endpoint (even if it just returns info)
-                  fetch(`/api/audio/convert/${audioId}?format=wav`)
-                    .then(convertResponse => convertResponse.json())
-                    .then(convertData => {
-                      console.log('Conversion endpoint response:', convertData);
-                      // For now, just log the response since conversion isn't implemented
-                      errorMessage = 'WebM playback failed. Audio conversion not available in this environment.';
-                      setError(errorMessage);
-                      setIsLoading(false);
-                    })
-                    .catch(convertError => {
-                      console.error('Conversion endpoint error:', convertError);
-                      errorMessage = 'WebM audio format not supported and conversion failed';
-                      setError(errorMessage);
-                      setIsLoading(false);
-                    });
-                }, 3000);
-                
-                // Clear timeout if audio loads successfully
-                const handleLoadSuccess = () => {
-                  clearTimeout(fallbackTimeout);
-                  audioRef.current?.removeEventListener('canplay', handleLoadSuccess);
-                };
-                audioRef.current.addEventListener('canplay', handleLoadSuccess);
-                
-                audioRef.current.src = fallbackUrl;
-                audioRef.current.load();
-                return;
-              }
+            if (audioId && audioRef.current) {
+            // Strategy 2: Try the original endpoint (might serve differently)
+            const fallbackUrl = audioUrl.replace('/api/audio/', '/api/audio/original/');
+            console.log('Trying original endpoint fallback:', fallbackUrl);
+            
+            audioRef.current.src = fallbackUrl;
+            audioRef.current.load();
+            
+            // Set up a timeout for final fallback
+            setTimeout(() => {
+            if (audioRef.current && audioRef.current.error) {
+            console.log('All WebM strategies failed, showing error');
+            setError('WebM audio format not supported by this browser');
+            setIsLoading(false);
             }
+            }, 5000);
+            }
+            }
+            }).catch(fixError => {
+            console.error('WebM fix promise failed:', fixError);
+            // Fallback to original endpoint strategy
+            const audioId = audioUrl.split('/').pop();
+            if (audioId && audioRef.current) {
+            const fallbackUrl = audioUrl.replace('/api/audio/', '/api/audio/original/');
+            console.log('WebM fix failed, trying original endpoint fallback:', fallbackUrl);
+            audioRef.current.src = fallbackUrl;
+            audioRef.current.load();
+            }
+            });
+            
+            return; // Exit early since we're handling this asynchronously
           }
           
           // If all fallbacks have been attempted
@@ -362,9 +426,31 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         canPlayOGG: audioRef.current.canPlayType('audio/ogg')
       });
       
-      // Set new source
-      audioRef.current.src = audioUrl;
-      audioRef.current.load();
+      // For WebM files, try the fix strategy immediately
+      if (audioUrl.includes('webm') || audioUrl.includes('audio/webm')) {
+        console.log('WebM URL detected, applying fix strategy immediately');
+        tryWebMFix(audioUrl).then(fixedUrl => {
+          if (fixedUrl && audioRef.current) {
+            console.log('Preemptive WebM fix successful');
+            audioRef.current.src = fixedUrl;
+            audioRef.current.load();
+          } else {
+            console.log('Preemptive WebM fix failed, using original URL');
+            audioRef.current.src = audioUrl;
+            audioRef.current.load();
+          }
+        }).catch(() => {
+          console.log('Preemptive WebM fix error, using original URL');
+          if (audioRef.current) {
+            audioRef.current.src = audioUrl;
+            audioRef.current.load();
+          }
+        });
+      } else {
+        // Set new source normally for non-WebM files
+        audioRef.current.src = audioUrl;
+        audioRef.current.load();
+      }
     }
   }, [audioUrl]);
 
