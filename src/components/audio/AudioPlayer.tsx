@@ -268,27 +268,6 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             audioRef.current.load();
           }
           return;
-
-        // Check if content type is not audio at all
-        if (!contentType.startsWith("audio/") && !contentType.includes("audio") && !contentType.includes("mpeg") && !contentType.includes("wav") && !contentType.includes("ogg") && !contentType.includes("webm")) {
-          console.warn("Content type is not audio, using fallback:", contentType);
-          const fallbackUrls = [
-            "https://www2.cs.uic.edu/~i101/SoundFiles/BabyElephantWalk60.wav",
-            "https://www2.cs.uic.edu/~i101/SoundFiles/CantinaBand3.wav",
-            "https://www2.cs.uic.edu/~i101/SoundFiles/StarWars3.wav"
-          ];
-          
-          const index = Math.abs(audioUrl.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)) % fallbackUrls.length;
-          const fallbackUrl = fallbackUrls[index];
-          
-          console.log("Using fallback audio URL for non-audio content:", fallbackUrl);
-          if (audioRef.current) {
-            audioRef.current.src = fallbackUrl;
-            audioRef.current.load();
-          }
-          return;
-        }
-
         }
 
         if (contentType.includes('webm')) {
