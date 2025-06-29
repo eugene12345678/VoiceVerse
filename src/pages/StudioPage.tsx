@@ -365,8 +365,20 @@ export const StudioPage = () => {
   // Upload audio to server
   const uploadAudioToServer = async (audioBlob: Blob, calculatedDuration?: number) => {
     try {
+      // Determine the correct filename based on the blob's MIME type
+      let filename = 'recording.wav'; // default
+      if (audioBlob.type.includes('webm')) {
+        filename = 'recording.webm';
+      } else if (audioBlob.type.includes('ogg')) {
+        filename = 'recording.ogg';
+      } else if (audioBlob.type.includes('mp3') || audioBlob.type.includes('mpeg')) {
+        filename = 'recording.mp3';
+      }
+      
+      console.log(`Creating file with name: ${filename}, type: ${audioBlob.type}`);
+      
       // Create a File object from the Blob with metadata
-      const file = new File([audioBlob], 'recording.wav', { 
+      const file = new File([audioBlob], filename, { 
         type: audioBlob.type,
         lastModified: Date.now()
       });
@@ -409,19 +421,34 @@ export const StudioPage = () => {
       
       // For development purposes, create a mock audio file
       if (process.env.NODE_ENV === 'development') {
-        console.log('Creating mock audio file for development');
-        const mockAudioFile = {
-          id: 'mock-audio-' + Date.now(),
-          originalFilename: 'recording.wav',
-          storagePath: '/uploads/audio/original/mock_recording.wav',
-          fileSize: audioBlob.size,
-          duration: calculatedDuration || 5,
-          mimeType: audioBlob.type,
-          isPublic: false,
-          userId: 'dev-user-id'
-        };
-        setAudioFile(mockAudioFile as AudioFile);
-        setAudioDuration(calculatedDuration || 5);
+      console.log('Creating mock audio file for development');
+      
+      // Determine the correct filename and path based on the blob's MIME type
+      let filename = 'recording.wav';
+      let storagePath = '/uploads/audio/original/mock_recording.wav';
+      if (audioBlob.type.includes('webm')) {
+      filename = 'recording.webm';
+      storagePath = '/uploads/audio/original/mock_recording.webm';
+      } else if (audioBlob.type.includes('ogg')) {
+      filename = 'recording.ogg';
+      storagePath = '/uploads/audio/original/mock_recording.ogg';
+      } else if (audioBlob.type.includes('mp3') || audioBlob.type.includes('mpeg')) {
+      filename = 'recording.mp3';
+      storagePath = '/uploads/audio/original/mock_recording.mp3';
+      }
+      
+      const mockAudioFile = {
+      id: 'mock-audio-' + Date.now(),
+      originalFilename: filename,
+      storagePath: storagePath,
+      fileSize: audioBlob.size,
+      duration: calculatedDuration || 5,
+      mimeType: audioBlob.type,
+      isPublic: false,
+      userId: 'dev-user-id'
+      };
+      setAudioFile(mockAudioFile as AudioFile);
+      setAudioDuration(calculatedDuration || 5);
       }
     }
   };
@@ -443,10 +470,20 @@ export const StudioPage = () => {
       const duration = (Date.now() - recordingStartTime) / 1000; // Convert to seconds
       setAudioDuration(duration);
       
+      // Determine the correct filename based on the blob's MIME type
+      let filename = 'recording.wav'; // default
+      if (audioBlob.type.includes('webm')) {
+      filename = 'recording.webm';
+      } else if (audioBlob.type.includes('ogg')) {
+      filename = 'recording.ogg';
+      } else if (audioBlob.type.includes('mp3') || audioBlob.type.includes('mpeg')) {
+      filename = 'recording.mp3';
+      }
+      
       // Create a new blob with duration metadata
-      const audioWithDuration = new File([audioBlob], 'recording.wav', { 
-        type: audioBlob.type,
-        lastModified: Date.now()
+      const audioWithDuration = new File([audioBlob], filename, {
+      type: audioBlob.type,
+      lastModified: Date.now()
       });
       
       // Upload the audio to the server with the calculated duration

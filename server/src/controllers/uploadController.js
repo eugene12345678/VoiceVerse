@@ -44,7 +44,22 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    const uniqueFilename = `${Date.now()}_${uuidv4()}${path.extname(file.originalname)}`;
+    // Determine the correct file extension based on MIME type
+    let extension = path.extname(file.originalname);
+    
+    // Override extension based on actual MIME type for better accuracy
+    if (file.mimetype === 'audio/webm' || file.mimetype === 'audio/webm;codecs=opus') {
+      extension = '.webm';
+    } else if (file.mimetype === 'audio/wav') {
+      extension = '.wav';
+    } else if (file.mimetype === 'audio/mpeg' || file.mimetype === 'audio/mp3') {
+      extension = '.mp3';
+    } else if (file.mimetype === 'audio/ogg') {
+      extension = '.ogg';
+    }
+    
+    const uniqueFilename = `${Date.now()}_${uuidv4()}${extension}`;
+    console.log(`Generated filename for MIME type ${file.mimetype}: ${uniqueFilename}`);
     cb(null, uniqueFilename);
   }
 });
