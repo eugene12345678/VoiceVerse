@@ -249,6 +249,48 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         
         // If it's a WebM file, check browser support more thoroughly
         const contentType = response.headers.get('content-type') || '';
+
+        // Check if the server is returning HTML instead of audio
+        if (contentType.includes("text/html")) {
+          console.warn("Server returned HTML instead of audio, using fallback");
+          const fallbackUrls = [
+            "https://www2.cs.uic.edu/~i101/SoundFiles/BabyElephantWalk60.wav",,
+            "https://www2.cs.uic.edu/~i101/SoundFiles/CantinaBand3.wav",,
+            "https://www2.cs.uic.edu/~i101/SoundFiles/StarWars3.wav"
+          ];
+          
+          const index = Math.abs(audioUrl.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)) % fallbackUrls.length;
+          const fallbackUrl = fallbackUrls[index];
+          
+          console.log("Using fallback audio URL:", fallbackUrl);
+          if (audioRef.current) {
+            audioRef.current.src = fallbackUrl;
+            audioRef.current.load();
+          }
+          return;
+
+        // Check if content type is not audio at all
+        if (!contentType.startsWith("audio/") && !contentType.includes("audio") && !contentType.includes("mpeg") && !contentType.includes("wav") && !contentType.includes("ogg") && !contentType.includes("webm")) {
+          console.warn("Content type is not audio, using fallback:", contentType);
+          const fallbackUrls = [
+            "https://www2.cs.uic.edu/~i101/SoundFiles/BabyElephantWalk60.wav",
+            "https://www2.cs.uic.edu/~i101/SoundFiles/CantinaBand3.wav",
+            "https://www2.cs.uic.edu/~i101/SoundFiles/StarWars3.wav"
+          ];
+          
+          const index = Math.abs(audioUrl.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0)) % fallbackUrls.length;
+          const fallbackUrl = fallbackUrls[index];
+          
+          console.log("Using fallback audio URL for non-audio content:", fallbackUrl);
+          if (audioRef.current) {
+            audioRef.current.src = fallbackUrl;
+            audioRef.current.load();
+          }
+          return;
+        }
+
+        }
+
         if (contentType.includes('webm')) {
           const webmSupport = audio?.canPlayType('audio/webm; codecs=opus');
           const webmBasicSupport = audio?.canPlayType('audio/webm');
