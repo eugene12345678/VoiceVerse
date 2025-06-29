@@ -631,15 +631,41 @@ export const StudioPage = () => {
           // Transformation is complete, get the transformed audio URL
           setIsProcessing(false);
           
-          // Create a URL for the transformed audio using the public API endpoint
-          const transformedAudioUrl = `/api/audio/${transformationData.transformedAudioId}`;
+          // Create a URL for the transformed audio using the full domain URL
+          // Use the same base URL as the original audio file
+          const baseUrl = recordedAudio?.includes('https://') 
+            ? recordedAudio.split('/api/audio/')[0] 
+            : window.location.origin;
+          const transformedAudioUrl = `${baseUrl}/api/audio/${transformationData.transformedAudioId}`;
           console.log('Setting transformed audio URL:', transformedAudioUrl);
-          setTransformedAudio(transformedAudioUrl);
           
-          // Clear any error messages on successful completion
-          setErrorMessage(null);
-          
-          console.log('Celebrity voice transformation completed successfully!');
+          // Test if the transformed audio URL is accessible before setting it
+          fetch(transformedAudioUrl, { method: 'HEAD' })
+            .then(response => {
+              console.log('Transformed audio URL test:', {
+                url: transformedAudioUrl,
+                status: response.status,
+                contentType: response.headers.get('content-type'),
+                contentLength: response.headers.get('content-length')
+              });
+              
+              if (response.ok) {
+                setTransformedAudio(transformedAudioUrl);
+                // Clear any error messages on successful completion
+                setErrorMessage(null);
+                console.log('Celebrity voice transformation completed successfully!');
+              } else {
+                console.error('Transformed audio URL not accessible:', response.status, response.statusText);
+                setErrorMessage(`Transformed audio not accessible (HTTP ${response.status})`);
+              }
+            })
+            .catch(error => {
+              console.error('Error testing transformed audio URL:', error);
+              // Still set the URL, let the audio player handle the error
+              setTransformedAudio(transformedAudioUrl);
+              setErrorMessage(null);
+              console.log('Celebrity voice transformation completed (URL test failed, but proceeding)');
+            });
         } else if (transformationData.status === 'failed') {
           setIsProcessing(false);
           const errorMsg = transformationData.errorMessage || 'Transformation failed';
