@@ -269,6 +269,47 @@ const supportsWebM = (req) => {
 };
 
 /**
+ * Validate WebM file structure
+ * @param {Buffer} audioData - The audio file data
+ * @returns {Object} - Validation result
+ */
+const validateWebMFile = (audioData) => {
+  try {
+    if (!audioData || audioData.length < 32) {
+      return { isValid: false, error: 'File too small or empty' };
+    }
+    
+    // Check EBML header
+    const signature = Array.from(audioData.slice(0, 4)).map(b => b.toString(16).padStart(2, '0')).join('');
+    if (signature !== '1a45dfa3') {
+      return { isValid: false, error: `Invalid EBML header: ${signature}` };
+    }
+    
+    // Look for WebM identifier in the first 100 bytes
+    const searchBytes = audioData.slice(0, Math.min(100, audioData.length));
+    const searchHex = Array.from(searchBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    const hasWebMIdentifier = searchHex.includes('7765626d'); // "webm" in hex
+    
+    if (!hasWebMIdentifier) {
+      return { isValid: false, error: 'WebM container identifier not found' };
+    }
+    
+    // Basic structure validation passed
+    return { 
+      isValid: true, 
+      info: {
+        size: audioData.length,
+        hasEBMLHeader: true,
+        hasWebMIdentifier: true
+      }
+    };
+    
+  } catch (error) {
+    return { isValid: false, error: `Validation error: ${error.message}` };
+  }
+};
+
+/**
  * Serve an audio file from the database record
  * @param {Object} req - Express request object
  * @param {Object} res - Express response object
@@ -294,14 +335,16 @@ const serveAudioFile = (req, res, audioFile) => {
         
         // WebM signature: 1A 45 DF A3 (EBML header)
         if (signatureHex.startsWith('1a45dfa3')) {
-          // Check if the browser supports WebM
-          if (supportsWebM(req)) {
-            mimeType = 'audio/webm;codecs=opus';
-            console.log(`Detected WebM file, browser supports WebM, using MIME type: ${mimeType}`);
-          } else {
-            console.log(`Detected WebM file, but browser may not support it. User-Agent: ${req.headers['user-agent']}`);
-            // For browsers that don't support WebM, we'll still serve it but with additional headers
-            mimeType = 'audio/webm;codecs=opus';
+          mimeType = 'audio/webm;codecs=opus';
+          console.log(`Detected WebM file, using MIME type: ${mimeType}`);
+          
+          // Additional WebM validation
+          const webmValidation = validateWebMFile(audioFile.audioData);
+          console.log(`WebM file validation result:`, webmValidation);
+          
+          if (!webmValidation.isValid) {
+            console.warn(`WebM file validation failed: ${webmValidation.error}`);
+            // Still serve it, but log the issue
           }
         }
         // WAV signature: 52 49 46 46 (RIFF)
@@ -794,6 +837,49 @@ exports.debugAudioFile = async (req, res) => {
     console.error('Error in debug endpoint:', error);
     res.status(500).json({
       error: 'Debug endpoint failed',
+      message: error.message
+    });
+  }
+};
+
+/**
+ * Convert WebM to WAV format (fallback for compatibility)
+ * @route GET /api/audio/convert/:id
+ * @access Public
+ */
+exports.convertAudioFile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { format = 'wav' } = req.query;
+    
+    console.log(`Convert request for audio file: ${id} to format: ${format}`);
+    
+    // Get the audio file from database
+    const audioFile = await req.prisma.audioFile.findUnique({
+      where: { id },
+    });
+    
+    if (!audioFile) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Audio file not found'
+      });
+    }
+    
+    // For now, return a simple response indicating conversion is not available
+    // In a production environment, you would use FFmpeg or similar to convert
+    res.json({
+      status: 'info',
+      message: 'Audio conversion not available in this environment',
+      originalFormat: audioFile.mimeType,
+      requestedFormat: format,
+      suggestion: 'Try using the original audio file or a different browser'
+    });
+    
+  } catch (error) {
+    console.error('Error in convert endpoint:', error);
+    res.status(500).json({
+      error: 'Convert endpoint failed',
       message: error.message
     });
   }

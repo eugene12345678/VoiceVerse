@@ -169,14 +169,33 @@ exports.uploadAudio = [
         });
       }
       
-      // Check file signature for WebM files
+      // Check file signature for WebM files and validate structure
       if (mimetype.includes('webm')) {
         try {
-          const buffer = fs.readFileSync(filePath, { start: 0, end: 11 });
+          const buffer = fs.readFileSync(filePath, { start: 0, end: 31 }); // Read more bytes for better validation
           const signature = Array.from(buffer).map(b => b.toString(16).padStart(2, '0')).join('');
-          console.log(`WebM file signature: ${signature}`);
+          console.log(`WebM file signature (32 bytes): ${signature}`);
+          
+          // Validate WebM/EBML structure
+          const isValidWebM = signature.startsWith('1a45dfa3'); // EBML header
+          console.log(`WebM validation: ${isValidWebM ? 'VALID' : 'INVALID'} EBML header`);
+          
+          if (!isValidWebM) {
+            console.warn(`Invalid WebM file detected: ${filePath}`);
+            console.warn(`Expected EBML header (1a45dfa3) but got: ${signature.substring(0, 8)}`);
+          }
+          
+          // Check for WebM container signature
+          const fullBuffer = fs.readFileSync(filePath);
+          const fullSignature = Array.from(fullBuffer.slice(0, Math.min(100, fullBuffer.length)))
+            .map(b => b.toString(16).padStart(2, '0')).join('');
+          
+          // Look for WebM identifier in the first 100 bytes
+          const hasWebMIdentifier = fullSignature.includes('7765626d'); // "webm" in hex
+          console.log(`WebM container check: ${hasWebMIdentifier ? 'FOUND' : 'NOT FOUND'} webm identifier`);
+          
         } catch (sigError) {
-          console.error('Error reading file signature:', sigError);
+          console.error('Error reading WebM file signature:', sigError);
         }
       }
       

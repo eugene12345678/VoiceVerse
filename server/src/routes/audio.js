@@ -67,4 +67,9 @@ router.get('/debug/:id', audioController.debugAudioFile);
 // @access  Public
 router.get('/test/:id', audioController.testAudioFile);
 
+// @route   GET /api/audio/convert/:id
+// @desc    Convert audio file to different format
+// @access  Public
+router.get('/convert/:id', audioController.convertAudioFile);
+
 module.exports = router;

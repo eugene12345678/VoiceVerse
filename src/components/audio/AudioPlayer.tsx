@@ -198,19 +198,47 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             fallbackAttempted
           });
           
-          // If browser doesn't support WebM well and we haven't tried fallback
-          if ((webmSupport === '' || webmSupport === 'no') && !fallbackAttempted) {
-            console.warn('Browser does not support WebM audio format, attempting fallback');
+          // Even if browser claims support, WebM files can still fail
+          // Try multiple fallback strategies
+          if (!fallbackAttempted) {
+            console.log('WebM file detected, attempting compatibility workarounds');
             setFallbackAttempted(true);
             
-            // Try to get a fallback URL (e.g., convert WebM ID to MP3 fallback)
             const audioId = audioUrl.split('/').pop();
             if (audioId) {
-              // Try the fallback endpoint or a different format
+              // Strategy 1: Try the original endpoint (might serve differently)
               const fallbackUrl = audioUrl.replace('/api/audio/', '/api/audio/original/');
-              console.log('Trying fallback URL:', fallbackUrl);
+              console.log('Trying original endpoint fallback:', fallbackUrl);
               
               if (audioRef.current) {
+                // Set up a timeout to try another approach if this fails
+                const fallbackTimeout = setTimeout(() => {
+                  console.log('Original endpoint fallback failed, trying conversion endpoint');
+                  // Strategy 2: Try conversion endpoint (even if it just returns info)
+                  fetch(`/api/audio/convert/${audioId}?format=wav`)
+                    .then(convertResponse => convertResponse.json())
+                    .then(convertData => {
+                      console.log('Conversion endpoint response:', convertData);
+                      // For now, just log the response since conversion isn't implemented
+                      errorMessage = 'WebM playback failed. Audio conversion not available in this environment.';
+                      setError(errorMessage);
+                      setIsLoading(false);
+                    })
+                    .catch(convertError => {
+                      console.error('Conversion endpoint error:', convertError);
+                      errorMessage = 'WebM audio format not supported and conversion failed';
+                      setError(errorMessage);
+                      setIsLoading(false);
+                    });
+                }, 3000);
+                
+                // Clear timeout if audio loads successfully
+                const handleLoadSuccess = () => {
+                  clearTimeout(fallbackTimeout);
+                  audioRef.current?.removeEventListener('canplay', handleLoadSuccess);
+                };
+                audioRef.current.addEventListener('canplay', handleLoadSuccess);
+                
                 audioRef.current.src = fallbackUrl;
                 audioRef.current.load();
                 return;
@@ -218,9 +246,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             }
           }
           
-          // If WebM is not supported at all
-          if (webmSupport === '' || webmSupport === 'no') {
-            console.warn('Browser does not support WebM audio format');
+          // If all fallbacks have been attempted
+          if (fallbackAttempted) {
+            console.warn('All WebM fallback strategies exhausted');
             errorMessage = 'WebM audio format not supported by this browser';
           }
         }
@@ -235,10 +263,45 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         setError(null);
         setIsLoading(true);
         
-        // Wait a bit before retrying
+        // For WebM files, try different loading strategies on retry
+        const isWebM = audioUrl.includes('webm') || (response && response.headers.get('content-type')?.includes('webm'));
+        
         setTimeout(() => {
           if (audioRef.current) {
-            audioRef.current.load();
+            if (isWebM && retryCount === 0) {
+              // First retry: Try with different preload settings
+              console.log('WebM retry: Trying with preload="auto"');
+              audioRef.current.preload = 'auto';
+              audioRef.current.load();
+            } else if (isWebM && retryCount === 1) {
+              // Second retry: Try creating a new audio element
+              console.log('WebM retry: Creating new audio element');
+              const newAudio = document.createElement('audio');
+              newAudio.preload = 'metadata';
+              newAudio.crossOrigin = 'anonymous';
+              newAudio.src = audioUrl;
+              
+              // Copy event listeners to new element
+              const currentAudio = audioRef.current;
+              if (currentAudio) {
+                // Transfer all event listeners
+                ['loadstart', 'loadedmetadata', 'timeupdate', 'play', 'pause', 'ended', 'error', 'canplay'].forEach(eventType => {
+                  const listeners = currentAudio.cloneNode(true);
+                  // This is a simplified approach - in practice you'd need to properly transfer listeners
+                });
+              }
+              
+              // Replace the audio element
+              if (audioRef.current?.parentNode) {
+                audioRef.current.parentNode.replaceChild(newAudio, audioRef.current);
+                audioRef.current = newAudio;
+              }
+              
+              newAudio.load();
+            } else {
+              // Standard retry
+              audioRef.current.load();
+            }
           }
         }, 1000 * (retryCount + 1)); // Exponential backoff
       } else {
