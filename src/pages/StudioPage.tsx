@@ -619,34 +619,47 @@ export const StudioPage = () => {
   // Poll for transformation status
   const pollTransformationStatus = async (transformationId: string) => {
     try {
+      console.log('Polling transformation status for ID:', transformationId);
       const response = await voiceAPI.getTransformationStatus(transformationId);
       
       if (response.status === 'success' && response.data) {
         const transformationData = response.data;
+        console.log('Transformation status update:', transformationData);
         setTransformation(transformationData);
         
         if (transformationData.status === 'completed' && transformationData.transformedAudioId) {
           // Transformation is complete, get the transformed audio URL
           setIsProcessing(false);
           
-          // Create a URL for the transformed audio
-          // In a real app, you would fetch the audio file or construct a URL to it
-          setTransformedAudio(`/api/audio/${transformationData.transformedAudioId}`);
+          // Create a URL for the transformed audio using the public API endpoint
+          const transformedAudioUrl = `/api/audio/${transformationData.transformedAudioId}`;
+          console.log('Setting transformed audio URL:', transformedAudioUrl);
+          setTransformedAudio(transformedAudioUrl);
+          
+          // Clear any error messages on successful completion
+          setErrorMessage(null);
+          
+          console.log('Celebrity voice transformation completed successfully!');
         } else if (transformationData.status === 'failed') {
           setIsProcessing(false);
-          setErrorMessage(transformationData.errorMessage || 'Transformation failed');
+          const errorMsg = transformationData.errorMessage || 'Transformation failed';
+          console.error('Transformation failed:', errorMsg);
+          setErrorMessage(errorMsg);
         } else if (transformationData.status === 'processing' || transformationData.status === 'pending') {
-          // Continue polling
+          // Continue polling every 2 seconds
+          console.log('Transformation still processing, will poll again in 2 seconds...');
           setTimeout(() => pollTransformationStatus(transformationId), 2000);
         }
       } else {
         setIsProcessing(false);
-        setErrorMessage('Failed to get transformation status');
+        const errorMsg = 'Failed to get transformation status';
+        console.error(errorMsg, response);
+        setErrorMessage(errorMsg);
       }
     } catch (error) {
       console.error('Error polling transformation status:', error);
       setIsProcessing(false);
-      setErrorMessage('Error checking transformation status');
+      setErrorMessage('Error checking transformation status: ' + (error.message || 'Unknown error'));
     }
   };
   
@@ -1296,12 +1309,36 @@ export const StudioPage = () => {
 
                 <div className="space-y-6">
                   <div className="relative">
+                    {/* Processing indicator */}
+                    {isProcessing && (
+                      <div className="absolute inset-0 bg-white/80 dark:bg-dark-800/80 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-2"></div>
+                          <p className="text-sm font-medium text-dark-700 dark:text-dark-300">
+                            {transformation?.status === 'processing' ? 'Applying celebrity voice...' : 'Processing...'}
+                          </p>
+                          {transformation?.status === 'processing' && (
+                            <p className="text-xs text-dark-500 dark:text-dark-400 mt-1">
+                              This may take 30-60 seconds
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
                     <AudioPlayer
                       audioUrl={translatedAudio || transformedAudio || recordedAudio}
                       height={120}
                       showWaveform={true}
                       className="w-full"
                     />
+                    
+                    {/* Status indicator */}
+                    {transformedAudio && !isProcessing && (
+                      <div className="absolute top-2 right-2 bg-success-100 dark:bg-success-900/30 text-success-700 dark:text-success-400 px-2 py-1 rounded-full text-xs font-medium">
+                        ✓ Voice Transformed
+                      </div>
+                    )}
                   </div>
                   
                   {/* Voice Cloning Controls */}
@@ -1441,10 +1478,52 @@ export const StudioPage = () => {
                       
                       {/* Apply Voice Button */}
                       {selectedVoiceId && audioFile && (
-                        <Button
-                          variant="primary"
-                          leftIcon={<Wand2 className="h-5 w-5" />}
-                          onClick={() => {
+                        <div className="space-y-3">
+                          {/* Transformation Status */}
+                          {transformation && (
+                            <div className={`p-3 rounded-lg border text-sm ${
+                              transformation.status === 'completed' 
+                                ? 'bg-success-50 dark:bg-success-900/30 border-success-200 dark:border-success-800 text-success-700 dark:text-success-400'
+                                : transformation.status === 'failed'
+                                ? 'bg-error-50 dark:bg-error-900/30 border-error-200 dark:border-error-800 text-error-700 dark:text-error-400'
+                                : 'bg-primary-50 dark:bg-primary-900/30 border-primary-200 dark:border-primary-800 text-primary-700 dark:text-primary-400'
+                            }`}>
+                              <div className="flex items-center gap-2">
+                                {transformation.status === 'processing' && (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                                )}
+                                {transformation.status === 'completed' && (
+                                  <div className="h-4 w-4 rounded-full bg-success-500 flex items-center justify-center">
+                                    <div className="h-2 w-2 bg-white rounded-full"></div>
+                                  </div>
+                                )}
+                                {transformation.status === 'failed' && (
+                                  <X className="h-4 w-4" />
+                                )}
+                                <span className="font-medium">
+                                  {transformation.status === 'processing' && 'Applying celebrity voice...'}
+                                  {transformation.status === 'completed' && 'Celebrity voice applied successfully!'}
+                                  {transformation.status === 'failed' && 'Voice transformation failed'}
+                                </span>
+                              </div>
+                              {transformation.status === 'processing' && (
+                                <p className="text-xs mt-1 opacity-75">
+                                  This may take 30-60 seconds. Please wait...
+                                </p>
+                              )}
+                              {transformation.status === 'failed' && transformation.errorMessage && (
+                                <p className="text-xs mt-1 opacity-75">
+                                  {transformation.errorMessage}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                          
+                          <div className="flex gap-2">
+                            <Button
+                              variant="primary"
+                              leftIcon={<Wand2 className="h-5 w-5" />}
+                              onClick={async () => {
                             if (!selectedVoiceId) {
                               setErrorMessage('Please select a voice first');
                               return;
@@ -1455,6 +1534,10 @@ export const StudioPage = () => {
                               return;
                             }
                             
+                            // Clear any previous transformation results
+                            setTransformedAudio(null);
+                            setTransformation(null);
+                            
                             // Pass the selected voice ID in the settings
                             const celebritySettings = {
                               ...settings,
@@ -1463,14 +1546,21 @@ export const StudioPage = () => {
                             setIsProcessing(true);
                             setErrorMessage(null);
                             
-                            // Call the API with the celebrity_voice effect ID and voice settings
-                            voiceAPI.transformAudio(
-                              audioFile.id,
-                              'celebrity_voice',
-                              celebritySettings
-                            )
-                            .then(response => {
+                            console.log('Starting celebrity voice transformation with voice ID:', selectedVoiceId);
+                            console.log('Audio file ID:', audioFile.id);
+                            console.log('Settings:', celebritySettings);
+                            
+                            try {
+                              // Call the API with the celebrity_voice effect ID and voice settings
+                              const response = await voiceAPI.transformAudio(
+                                audioFile.id,
+                                'celebrity_voice',
+                                celebritySettings
+                              );
+                              
                               if (response.status === 'success' && response.data) {
+                                console.log('Celebrity voice transformation started:', response.data);
+                                
                                 setTransformation({
                                   id: response.data.transformationId,
                                   sourceAudioId: audioFile.id,
@@ -1486,8 +1576,7 @@ export const StudioPage = () => {
                                 setErrorMessage('Failed to start voice transformation: ' + (response.message || 'Unknown error'));
                                 console.error('API returned unsuccessful status:', response);
                               }
-                            })
-                            .catch(error => {
+                            } catch (error) {
                               console.error('Error applying celebrity voice:', error);
                               setIsProcessing(false);
                               
@@ -1498,22 +1587,32 @@ export const StudioPage = () => {
                               }
                               
                               setErrorMessage(errorMsg);
-                              
-                              // For development purposes, simulate a successful transformation
-                              console.log('Simulating successful transformation in development mode');
-                              setTimeout(() => {
-                                setTransformedAudio(recordedAudio);
-                                setIsProcessing(false);
-                                setErrorMessage('Development mode: Using original audio as transformed audio');
-                              }, 2000);
-                            });
+                            }
                           }}
-                          isLoading={isProcessing}
-                          disabled={isProcessing || !selectedVoiceId}
-                          fullWidth
-                        >
-                          {isProcessing ? 'Applying Voice...' : 'Apply Celebrity Voice'}
-                        </Button>
+                              isLoading={isProcessing}
+                              disabled={isProcessing || !selectedVoiceId}
+                              className="flex-1"
+                            >
+                              {isProcessing ? 'Applying Voice...' : 'Apply Celebrity Voice'}
+                            </Button>
+                            
+                            {(transformation || transformedAudio) && (
+                              <Button
+                                variant="outline"
+                                leftIcon={<RefreshCw className="h-5 w-5" />}
+                                onClick={() => {
+                                  setTransformation(null);
+                                  setTransformedAudio(null);
+                                  setErrorMessage(null);
+                                }}
+                                disabled={isProcessing}
+                                className="flex-shrink-0"
+                              >
+                                Reset
+                              </Button>
+                            )}
+                          </div>
+                        </div>
                       )}
                       
                                           </div>
@@ -1624,6 +1723,27 @@ export const StudioPage = () => {
                   {errorMessage && (
                     <div className="mt-4 p-3 bg-error-50 dark:bg-error-900/30 border border-error-200 dark:border-error-800 rounded-lg text-error-700 dark:text-error-400">
                       <p>{errorMessage}</p>
+                    </div>
+                  )}
+                  
+                  {/* Debug Information (only in development) */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-900/30 border border-gray-200 dark:border-gray-700 rounded-lg text-xs">
+                      <details>
+                        <summary className="cursor-pointer font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Debug Information
+                        </summary>
+                        <div className="space-y-2 text-gray-600 dark:text-gray-400">
+                          <div><strong>Audio File ID:</strong> {audioFile?.id || 'None'}</div>
+                          <div><strong>Selected Voice ID:</strong> {selectedVoiceId || 'None'}</div>
+                          <div><strong>Transformation ID:</strong> {transformation?.id || 'None'}</div>
+                          <div><strong>Transformation Status:</strong> {transformation?.status || 'None'}</div>
+                          <div><strong>Transformed Audio URL:</strong> {transformedAudio || 'None'}</div>
+                          <div><strong>Is Processing:</strong> {isProcessing ? 'Yes' : 'No'}</div>
+                          <div><strong>Original Audio URL:</strong> {recordedAudio || 'None'}</div>
+                          <div><strong>Current Playing:</strong> {translatedAudio || transformedAudio || recordedAudio || 'None'}</div>
+                        </div>
+                      </details>
                     </div>
                   )}
 
