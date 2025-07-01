@@ -13,9 +13,7 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronRight,
-  Video,
-  Calendar,
-  Users,
+    Users,
   Bot,
   Headphones,
   BarChart,
@@ -113,66 +111,9 @@ const supportStats = [
   { label: 'Active Users', value: '50K+', icon: <Users /> }
 ];
 
-// Calendly configuration
-// Use a valid Calendly URL - this should be your actual Calendly scheduling page
-const CALENDLY_MEETING_URL = 'https://calendly.com/eugene-mathenge/30min'; // Replace with your actual Calendly URL
-const CALENDLY_DEMO_URL = 'https://calendly.com/eugene-mathenge/30min'; // Replace with your actual demo URL
-
-// Load Calendly script
-const loadCalendlyScript = () => {
-  // Remove any existing Calendly scripts to avoid duplicates
-  const existingScript = document.querySelector('script[src*="calendly.com/assets/external/widget.js"]');
-  if (existingScript) {
-    existingScript.remove();
-  }
-
-  const script = document.createElement('script');
-  script.src = 'https://assets.calendly.com/assets/external/widget.js';
-  script.async = true;
-  script.onload = () => {
-    console.log('Calendly script loaded successfully');
-  };
-  
-  document.body.appendChild(script);
-  
-  return () => {
-    if (document.body.contains(script)) {
-      document.body.removeChild(script);
-    }
-  };
-};
-
-// Initialize Calendly widget when needed
-const initCalendlyWidget = (containerSelector: string) => {
-  if (!window.Calendly) {
-    console.warn('Calendly not loaded yet');
-    return false;
-  }
-  
-  const container = document.querySelector(containerSelector);
-  if (!container) {
-    console.warn(`Container ${containerSelector} not found`);
-    return false;
-  }
-  
-  try {
-    window.Calendly.initInlineWidget({
-      url: CALENDLY_MEETING_URL,
-      parentElement: container,
-      prefill: {},
-      utm: {}
-    });
-    return true;
-  } catch (error) {
-    console.error('Error initializing Calendly widget:', error);
-    return false;
-  }
-};
-
-// Declare Calendly on window object for TypeScript
+// Declare global interface for TypeScript
 declare global {
   interface Window {
-    Calendly?: any;
     testContactValidation?: any; // For debugging
   }
 }
@@ -202,59 +143,14 @@ export const ContactPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [selectedSupport, setSelectedSupport] = useState<'chat' | 'call' | 'video' | null>(null);
+  const [selectedSupport, setSelectedSupport] = useState<'chat' | 'call' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showAIChat, setShowAIChat] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
   const [fileUploadError, setFileUploadError] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   
-  // Calendly integration
-  const [calendlyLoaded, setCalendlyLoaded] = useState(false);
-  
-  // Load Calendly script when component mounts
-  useEffect(() => {
-    const cleanup = loadCalendlyScript();
     
-    // Set a timeout to check if Calendly is loaded
-    const checkCalendlyLoaded = setInterval(() => {
-      if (window.Calendly) {
-        setCalendlyLoaded(true);
-        clearInterval(checkCalendlyLoaded);
-        console.log('Calendly is available in the window object');
-      }
-    }, 500);
-    
-    // Set a timeout to stop checking after 10 seconds to prevent infinite checking
-    const timeoutId = setTimeout(() => {
-      if (!window.Calendly) {
-        console.warn('Calendly failed to load after 10 seconds');
-        clearInterval(checkCalendlyLoaded);
-        // We'll keep calendlyLoaded as false to show alternative booking options
-      }
-    }, 10000);
-    
-    // Clean up interval and timeout
-    return () => {
-      cleanup();
-      clearInterval(checkCalendlyLoaded);
-      clearTimeout(timeoutId);
-    };
-  }, []);
-  
-  // Initialize Calendly widget when the modal is opened
-  useEffect(() => {
-    if (selectedSupport === 'video' && calendlyLoaded) {
-      // Short delay to ensure the DOM element is ready
-      setTimeout(() => {
-        const initialized = initCalendlyWidget('.calendly-inline-widget');
-        if (initialized) {
-          console.log('Calendly widget initialized successfully');
-        }
-      }, 100);
-    }
-  }, [selectedSupport, calendlyLoaded]);
-  
   // Handle file uploads
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
     setFileUploadError(null);
@@ -551,7 +447,7 @@ export const ContactPage = () => {
           </div>
 
           {/* Support Options */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
             {[
               {
                 icon: <MessageSquare className="h-6 w-6" />,
@@ -566,13 +462,6 @@ export const ContactPage = () => {
                 description: 'Get immediate assistance over the phone',
                 action: 'Request Call',
                 type: 'call' as const
-              },
-              {
-                icon: <Video className="h-6 w-6" />,
-                title: 'Video Call',
-                description: 'Schedule a video call with our experts',
-                action: 'Book Meeting',
-                type: 'video' as const
               }
             ].map((option, index) => (
               <motion.div
@@ -605,17 +494,6 @@ export const ContactPage = () => {
                       } else if (option.type === 'call') {
                         // Phone call integration
                         window.location.href = 'tel:+254700581615';
-                      } else if (option.type === 'video') {
-                        // Open Calendly modal
-                        // Try to use Calendly popup first (more reliable than inline widget)
-                        if (window.Calendly) {
-                          window.Calendly.initPopupWidget({
-                            url: CALENDLY_MEETING_URL
-                          });
-                        } else {
-                          // Fallback to modal if Calendly isn't loaded yet
-                          setSelectedSupport('video');
-                        }
                       }
                     }}
                   >
@@ -999,19 +877,13 @@ export const ContactPage = () => {
           </div>
 
           {/* Additional Support Options */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-16">
             {[
               {
                 icon: <Bot className="h-6 w-6" />,
                 title: 'AI Assistant',
                 description: 'Get instant answers with our AI chatbot',
                 action: 'Chat Now'
-              },
-              {
-                icon: <Calendar className="h-6 w-6" />,
-                title: 'Schedule a Demo',
-                description: 'Book a personalized product demo',
-                action: 'Book Demo'
               },
               {
                 icon: <Headphones className="h-6 w-6" />,
@@ -1031,16 +903,6 @@ export const ContactPage = () => {
                   onClick={() => {
                     if (option.title === 'AI Assistant') {
                       setShowAIChat(true);
-                    } else if (option.title === 'Schedule a Demo') {
-                      // Try to use Calendly popup first (more reliable)
-                      if (window.Calendly) {
-                        window.Calendly.initPopupWidget({
-                          url: CALENDLY_DEMO_URL
-                        });
-                      } else {
-                        // Fallback to new tab if Calendly isn't loaded yet
-                        window.open(CALENDLY_DEMO_URL, '_blank');
-                      }
                     } else if (option.title === 'Developer Support') {
                       // Show docs component
                       setShowDocs(true);
@@ -1063,16 +925,6 @@ export const ContactPage = () => {
                       e.stopPropagation();
                       if (option.title === 'AI Assistant') {
                         setShowAIChat(true);
-                      } else if (option.title === 'Schedule a Demo') {
-                        // Try to use Calendly popup first (more reliable)
-                        if (window.Calendly) {
-                          window.Calendly.initPopupWidget({
-                            url: CALENDLY_DEMO_URL
-                          });
-                        } else {
-                          // Fallback to new tab if Calendly isn't loaded yet
-                          window.open(CALENDLY_DEMO_URL, '_blank');
-                        }
                       } else if (option.title === 'Developer Support') {
                         // Show docs component
                         setShowDocs(true);
@@ -1160,7 +1012,6 @@ export const ContactPage = () => {
               <h3 className="text-xl font-semibold text-dark-900 dark:text-white mb-4">
                 {selectedSupport === 'chat' && 'Start Live Chat'}
                 {selectedSupport === 'call' && 'Request a Call'}
-                {selectedSupport === 'video' && 'Schedule Video Call'}
               </h3>
               
               <div className="space-y-4">
@@ -1176,74 +1027,22 @@ export const ContactPage = () => {
                   </div>
                 )}
                 
-                {selectedSupport === 'video' && (
-                  <>
-                    <div className="text-dark-600 dark:text-dark-400 mb-4">
-                      Choose a convenient time for a video call with our support team.
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                      If the calendar doesn't load, you can also 
-                      <Button 
-                        variant="link" 
-                        className="px-1 text-primary-600 dark:text-primary-400"
-                        onClick={() => window.open(CALENDLY_MEETING_URL, '_blank')}
-                      >
-                        schedule directly here
-                      </Button>.
-                    </div>
-                  </>
-                )}
-                
-                {selectedSupport === 'video' ? (
-                  <div className="relative">
-                    <div 
-                      className="calendly-inline-widget" 
-                      data-url={CALENDLY_MEETING_URL}
-                      style={{ minWidth: '320px', height: '580px' }}
-                    ></div>
-                    {!calendlyLoaded && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-md">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
-                        <p className="text-gray-600 dark:text-gray-300">Loading calendar...</p>
-                      </div>
-                    )}
-                    
-                    {/* Fallback option if Calendly doesn't load */}
-                    {calendlyLoaded && (
-                      <div className="mt-4 text-center">
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                          Having trouble with the calendar?
-                        </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            window.open(CALENDLY_MEETING_URL, '_blank');
-                          }}
-                        >
-                          Open in New Tab
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <Button 
-                    fullWidth
-                    onClick={() => {
-                      if (selectedSupport === 'chat') {
-                        const message = encodeURIComponent("Hi, I'd like to start a live chat with VoiceVerse support.");
-                        window.open(`https://wa.me/254700581615?text=${message}`, '_blank');
-                        setSelectedSupport(null);
-                      } else if (selectedSupport === 'call') {
-                        window.location.href = 'tel:+254700581615';
-                        setSelectedSupport(null);
-                      }
-                    }}
-                  >
-                    {selectedSupport === 'chat' && 'Start Chat Now'}
-                    {selectedSupport === 'call' && 'Request Callback'}
-                  </Button>
-                )}
+                <Button 
+                  fullWidth
+                  onClick={() => {
+                    if (selectedSupport === 'chat') {
+                      const message = encodeURIComponent("Hi, I'd like to start a live chat with VoiceVerse support.");
+                      window.open(`https://wa.me/254700581615?text=${message}`, '_blank');
+                      setSelectedSupport(null);
+                    } else if (selectedSupport === 'call') {
+                      window.location.href = 'tel:+254700581615';
+                      setSelectedSupport(null);
+                    }
+                  }}
+                >
+                  {selectedSupport === 'chat' && 'Start Chat Now'}
+                  {selectedSupport === 'call' && 'Request Callback'}
+                </Button>
               </div>
             </motion.div>
           </motion.div>

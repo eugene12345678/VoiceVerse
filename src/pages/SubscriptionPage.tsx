@@ -148,6 +148,7 @@ const PlanCard: React.FC<PlanCardProps> = ({ plan, isAnnual }) => {
   const handleGetStarted = () => {
     if (plan.price === null) {
       // For Enterprise plan, redirect to contact
+      navigate("/contact");
       return;
     }
 
@@ -534,14 +535,16 @@ export const SubscriptionPage = () => {
               >
                 Start Free Trial
               </Button>
-              <Button
+              <Link to="/contact">
+               <Button
                 variant="outline"
                 size="lg"
                 className="border-white text-white hover:bg-white/10"
                 leftIcon={<MessageCircle className="h-5 w-5" />}
-              >
+               >
                 Talk to Sales
-              </Button>
+               </Button>
+              </Link>
             </div>
           </Card>
         </div>
