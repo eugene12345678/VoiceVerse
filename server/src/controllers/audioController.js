@@ -85,7 +85,15 @@ initializeAudioController();
 exports.getAudioFile = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`Requesting audio file with ID: ${id}`);
+    console.log(`[AUDIO] Requesting audio file with ID: ${id}`);
+    console.log(`[AUDIO] Request method: ${req.method}`);
+    console.log(`[AUDIO] User agent: ${req.headers['user-agent']}`);
+    
+    // Validate the ID format
+    if (!id || typeof id !== 'string' || id.length < 10) {
+      console.warn(`[AUDIO] Invalid audio ID format: ${id}`);
+      return serveFallbackAudio(req, res, id);
+    }
     
     // Check if this ID is a translated audio ID first (highest priority)
     let translatedAudio = await req.prisma.translatedAudio.findUnique({
@@ -93,7 +101,7 @@ exports.getAudioFile = async (req, res) => {
     });
     
     if (translatedAudio) {
-      console.log(`Found translated audio file: ${translatedAudio.id}`);
+      console.log(`[AUDIO] Found translated audio file: ${translatedAudio.id}`);
       // If found in translated audio files, serve it
       return exports.getTranslatedAudio(req, res);
     }
@@ -107,7 +115,7 @@ exports.getAudioFile = async (req, res) => {
     });
     
     if (transformation && transformation.transformedAudio) {
-      console.log(`Found transformation with transformed audio: ${transformation.transformedAudio.id}`);
+      console.log(`[AUDIO] Found transformation with transformed audio: ${transformation.transformedAudio.id}`);
       // If this is a transformation ID and it has transformed audio, serve the transformed audio
       return serveAudioFile(req, res, transformation.transformedAudio);
     }
@@ -118,14 +126,16 @@ exports.getAudioFile = async (req, res) => {
     });
     
     if (audioFile) {
-      console.log(`Found original audio file: ${audioFile.id}`);
+      console.log(`[AUDIO] Found original audio file: ${audioFile.id}`);
+      console.log(`[AUDIO] Audio file details: filename=${audioFile.originalFilename}, size=${audioFile.fileSize}, hasData=${!!audioFile.audioData}`);
+      
       // Check if this audio file has been used for translation
       const hasTranslation = await req.prisma.translatedAudio.findFirst({
         where: { originalAudioId: id }
       });
       
       if (hasTranslation) {
-        console.log(`Audio file ${id} has translations, serving translated version: ${hasTranslation.id}`);
+        console.log(`[AUDIO] Audio file ${id} has translations, serving translated version: ${hasTranslation.id}`);
         // Redirect to the translated audio
         req.params.id = hasTranslation.id;
         return exports.getTranslatedAudio(req, res);
@@ -135,11 +145,40 @@ exports.getAudioFile = async (req, res) => {
       return serveAudioFile(req, res, audioFile);
     }
     
-    console.log(`Audio file not found in any table, serving fallback for ID: ${id}`);
+    // Check if this might be a voice cloning result ID
+    const voiceClone = await req.prisma.voiceClone.findUnique({
+      where: { id },
+      include: {
+        audioFile: true
+      }
+    });
+    
+    if (voiceClone && voiceClone.audioFile) {
+      console.log(`[AUDIO] Found voice clone with audio file: ${voiceClone.audioFile.id}`);
+      return serveAudioFile(req, res, voiceClone.audioFile);
+    }
+    
+    // Check if this might be a saved voice ID
+    const savedVoice = await req.prisma.savedVoice.findUnique({
+      where: { id },
+      include: {
+        audioFile: true
+      }
+    });
+    
+    if (savedVoice && savedVoice.audioFile) {
+      console.log(`[AUDIO] Found saved voice with audio file: ${savedVoice.audioFile.id}`);
+      return serveAudioFile(req, res, savedVoice.audioFile);
+    }
+    
+    console.warn(`[AUDIO] Audio file not found in any table for ID: ${id}`);
+    console.log(`[AUDIO] Checked tables: translatedAudio, voiceTransformation, audioFile, voiceClone, savedVoice`);
+    
     // If not found in any of the above, serve fallback
     return serveFallbackAudio(req, res, id);
   } catch (error) {
-    console.error('Error fetching audio file:', error);
+    console.error(`[AUDIO] Error fetching audio file ${req.params.id}:`, error);
+    console.error(`[AUDIO] Error stack:`, error.stack);
     return serveFallbackAudio(req, res, req.params.id);
   }
 };
@@ -317,11 +356,13 @@ const validateWebMFile = (audioData) => {
  */
 const serveAudioFile = (req, res, audioFile) => {
   try {
-    console.log(`Serving audio file: ${audioFile.id} from ${audioFile.storagePath || 'database'}`);
+    console.log(`[SERVE] Serving audio file: ${audioFile.id} from ${audioFile.storagePath || 'database'}`);
+    console.log(`[SERVE] Audio file size: ${audioFile.fileSize}, MIME: ${audioFile.mimeType}`);
+    console.log(`[SERVE] Has audio data: ${!!audioFile.audioData}, Data size: ${audioFile.audioData ? audioFile.audioData.length : 0}`);
     
     // Check if we have audio data in the database (priority for serverless environments)
     if (audioFile.audioData) {
-      console.log(`Serving audio data from database for file: ${audioFile.id}`);
+      console.log(`[SERVE] Serving audio data from database for file: ${audioFile.id}`);
       // Set appropriate headers for audio streaming
       
       // Detect the correct MIME type based on file signature
@@ -430,7 +471,7 @@ const serveAudioFile = (req, res, audioFile) => {
       }
       
       // Send the audio data directly from the database
-      console.log(`Sending complete audio file: ${audioFile.id}, size: ${audioFile.audioData.length} bytes, MIME: ${mimeType}`);
+      console.log(`[SERVE] Sending complete audio file: ${audioFile.id}, size: ${audioFile.audioData.length} bytes, MIME: ${mimeType}`);
       return res.send(audioFile.audioData);
     }
     
@@ -549,17 +590,54 @@ const serveAudioFile = (req, res, audioFile) => {
  */
 const serveFallbackAudio = (req, res, requestedId) => {
   try {
-    console.log(`Serving fallback audio for requested ID: ${requestedId}`);
+    console.log(`[FALLBACK] Serving fallback audio for requested ID: ${requestedId}`);
+    console.log(`[FALLBACK] Environment: ${process.env.NODE_ENV}, Vercel: ${!!process.env.VERCEL}`);
     
-    // In serverless environments, return a proper error response instead of invalid audio
+    // Create a minimal silent audio file as fallback
+    // This ensures the audio player gets valid audio data instead of HTML/JSON
+    const createSilentAudio = () => {
+      // Create a minimal MP3 header for a silent audio file (about 1 second of silence)
+      const silentMp3Buffer = Buffer.from([
+        // MP3 header
+        0xFF, 0xFB, 0x90, 0x00, // MP3 sync word and header
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        // Minimal frame data for silence
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+      ]);
+      
+      return silentMp3Buffer;
+    };
+    
+    // In production/serverless environments, serve a silent audio file
     if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-      console.log(`Audio file not found in serverless environment, returning 404`);
-      return res.status(404).json({
-        status: 'error',
-        message: 'Audio file not found',
-        requestedId: requestedId,
-        fallback: true
-      });
+      console.log(`[FALLBACK] Audio file not found in serverless environment, serving silent audio`);
+      
+      const silentAudio = createSilentAudio();
+      
+      // Set proper audio headers
+      res.set('Content-Type', 'audio/mpeg');
+      res.set('Content-Length', silentAudio.length);
+      res.set('Accept-Ranges', 'bytes');
+      res.set('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      res.set('Access-Control-Allow-Headers', 'Range');
+      res.set('X-Audio-Fallback', 'true');
+      res.set('X-Audio-Fallback-Type', 'silent');
+      
+      // Handle HEAD requests
+      if (req.method === 'HEAD') {
+        return res.status(200).end();
+      }
+      
+      console.log(`[FALLBACK] Serving silent audio fallback for ID: ${requestedId}, size: ${silentAudio.length} bytes`);
+      return res.send(silentAudio);
     }
     
     // For local development, try to serve actual fallback files
@@ -588,7 +666,7 @@ const serveFallbackAudio = (req, res, requestedId) => {
     }
     
     if (fallbackPath) {
-      console.log(`Serving fallback audio file: ${fallbackPath} for requested ID: ${requestedId}`);
+      console.log(`[FALLBACK] Serving fallback audio file: ${fallbackPath} for requested ID: ${requestedId}`);
       // Set headers to indicate this is a fallback file
       res.set('X-Audio-Fallback', 'true');
       res.set('X-Audio-Fallback-File', fallbackFileName);
@@ -597,25 +675,54 @@ const serveFallbackAudio = (req, res, requestedId) => {
       return res.sendFile(path.resolve(fallbackPath));
     }
     
-    // If no fallback files are found, return a proper error response
-    console.warn(`No fallback audio files found, returning 404`);
+    // If no fallback files are found, serve silent audio
+    console.warn(`[FALLBACK] No fallback audio files found, serving silent audio`);
     
-    return res.status(404).json({
-      status: 'error',
-      message: 'Audio file not found and no fallback available',
-      requestedId: requestedId,
-      fallback: true
-    });
+    const silentAudio = createSilentAudio();
+    
+    // Set proper audio headers
+    res.set('Content-Type', 'audio/mpeg');
+    res.set('Content-Length', silentAudio.length);
+    res.set('Accept-Ranges', 'bytes');
+    res.set('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Range');
+    res.set('X-Audio-Fallback', 'true');
+    res.set('X-Audio-Fallback-Type', 'silent');
+    
+    // Handle HEAD requests
+    if (req.method === 'HEAD') {
+      return res.status(200).end();
+    }
+    
+    console.log(`[FALLBACK] Serving silent audio fallback for ID: ${requestedId}, size: ${silentAudio.length} bytes`);
+    return res.send(silentAudio);
+    
   } catch (error) {
-    console.error('Error serving fallback audio:', error);
+    console.error('[FALLBACK] Error serving fallback audio:', error);
     
-    // Last resort: return a JSON error response
-    return res.status(500).json({
-      status: 'error',
-      message: 'Failed to serve audio file',
-      fallback: true,
-      requestedId: requestedId
-    });
+    // Last resort: serve silent audio
+    try {
+      const silentAudio = Buffer.from([
+        0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+      ]);
+      
+      res.set('Content-Type', 'audio/mpeg');
+      res.set('Content-Length', silentAudio.length);
+      res.set('X-Audio-Fallback', 'true');
+      res.set('X-Audio-Fallback-Type', 'emergency-silent');
+      
+      if (req.method === 'HEAD') {
+        return res.status(200).end();
+      }
+      
+      return res.send(silentAudio);
+    } catch (emergencyError) {
+      console.error('[FALLBACK] Emergency fallback failed:', emergencyError);
+      return res.status(500).end();
+    }
   }
 };
 
@@ -756,7 +863,7 @@ exports.testAudioFile = async (req, res) => {
 exports.debugAudioFile = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(`Debug request for audio file: ${id}`);
+    console.log(`[DEBUG] Debug request for audio file: ${id}`);
     
     const debugInfo = {
       requestedId: id,
@@ -764,41 +871,192 @@ exports.debugAudioFile = async (req, res) => {
       userAgent: req.headers['user-agent'],
       accept: req.headers['accept'],
       supportsWebM: supportsWebM(req),
-      database: {},
+      database: {
+        audioFile: null,
+        translatedAudio: null,
+        voiceTransformation: null,
+        voiceClone: null,
+        savedVoice: null,
+        feedPost: null
+      },
       filesystem: {},
       errors: []
     };
     
-    // Check database
+    // Check all possible database tables
     try {
+      // Check AudioFile table
       const audioFile = await req.prisma.audioFile.findUnique({
         where: { id },
+        include: {
+          user: { select: { id: true, username: true } },
+          feedPost: true,
+          voicePost: true
+        }
       });
       
       if (audioFile) {
-        debugInfo.database = {
+        debugInfo.database.audioFile = {
           found: true,
           id: audioFile.id,
+          userId: audioFile.userId,
+          username: audioFile.user?.username,
           originalFilename: audioFile.originalFilename,
           storagePath: audioFile.storagePath,
           fileSize: audioFile.fileSize,
           mimeType: audioFile.mimeType,
           hasAudioData: !!audioFile.audioData,
           audioDataSize: audioFile.audioData ? audioFile.audioData.length : 0,
-          createdAt: audioFile.createdAt
+          isPublic: audioFile.isPublic,
+          createdAt: audioFile.createdAt,
+          hasFeedPost: !!audioFile.feedPost,
+          hasVoicePost: !!audioFile.voicePost
         };
         
         // Check file signature if audio data exists
         if (audioFile.audioData && audioFile.audioData.length > 12) {
           const signature = audioFile.audioData.slice(0, 12);
           const signatureHex = Array.from(signature).map(b => b.toString(16).padStart(2, '0')).join('');
-          debugInfo.database.fileSignature = signatureHex;
+          debugInfo.database.audioFile.fileSignature = signatureHex;
         }
       } else {
-        debugInfo.database.found = false;
+        debugInfo.database.audioFile = { found: false };
       }
+      
+      // Check TranslatedAudio table
+      const translatedAudio = await req.prisma.translatedAudio.findUnique({
+        where: { id },
+        include: {
+          user: { select: { id: true, username: true } },
+          originalAudio: { select: { id: true, originalFilename: true } }
+        }
+      });
+      
+      if (translatedAudio) {
+        debugInfo.database.translatedAudio = {
+          found: true,
+          id: translatedAudio.id,
+          userId: translatedAudio.userId,
+          username: translatedAudio.user?.username,
+          originalAudioId: translatedAudio.originalAudioId,
+          originalFilename: translatedAudio.originalAudio?.originalFilename,
+          targetLanguage: translatedAudio.targetLanguage,
+          hasAudioData: !!translatedAudio.audioData,
+          audioDataSize: translatedAudio.audioData ? translatedAudio.audioData.length : 0,
+          filePath: translatedAudio.filePath,
+          fileSize: translatedAudio.fileSize,
+          mimeType: translatedAudio.mimeType,
+          createdAt: translatedAudio.createdAt
+        };
+      } else {
+        debugInfo.database.translatedAudio = { found: false };
+      }
+      
+      // Check VoiceTransformation table
+      const voiceTransformation = await req.prisma.voiceTransformation.findUnique({
+        where: { id },
+        include: {
+          user: { select: { id: true, username: true } },
+          sourceAudio: { select: { id: true, originalFilename: true } },
+          transformedAudio: { select: { id: true, originalFilename: true, hasAudioData: true } }
+        }
+      });
+      
+      if (voiceTransformation) {
+        debugInfo.database.voiceTransformation = {
+          found: true,
+          id: voiceTransformation.id,
+          userId: voiceTransformation.userId,
+          username: voiceTransformation.user?.username,
+          sourceAudioId: voiceTransformation.sourceAudioId,
+          transformedAudioId: voiceTransformation.transformedAudioId,
+          effectName: voiceTransformation.effectName,
+          status: voiceTransformation.status,
+          hasTransformedAudio: !!voiceTransformation.transformedAudio,
+          createdAt: voiceTransformation.createdAt
+        };
+      } else {
+        debugInfo.database.voiceTransformation = { found: false };
+      }
+      
+      // Check VoiceClone table
+      const voiceClone = await req.prisma.voiceClone.findUnique({
+        where: { id },
+        include: {
+          user: { select: { id: true, username: true } },
+          sourceAudio: { select: { id: true, originalFilename: true } }
+        }
+      });
+      
+      if (voiceClone) {
+        debugInfo.database.voiceClone = {
+          found: true,
+          id: voiceClone.id,
+          userId: voiceClone.userId,
+          username: voiceClone.user?.username,
+          sourceAudioId: voiceClone.sourceAudioId,
+          voiceName: voiceClone.voiceName,
+          status: voiceClone.status,
+          elevenLabsVoiceId: voiceClone.elevenLabsVoiceId,
+          createdAt: voiceClone.createdAt
+        };
+      } else {
+        debugInfo.database.voiceClone = { found: false };
+      }
+      
+      // Check SavedVoiceCreation table
+      const savedVoice = await req.prisma.savedVoiceCreation.findUnique({
+        where: { id },
+        include: {
+          user: { select: { id: true, username: true } },
+          originalAudio: { select: { id: true, originalFilename: true } },
+          transformedAudio: { select: { id: true, originalFilename: true } }
+        }
+      });
+      
+      if (savedVoice) {
+        debugInfo.database.savedVoice = {
+          found: true,
+          id: savedVoice.id,
+          userId: savedVoice.userId,
+          username: savedVoice.user?.username,
+          name: savedVoice.name,
+          originalAudioId: savedVoice.originalAudioId,
+          transformedAudioId: savedVoice.transformedAudioId,
+          effectName: savedVoice.effectName,
+          isPublic: savedVoice.isPublic,
+          createdAt: savedVoice.createdAt
+        };
+      } else {
+        debugInfo.database.savedVoice = { found: false };
+      }
+      
+      // Check if this ID is referenced in FeedPost
+      const feedPost = await req.prisma.feedPost.findUnique({
+        where: { audioFileId: id },
+        include: {
+          user: { select: { id: true, username: true } },
+          audioFile: { select: { id: true, originalFilename: true, hasAudioData: true } }
+        }
+      });
+      
+      if (feedPost) {
+        debugInfo.database.feedPost = {
+          found: true,
+          id: feedPost.id,
+          userId: feedPost.userId,
+          username: feedPost.user?.username,
+          audioFileId: feedPost.audioFileId,
+          caption: feedPost.caption.substring(0, 100) + (feedPost.caption.length > 100 ? '...' : ''),
+          createdAt: feedPost.createdAt
+        };
+      } else {
+        debugInfo.database.feedPost = { found: false };
+      }
+      
     } catch (dbError) {
       debugInfo.errors.push(`Database error: ${dbError.message}`);
+      console.error('[DEBUG] Database error:', dbError);
     }
     
     // Check filesystem
@@ -832,12 +1090,14 @@ exports.debugAudioFile = async (req, res) => {
       debugInfo.filesystem.checkedPaths.push(pathInfo);
     }
     
+    console.log(`[DEBUG] Debug info for ${id}:`, JSON.stringify(debugInfo, null, 2));
     res.json(debugInfo);
   } catch (error) {
-    console.error('Error in debug endpoint:', error);
+    console.error('[DEBUG] Error in debug endpoint:', error);
     res.status(500).json({
       error: 'Debug endpoint failed',
-      message: error.message
+      message: error.message,
+      stack: error.stack
     });
   }
 };
