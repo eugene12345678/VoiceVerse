@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Crown,
@@ -442,13 +442,15 @@ export const SubscriptionPage = () => {
                     </li>
                   ))}
                 </ul>
-                <Button
+                <Link to="/contact">
+                 <Button
                   size="lg"
                   leftIcon={<Building2 className="h-5 w-5" />}
                   rightIcon={<ArrowRight className="h-5 w-5" />}
-                >
+                 >
                   Contact Enterprise Sales
-                </Button>
+                 </Button>
+                </Link>
               </div>
               <div className="relative">
                 <img
