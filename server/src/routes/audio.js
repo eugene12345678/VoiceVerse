@@ -4,13 +4,28 @@ const audioController = require('../controllers/audioController');
 
 // CORS preflight handler for all audio routes
 const handleCorsOptions = (req, res) => {
+  console.log(`[AUDIO-ROUTE] Handling CORS OPTIONS for: ${req.originalUrl}`);
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Range, Content-Type, Authorization');
-  res.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Content-Type');
+  res.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Content-Type, X-Audio-Source, X-Audio-Fallback');
   res.set('Access-Control-Max-Age', '86400'); // 24 hours
   res.status(200).end();
 };
+
+// Middleware to log all audio route requests
+router.use((req, res, next) => {
+  console.log(`[AUDIO-ROUTE] ${req.method} ${req.originalUrl} - User-Agent: ${req.headers['user-agent']}`);
+  console.log(`[AUDIO-ROUTE] Headers: Accept=${req.headers['accept']}, Origin=${req.headers['origin']}`);
+  
+  // Ensure CORS headers are always set for audio routes
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Range, Content-Type, Authorization');
+  res.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Content-Type, X-Audio-Source, X-Audio-Fallback');
+  
+  next();
+});
 
 // @route   OPTIONS /api/audio/:id
 // @desc    Handle CORS preflight for audio files
@@ -100,6 +115,34 @@ router.get('/health/test', (req, res) => {
     console.error('[HEALTH] Audio health test failed:', error);
     res.status(500).json({ error: 'Audio health test failed', message: error.message });
   }
+});
+
+// Catch-all route for unmatched audio requests - this should be LAST
+router.get('*', (req, res) => {
+  console.log(`[AUDIO-ROUTE] Catch-all route hit for: ${req.originalUrl}`);
+  console.log(`[AUDIO-ROUTE] Method: ${req.method}, Path: ${req.path}, Params:`, req.params);
+  
+  // Extract potential ID from the path
+  const pathParts = req.path.split('/').filter(part => part.length > 0);
+  const potentialId = pathParts[pathParts.length - 1];
+  
+  console.log(`[AUDIO-ROUTE] Extracted potential ID: ${potentialId}`);
+  
+  // If it looks like an audio ID, try to serve it
+  if (potentialId && potentialId.length > 10) {
+    console.log(`[AUDIO-ROUTE] Attempting to serve audio for ID: ${potentialId}`);
+    req.params.id = potentialId;
+    return audioController.getAudioFile(req, res);
+  }
+  
+  // Otherwise return a 404 with proper CORS headers
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Content-Type', 'application/json');
+  res.status(404).json({
+    error: 'Audio route not found',
+    path: req.originalUrl,
+    message: 'The requested audio endpoint does not exist'
+  });
 });
 
 module.exports = router;

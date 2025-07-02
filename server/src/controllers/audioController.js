@@ -83,17 +83,34 @@ initializeAudioController();
  * @access Public
  */
 exports.getAudioFile = async (req, res) => {
+  const startTime = Date.now();
+  let requestId = req.params.id || 'unknown';
+  
   try {
     const { id } = req.params;
+    requestId = id;
+    
+    console.log(`[AUDIO] === Starting audio request ===`);
     console.log(`[AUDIO] Requesting audio file with ID: ${id}`);
     console.log(`[AUDIO] Request method: ${req.method}`);
     console.log(`[AUDIO] User agent: ${req.headers['user-agent']}`);
+    console.log(`[AUDIO] Accept header: ${req.headers['accept']}`);
+    console.log(`[AUDIO] Origin: ${req.headers['origin']}`);
+    console.log(`[AUDIO] Referer: ${req.headers['referer']}`);
     
     // Validate the ID format
     if (!id || typeof id !== 'string' || id.length < 10) {
       console.warn(`[AUDIO] Invalid audio ID format: ${id}`);
-      return serveFallbackAudio(req, res, id);
+      return serveFallbackAudio(req, res, id || 'invalid-id');
     }
+    
+    // Set response headers early to prevent any middleware from overriding
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Range, Content-Type, Authorization');
+    res.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Content-Type, X-Audio-Source');
+    
+    console.log(`[AUDIO] Checking database for audio file: ${id}`);
     
     // Check if this ID is a translated audio ID first (highest priority)
     let translatedAudio = await req.prisma.translatedAudio.findUnique({
@@ -102,6 +119,7 @@ exports.getAudioFile = async (req, res) => {
     
     if (translatedAudio) {
       console.log(`[AUDIO] Found translated audio file: ${translatedAudio.id}`);
+      res.set('X-Audio-Source', 'translated');
       // If found in translated audio files, serve it
       return exports.getTranslatedAudio(req, res);
     }
@@ -116,6 +134,7 @@ exports.getAudioFile = async (req, res) => {
     
     if (transformation && transformation.transformedAudio) {
       console.log(`[AUDIO] Found transformation with transformed audio: ${transformation.transformedAudio.id}`);
+      res.set('X-Audio-Source', 'transformation');
       // If this is a transformation ID and it has transformed audio, serve the transformed audio
       return serveAudioFile(req, res, transformation.transformedAudio);
     }
@@ -128,6 +147,7 @@ exports.getAudioFile = async (req, res) => {
     if (audioFile) {
       console.log(`[AUDIO] Found original audio file: ${audioFile.id}`);
       console.log(`[AUDIO] Audio file details: filename=${audioFile.originalFilename}, size=${audioFile.fileSize}, hasData=${!!audioFile.audioData}`);
+      res.set('X-Audio-Source', 'original');
       
       // Check if this audio file has been used for translation
       const hasTranslation = await req.prisma.translatedAudio.findFirst({
@@ -136,6 +156,7 @@ exports.getAudioFile = async (req, res) => {
       
       if (hasTranslation) {
         console.log(`[AUDIO] Audio file ${id} has translations, serving translated version: ${hasTranslation.id}`);
+        res.set('X-Audio-Source', 'original-with-translation');
         // Redirect to the translated audio
         req.params.id = hasTranslation.id;
         return exports.getTranslatedAudio(req, res);
@@ -155,6 +176,7 @@ exports.getAudioFile = async (req, res) => {
     
     if (voiceClone && voiceClone.audioFile) {
       console.log(`[AUDIO] Found voice clone with audio file: ${voiceClone.audioFile.id}`);
+      res.set('X-Audio-Source', 'voice-clone');
       return serveAudioFile(req, res, voiceClone.audioFile);
     }
     
@@ -168,18 +190,32 @@ exports.getAudioFile = async (req, res) => {
     
     if (savedVoice && savedVoice.audioFile) {
       console.log(`[AUDIO] Found saved voice with audio file: ${savedVoice.audioFile.id}`);
+      res.set('X-Audio-Source', 'saved-voice');
       return serveAudioFile(req, res, savedVoice.audioFile);
     }
     
     console.warn(`[AUDIO] Audio file not found in any table for ID: ${id}`);
     console.log(`[AUDIO] Checked tables: translatedAudio, voiceTransformation, audioFile, voiceClone, savedVoice`);
+    console.log(`[AUDIO] Request processing time: ${Date.now() - startTime}ms`);
     
     // If not found in any of the above, serve fallback
+    res.set('X-Audio-Source', 'fallback');
     return serveFallbackAudio(req, res, id);
+    
   } catch (error) {
-    console.error(`[AUDIO] Error fetching audio file ${req.params.id}:`, error);
+    console.error(`[AUDIO] === ERROR in getAudioFile ===`);
+    console.error(`[AUDIO] Error fetching audio file ${requestId}:`, error.message);
     console.error(`[AUDIO] Error stack:`, error.stack);
-    return serveFallbackAudio(req, res, req.params.id);
+    console.error(`[AUDIO] Request processing time: ${Date.now() - startTime}ms`);
+    console.error(`[AUDIO] === END ERROR ===`);
+    
+    // Ensure CORS headers are set even on error
+    if (!res.headersSent) {
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('X-Audio-Source', 'error-fallback');
+    }
+    
+    return serveFallbackAudio(req, res, requestId);
   }
 };
 
@@ -592,125 +628,72 @@ const serveFallbackAudio = (req, res, requestedId) => {
   try {
     console.log(`[FALLBACK] Serving fallback audio for requested ID: ${requestedId}`);
     console.log(`[FALLBACK] Environment: ${process.env.NODE_ENV}, Vercel: ${!!process.env.VERCEL}`);
+    console.log(`[FALLBACK] Request method: ${req.method}, User-Agent: ${req.headers['user-agent']}`);
     
     // Create a minimal silent audio file as fallback
     // This ensures the audio player gets valid audio data instead of HTML/JSON
     const createSilentAudio = () => {
       // Create a minimal MP3 header for a silent audio file (about 1 second of silence)
       const silentMp3Buffer = Buffer.from([
-        // MP3 header
-        0xFF, 0xFB, 0x90, 0x00, // MP3 sync word and header
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        // Minimal frame data for silence
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        // MP3 header - Frame sync (11 bits) + MPEG Audio version ID + Layer + Protection bit
+        0xFF, 0xFB, 0x90, 0x00,
+        // Header continuation + Bitrate index + Sampling rate + Padding + Private + Channel mode + Mode extension + Copyright + Original + Emphasis
+        0x00, 0x00, 0x00, 0x00,
+        // Minimal MP3 frame data for silence (32 bytes total for a valid minimal frame)
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
       ]);
       
       return silentMp3Buffer;
     };
     
-    // In production/serverless environments, serve a silent audio file
-    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
-      console.log(`[FALLBACK] Audio file not found in serverless environment, serving silent audio`);
-      
-      const silentAudio = createSilentAudio();
-      
-      // Set proper audio headers
-      res.set('Content-Type', 'audio/mpeg');
-      res.set('Content-Length', silentAudio.length);
-      res.set('Accept-Ranges', 'bytes');
-      res.set('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
-      res.set('Access-Control-Allow-Origin', '*');
-      res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-      res.set('Access-Control-Allow-Headers', 'Range');
-      res.set('X-Audio-Fallback', 'true');
-      res.set('X-Audio-Fallback-Type', 'silent');
-      
-      // Handle HEAD requests
-      if (req.method === 'HEAD') {
-        return res.status(200).end();
-      }
-      
-      console.log(`[FALLBACK] Serving silent audio fallback for ID: ${requestedId}, size: ${silentAudio.length} bytes`);
-      return res.send(silentAudio);
-    }
-    
-    // For local development, try to serve actual fallback files
-    // Use a deterministic approach to select a fallback file based on the requested ID
-    // This ensures the same fallback is always used for the same requested ID
-    const fallbackIndex = Math.abs(
-      requestedId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    ) % FALLBACK_AUDIO_FILES.length;
-    
-    const fallbackFileName = FALLBACK_AUDIO_FILES[fallbackIndex];
-    
-    // Try multiple possible locations for fallback files
-    const possiblePaths = [
-      path.join(process.cwd(), '..', 'public', fallbackFileName),
-      path.join(process.cwd(), 'public', fallbackFileName),
-      path.join(process.cwd(), 'assets', fallbackFileName),
-      path.join(__dirname, '..', '..', '..', 'public', fallbackFileName)
-    ];
-    
-    let fallbackPath = null;
-    for (const possiblePath of possiblePaths) {
-      if (fs.existsSync(possiblePath)) {
-        fallbackPath = possiblePath;
-        break;
-      }
-    }
-    
-    if (fallbackPath) {
-      console.log(`[FALLBACK] Serving fallback audio file: ${fallbackPath} for requested ID: ${requestedId}`);
-      // Set headers to indicate this is a fallback file
-      res.set('X-Audio-Fallback', 'true');
-      res.set('X-Audio-Fallback-File', fallbackFileName);
-      res.set('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
-      res.set('Access-Control-Allow-Origin', '*');
-      return res.sendFile(path.resolve(fallbackPath));
-    }
-    
-    // If no fallback files are found, serve silent audio
-    console.warn(`[FALLBACK] No fallback audio files found, serving silent audio`);
+    // Always serve silent audio as fallback to ensure consistent behavior
+    console.log(`[FALLBACK] Serving silent audio fallback for requested ID: ${requestedId}`);
     
     const silentAudio = createSilentAudio();
     
-    // Set proper audio headers
+    // Set proper audio headers with CORS
     res.set('Content-Type', 'audio/mpeg');
-    res.set('Content-Length', silentAudio.length);
+    res.set('Content-Length', silentAudio.length.toString());
     res.set('Accept-Ranges', 'bytes');
     res.set('Cache-Control', 'public, max-age=300'); // Cache for 5 minutes
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Range');
+    res.set('Access-Control-Allow-Headers', 'Range, Content-Type, Authorization');
+    res.set('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Content-Type, X-Audio-Fallback');
     res.set('X-Audio-Fallback', 'true');
     res.set('X-Audio-Fallback-Type', 'silent');
+    res.set('X-Audio-Fallback-ID', requestedId);
     
     // Handle HEAD requests
     if (req.method === 'HEAD') {
+      console.log(`[FALLBACK] Handling HEAD request for fallback audio: ${requestedId}`);
       return res.status(200).end();
     }
     
-    console.log(`[FALLBACK] Serving silent audio fallback for ID: ${requestedId}, size: ${silentAudio.length} bytes`);
-    return res.send(silentAudio);
+    console.log(`[FALLBACK] Sending silent audio fallback for ID: ${requestedId}, size: ${silentAudio.length} bytes`);
+    return res.status(200).send(silentAudio);
     
   } catch (error) {
     console.error('[FALLBACK] Error serving fallback audio:', error);
+    console.error('[FALLBACK] Error stack:', error.stack);
     
-    // Last resort: serve silent audio
+    // Last resort: serve minimal silent audio with basic headers
     try {
-      const silentAudio = Buffer.from([
-        0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+      const emergencySilentAudio = Buffer.from([
+        0xFF, 0xFB, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
       ]);
       
       res.set('Content-Type', 'audio/mpeg');
-      res.set('Content-Length', silentAudio.length);
+      res.set('Content-Length', emergencySilentAudio.length.toString());
+      res.set('Access-Control-Allow-Origin', '*');
       res.set('X-Audio-Fallback', 'true');
       res.set('X-Audio-Fallback-Type', 'emergency-silent');
       
@@ -718,10 +701,18 @@ const serveFallbackAudio = (req, res, requestedId) => {
         return res.status(200).end();
       }
       
-      return res.send(silentAudio);
+      console.log(`[FALLBACK] Serving emergency silent audio for ID: ${requestedId}`);
+      return res.status(200).send(emergencySilentAudio);
     } catch (emergencyError) {
       console.error('[FALLBACK] Emergency fallback failed:', emergencyError);
-      return res.status(500).end();
+      // Final fallback - just return a 500 error with proper CORS headers
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Content-Type', 'application/json');
+      return res.status(500).json({ 
+        error: 'Audio fallback failed', 
+        requestedId: requestedId,
+        message: 'Unable to serve audio content'
+      });
     }
   }
 };
