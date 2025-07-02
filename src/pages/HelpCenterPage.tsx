@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { Link } from 'react-router-dom';
 
 const categories = [
   {
@@ -248,20 +249,17 @@ export const HelpCenterPage = () => {
               Can't find what you're looking for? Our support team is here to help!
             </p>
             <div className="flex flex-wrap justify-center gap-4">
-              <Button
+              <Link
+                to="/contact">
+               <Button
                 className="bg-white text-primary-600 hover:bg-primary-50"
                 leftIcon={<MessageCircle className="h-5 w-5" />}
                 rightIcon={<ArrowRight className="h-5 w-5" />}
-              >
+               >
                 Contact Support
-              </Button>
-              <Button
-                variant="outline"
-                className="border-white text-white hover:bg-white/10"
-                leftIcon={<Video className="h-5 w-5" />}
-              >
-                Schedule a Demo
-              </Button>
+               </Button>
+              </Link>
+              
             </div>
           </div>
         </Card>
