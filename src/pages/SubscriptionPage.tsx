@@ -25,8 +25,8 @@ import { formatNumber } from '../lib/utils';
 
 const plans = [
   {
-    name: 'Free',
-    price: 0,
+    name: 'Basic Plan',
+    price: 5,
     description: 'Perfect for trying out VoiceVerse',
     features: [
       'Basic voice transformations',
