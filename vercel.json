@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://voice-verse-server.onrender.com/api/$1"
+      "destination": "https://voiceverse-dzza.onrender.com/api/$1"
     },
     {
       "source": "/((?!api).*)",
